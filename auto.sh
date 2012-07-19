@@ -4,13 +4,15 @@
 ./boot.sh && ./configure  --with-linux=/lib/modules/`uname -r`/build;
 
 #Compile and install openvswitch
-make && sudo make install;
+make;
+sudo su;
+make install;
 
-#insmod datapath/linux/openvswitch.ko
-modprobe datapath/linux/openvswitch.ko
+insmod datapath/linux/openvswitch.ko
+#modprobe datapath/linux/openvswitch.ko
 
 #configure the ovs-db
-mkdir -p /usr/local/etc/openvswitch
+test -z /usr/local/etc/openvswitch || mkdir -p /usr/local/etc/openvswitch
 ovsdb-tool create /usr/local/etc/openvswitch/conf.db vswitchd/vswitch.ovsschema
 
 #start the ovs-db server
@@ -29,6 +31,7 @@ ovs-vswitchd --pidfile --detach
 
 #create a new vs
 ovs-vsctl add-br br0
+ovs-vsctl list-br
 
 #stop the ovs daemon
 kill `cd /usr/local/var/run/openvswitch && cat ovsdb-server.pid ovs-vswitchd.pid`
