@@ -301,6 +301,9 @@ void ovs_dp_detach_port(struct vport *p)
 }
 
 /* Must be called with rcu_read_lock. */
+/**
+ * Core processing part for incoming pkt.
+ */
 void ovs_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
 {
 	struct datapath *dp = p->dp;
@@ -2079,6 +2082,10 @@ static void dp_unregister_genl(int n_families)
 		genl_unregister_family(dp_genl_families[i].family);
 }
 
+/**
+ * Register every dp_genl_families[i].
+ * @return 0:OK.
+ */
 static int dp_register_genl(void)
 {
 	int n_registered;
@@ -2172,6 +2179,13 @@ static struct pernet_operations ovs_net_ops = {
 	.size = sizeof(struct ovs_net),
 };
 
+/**
+ * Init modules including the genl (kernel <2.6.35),
+ * workqueue,tunnel,flow,vport.
+ * Register pernet_gen_device (kernel <2.6.32),
+ * netdevice_notifier
+ * @return 0:OK, err:Fail
+ */
 static int __init dp_init(void)
 {
 	struct sk_buff *dummy_skb;
@@ -2190,15 +2204,15 @@ static int __init dp_init(void)
 	if (err)
 		goto error_genl_exec;
 
-	err = ovs_tnl_init();
+	err = ovs_tnl_init(); //bh:tunnel?
 	if (err)
 		goto error_wq;
 
-	err = ovs_flow_init();
+	err = ovs_flow_init(); //flow_cache
 	if (err)
 		goto error_tnl_exit;
 
-	err = ovs_vport_init();
+	err = ovs_vport_init(); //vport subsystem
 	if (err)
 		goto error_flow_exit;
 
@@ -2206,7 +2220,8 @@ static int __init dp_init(void)
 	if (err)
 		goto error_vport_exit;
 
-	err = register_netdevice_notifier(&ovs_dp_device_notifier);
+    // register a network notifier block
+	err = register_netdevice_notifier(&ovs_dp_device_notifier); 
 	if (err)
 		goto error_netns_exit;
 
@@ -2236,6 +2251,10 @@ error:
 	return err;
 }
 
+/**
+ * Clean up when the module is removed.
+ * unregister, etc.
+ */
 static void dp_cleanup(void)
 {
 	cancel_delayed_work_sync(&rehash_flow_wq);
@@ -2250,8 +2269,8 @@ static void dp_cleanup(void)
 	genl_exec_exit();
 }
 
-module_init(dp_init);
-module_exit(dp_cleanup);
+module_init(dp_init); //call when this module is loaded into kernel
+module_exit(dp_cleanup); //call when the module is removed from kernel
 
 MODULE_DESCRIPTION("Open vSwitch switching datapath");
 MODULE_LICENSE("GPL");
