@@ -2220,7 +2220,7 @@ static int __init dp_init(void)
 	if (err)
 		goto error_vport_exit;
 
-    // register a network notifier block
+    // register a network notifier block: unregister, changename
 	err = register_netdevice_notifier(&ovs_dp_device_notifier); 
 	if (err)
 		goto error_netns_exit;
