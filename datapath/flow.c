@@ -632,7 +632,7 @@ int ovs_flow_extract(struct sk_buff *skb, u16 in_port, struct sw_flow_key *key,
 	key->phy.tun_id = OVS_CB(skb)->tun_id;
 	key->phy.in_port = in_port;
 
-	skb_reset_mac_header(skb);
+	skb_reset_mac_header(skb);// let mac header point to the data
 
 	/* Link layer.  We are guaranteed to have at least the 14 byte Ethernet
 	 * header in the linear data area.
@@ -641,7 +641,7 @@ int ovs_flow_extract(struct sk_buff *skb, u16 in_port, struct sw_flow_key *key,
 	memcpy(key->eth.src, eth->h_source, ETH_ALEN);
 	memcpy(key->eth.dst, eth->h_dest, ETH_ALEN);
 
-	__skb_pull(skb, 2 * ETH_ALEN);
+	__skb_pull(skb, 2 * ETH_ALEN); //mac header addresses decapsulation done
 
 	if (vlan_tx_tag_present(skb))
 		key->eth.tci = htons(vlan_get_tci(skb));
@@ -653,11 +653,11 @@ int ovs_flow_extract(struct sk_buff *skb, u16 in_port, struct sw_flow_key *key,
 	if (unlikely(key->eth.type == htons(0)))
 		return -ENOMEM;
 
-	skb_reset_network_header(skb);
-	__skb_push(skb, skb->data - skb_mac_header(skb));
+	skb_reset_network_header(skb); //network header points to the data now
+	__skb_push(skb, skb->data - skb_mac_header(skb)); //move the data pointer to the head by len, let the data pointer at the ip header
 
 	/* Network layer. */
-	if (key->eth.type == htons(ETH_P_IP)) {
+	if (key->eth.type == htons(ETH_P_IP)) { //IP packet
 		struct iphdr *nh;
 		__be16 offset;
 
@@ -716,7 +716,7 @@ int ovs_flow_extract(struct sk_buff *skb, u16 in_port, struct sw_flow_key *key,
 			}
 		}
 
-	} else if (key->eth.type == htons(ETH_P_ARP) && arphdr_ok(skb)) {
+	} else if (key->eth.type == htons(ETH_P_ARP) && arphdr_ok(skb)) { //ARP packet
 		struct arp_eth_header *arp;
 
 		arp = (struct arp_eth_header *)skb_network_header(skb);
@@ -739,7 +739,7 @@ int ovs_flow_extract(struct sk_buff *skb, u16 in_port, struct sw_flow_key *key,
 				key_len = SW_FLOW_KEY_OFFSET(ipv4.arp);
 			}
 		}
-	} else if (key->eth.type == htons(ETH_P_IPV6)) {
+	} else if (key->eth.type == htons(ETH_P_IPV6)) { //IPv6 packet
 		int nh_len;             /* IPv6 Header + Extensions */
 
 		nh_len = parse_ipv6hdr(skb, key, &key_len);

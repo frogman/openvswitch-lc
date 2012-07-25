@@ -203,7 +203,13 @@ shash_find__(const struct shash *sh, const char *name, size_t name_len,
     return NULL;
 }
 
-/* If there are duplicates, returns a random element. */
+/**
+ * Find the shash_node with the given name in shash map.
+ * If there are duplicates, returns a random element.
+ * \param sh The shash map to find inside.
+ * \param name The name to lookup for.
+ * \return shash_node.
+ */
 struct shash_node *
 shash_find(const struct shash *sh, const char *name)
 {
@@ -218,6 +224,12 @@ shash_find_len(const struct shash *sh, const char *name, size_t len)
     return shash_find__(sh, name, len, hash_bytes(name, len, 0));
 }
 
+/**
+ * Find a node's data in shash map, with the name.
+ * \param sh Shash map.
+ * \param name Name of the node.
+ * \return the data of the resulted node, or NULL if failed.
+ */
 void *
 shash_find_data(const struct shash *sh, const char *name)
 {

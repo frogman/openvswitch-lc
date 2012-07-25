@@ -1,5 +1,7 @@
 #This is a temporal script to test quick operations, e.g., generating docs.
 
+#doxygen doxygen.cfg; tar czf doc.tar.gz doc/
+
 #Configure openvswitch
 ./boot.sh && ./configure  --with-linux=/lib/modules/`uname -r`/build;
 

@@ -106,6 +106,11 @@ xmemdup0(const char *p_, size_t length)
     return p;
 }
 
+/**
+ * add '\0' at the end, to make a string.
+ * \param s a char vector
+ * \return string
+ */
 char *
 xstrdup(const char *s)
 {

@@ -116,6 +116,7 @@ struct ovs_skb_cb {
 	u16			vlan_tci;
 #endif
 };
+/* cb is a 48 byte control buffer for every layer, to store private vars*/
 #define OVS_CB(skb) ((struct ovs_skb_cb *)(skb)->cb)
 
 /**

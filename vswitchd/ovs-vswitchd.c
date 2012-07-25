@@ -75,11 +75,11 @@ main(int argc, char *argv[])
     bool exiting;
     int retval;
 
-    proctitle_init(argc, argv);
+    proctitle_init(argc, argv); //backup orignal argvs
     set_program_name(argv[0]);
     stress_init_command();
     remote = parse_options(argc, argv, &unixctl_path);
-    signal(SIGPIPE, SIG_IGN);
+    signal(SIGPIPE, SIG_IGN); //ignore the pipe read end signal
     sighup = signal_register(SIGHUP);
     process_init();
     ovsrec_init();
