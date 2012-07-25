@@ -339,7 +339,7 @@ worker_main(int fd)
                   program_name, (unsigned long int) getppid());
     VLOG_INFO("worker process started");
 
-    rxbuf_init(&rx);
+    rxbuf_init(&rx); //init rx.header and rx.payload 
     for (;;) {
         int error;
 
@@ -366,7 +366,11 @@ worker_main(int fd)
     VLOG_INFO("worker process exiting");
     exit(0);
 }
-
+
+/**
+ * init the rx buff's header and payload.
+ * \param rx receive buffer
+ */
 static void
 rxbuf_init(struct rxbuf *rx)
 {

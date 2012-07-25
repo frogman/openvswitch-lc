@@ -77,12 +77,12 @@ main(int argc, char *argv[])
 
     proctitle_init(argc, argv); //backup orignal argvs
     set_program_name(argv[0]);
-    stress_init_command();
+    stress_init_command(); //register stress cmds to the commands
     remote = parse_options(argc, argv, &unixctl_path);
     signal(SIGPIPE, SIG_IGN); //ignore the pipe read end signal
-    sighup = signal_register(SIGHUP);
-    process_init();
-    ovsrec_init();
+    sighup = signal_register(SIGHUP); //register the SIGHUP signal handler
+    process_init(); //create notification pipe and register signal for child process exit
+    ovsrec_init(); //todo: make clear here
 
     daemonize_start();
 
