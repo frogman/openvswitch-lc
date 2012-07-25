@@ -123,7 +123,7 @@ main(int argc, char *argv[])
             simap_destroy(&usage);
         }
         bridge_run_fast(); //check each bridge and run it's handler
-        bridge_run();
+        bridge_run(); //main process part, process of pkts
         bridge_run_fast();
         unixctl_server_run(unixctl);
         netdev_run(); //run periodic functions by all network devices.

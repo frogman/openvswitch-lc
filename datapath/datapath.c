@@ -2180,10 +2180,8 @@ static struct pernet_operations ovs_net_ops = {
 };
 
 /**
- * Init modules including the genl (kernel <2.6.35),
- * workqueue,tunnel,flow,vport.
- * Register pernet_gen_device (kernel <2.6.32),
- * netdevice_notifier
+ * Init modules including the genl (kernel <2.6.35), workqueue,tunnel,flow,vport.
+ * Register pernet_gen_device (kernel <2.6.32), netdevice_notifier
  * @return 0:OK, err:Fail
  */
 static int __init dp_init(void)
@@ -2220,7 +2218,8 @@ static int __init dp_init(void)
 	if (err)
 		goto error_vport_exit;
 
-    // register a network notifier block: unregister, changename
+    // sys call: register a network notifier block for dp_device's events,
+    // including UNREGISTER, CHANGENAME
 	err = register_netdevice_notifier(&ovs_dp_device_notifier); 
 	if (err)
 		goto error_netns_exit;

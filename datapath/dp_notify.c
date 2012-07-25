@@ -23,6 +23,10 @@
 #include "vport-internal_dev.h"
 #include "vport-netdev.h"
 
+/***
+ * dp_device event handle.
+ * events includes: NETDEV_UNREGISTER, NETDEV_CHANGENAME
+ */
 static int dp_device_event(struct notifier_block *unused, unsigned long event,
 			   void *ptr)
 {
