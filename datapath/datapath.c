@@ -737,6 +737,9 @@ static void clear_stats(struct sw_flow *flow)
 	flow->byte_count = 0;
 }
 
+/**
+ * operations when receiving the OVS_PACKET_CMD_EXECUTE message.
+ */
 static int ovs_packet_cmd_execute(struct sk_buff *skb, struct genl_info *info)
 {
 	struct ovs_header *ovs_header = info->userhdr;
@@ -761,7 +764,7 @@ static int ovs_packet_cmd_execute(struct sk_buff *skb, struct genl_info *info)
 	err = -ENOMEM;
 	if (!packet)
 		goto err;
-	skb_reserve(packet, NET_IP_ALIGN);
+	skb_reserve(packet, NET_IP_ALIGN); //let the ether header aligned
 
 	memcpy(__skb_put(packet, len), nla_data(a[OVS_PACKET_ATTR_PACKET]), len);
 
@@ -838,6 +841,9 @@ static const struct nla_policy packet_policy[OVS_PACKET_ATTR_MAX + 1] = {
 	[OVS_PACKET_ATTR_ACTIONS] = { .type = NLA_NESTED },
 };
 
+/**
+ * packet related operations: EXECUTE
+ */
 static struct genl_ops dp_packet_genl_ops[] = {
 	{ .cmd = OVS_PACKET_CMD_EXECUTE,
 	  .flags = GENL_ADMIN_PERM, /* Requires CAP_NET_ADMIN privilege. */
@@ -1261,6 +1267,9 @@ static int ovs_flow_cmd_dump(struct sk_buff *skb, struct netlink_callback *cb)
 	return skb->len;
 }
 
+/**
+ * flow related operations: NEW, DEL, GET, SET
+ */
 static struct genl_ops dp_flow_genl_ops[] = {
 	{ .cmd = OVS_FLOW_CMD_NEW,
 	  .flags = GENL_ADMIN_PERM, /* Requires CAP_NET_ADMIN privilege. */
@@ -1616,6 +1625,9 @@ static int ovs_dp_cmd_dump(struct sk_buff *skb, struct netlink_callback *cb)
 	return skb->len;
 }
 
+/**
+ * datapath related operations: NEW, DEL, GET, SET
+ */
 static struct genl_ops dp_datapath_genl_ops[] = {
 	{ .cmd = OVS_DP_CMD_NEW,
 	  .flags = GENL_ADMIN_PERM, /* Requires CAP_NET_ADMIN privilege. */
@@ -2028,6 +2040,9 @@ out:
 	return skb->len;
 }
 
+/**
+ * vport related operations: NEW, DEL, GET, SET
+ */
 static struct genl_ops dp_vport_genl_ops[] = {
 	{ .cmd = OVS_VPORT_CMD_NEW,
 	  .flags = GENL_ADMIN_PERM, /* Requires CAP_NET_ADMIN privilege. */
@@ -2054,24 +2069,24 @@ static struct genl_ops dp_vport_genl_ops[] = {
 
 struct genl_family_and_ops {
 	struct genl_family *family;
-	struct genl_ops *ops;
+	struct genl_ops *ops; //struct genl_ops - generic netlink operations
 	int n_ops;
-	struct genl_multicast_group *group;
+	struct genl_multicast_group *group; //generic netlink multicast group
 };
 
 static const struct genl_family_and_ops dp_genl_families[] = {
 	{ &dp_datapath_genl_family,
 	  dp_datapath_genl_ops, ARRAY_SIZE(dp_datapath_genl_ops),
-	  &ovs_dp_datapath_multicast_group },
+	  &ovs_dp_datapath_multicast_group }, //datapath
 	{ &dp_vport_genl_family,
 	  dp_vport_genl_ops, ARRAY_SIZE(dp_vport_genl_ops),
-	  &ovs_dp_vport_multicast_group },
+	  &ovs_dp_vport_multicast_group }, //vport
 	{ &dp_flow_genl_family,
 	  dp_flow_genl_ops, ARRAY_SIZE(dp_flow_genl_ops),
-	  &ovs_dp_flow_multicast_group },
+	  &ovs_dp_flow_multicast_group }, //flow
 	{ &dp_packet_genl_family,
 	  dp_packet_genl_ops, ARRAY_SIZE(dp_packet_genl_ops),
-	  NULL },
+	  NULL },//packet
 };
 
 static void dp_unregister_genl(int n_families)
@@ -2083,7 +2098,7 @@ static void dp_unregister_genl(int n_families)
 }
 
 /**
- * Register every dp_genl_families[i].
+ * Register every dp_genl_family with the op and group.
  * @return 0:OK.
  */
 static int dp_register_genl(void)
@@ -2097,13 +2112,13 @@ static int dp_register_genl(void)
 		const struct genl_family_and_ops *f = &dp_genl_families[i];
 
 		err = genl_register_family_with_ops(f->family, f->ops,
-						    f->n_ops);
+						    f->n_ops); //register each family with its op
 		if (err)
 			goto error;
 		n_registered++;
 
 		if (f->group) {
-			err = genl_register_mc_group(f->family, f->group);
+			err = genl_register_mc_group(f->family, f->group); //register the multicast group
 			if (err)
 				goto error;
 		}
@@ -2194,11 +2209,11 @@ static int __init dp_init(void)
 	pr_info("Open vSwitch switching datapath %s, built "__DATE__" "__TIME__"\n",
 		VERSION);
 
-	err = genl_exec_init();
+	err = genl_exec_init(); //init the generic netlink
 	if (err)
 		goto error;
 
-	err = ovs_workqueues_init();
+	err = ovs_workqueues_init(); //create a work thread to run every work_func
 	if (err)
 		goto error_genl_exec;
 

@@ -46,12 +46,24 @@ enum exec_cmd {
 	GENL_EXEC_RUN,
 };
 
+/**
+ * struct genl_family
+ * \id: protocol family idenfitier
+ * \name: name of family
+ * \version: protocol version
+ */
 static struct genl_family genl_exec_family = {
 	.id = GENL_ID_GENERATE,
 	.name = "ovs_genl_exec",
 	.version = 1,
 };
 
+/**
+ * struct genl_ops - generic netlink operations
+ * \cmd: command identifier
+ * \doit: standard command callback
+ * \flags: flags
+ */
 static struct genl_ops genl_exec_ops[] = {
 	{
 	 .cmd = GENL_EXEC_RUN,
@@ -67,6 +79,9 @@ int genl_exec_init(void)
 {
 	int err;
 
+    /*register a generic netlink family
+    int genl_register_family_with_ops(struct genl_family *family,
+          struct genl_ops *ops, size_t n_ops) */
 	err = genl_register_family_with_ops(&genl_exec_family,
 			genl_exec_ops, ARRAY_SIZE(genl_exec_ops));
 

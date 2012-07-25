@@ -153,17 +153,17 @@ int cancel_delayed_work_sync(struct delayed_work *dwork)
 }
 
 /**
- * run all funcs in the workq list.
+ * run every work->func in the workq list.
  */
 static void run_workqueue(void)
 {
 	spin_lock_irq(&wq_lock);
 	while (!list_empty(&workq)) {
 		struct work_struct *work = list_entry(workq.next,
-				struct work_struct, entry);
+				struct work_struct, entry); //get the first work_struct in wq list
 
 		work_func_t f = work->func;
-		list_del_init(workq.next);
+		list_del_init(workq.next); //remove the node and empty it
 		current_work = work;
 		spin_unlock_irq(&wq_lock);
 
@@ -181,12 +181,12 @@ static int worker_thread(void *dummy)
 {
 	for (;;) {
 		wait_event_interruptible(more_work,
-				(kthread_should_stop() || !list_empty(&workq)));
+				(kthread_should_stop() || !list_empty(&workq))); //sleep until there's work
 
 		if (kthread_should_stop())
 			break;
 
-		run_workqueue();
+		run_workqueue(); //then run every func in the work list
 	}
 
 	return 0;
@@ -201,11 +201,11 @@ int __init ovs_workqueues_init(void)
 	INIT_LIST_HEAD(&workq);
 	init_waitqueue_head(&more_work);
 
-	workq_thread = kthread_create(worker_thread, NULL, "ovs_workq");
+	workq_thread = kthread_create(worker_thread, NULL, "ovs_workq"); //just create, but not run
 	if (IS_ERR(workq_thread))
 		return PTR_ERR(workq_thread);
 
-	wake_up_process(workq_thread);
+	wake_up_process(workq_thread); //run the created thread
 	return 0;
 }
 
