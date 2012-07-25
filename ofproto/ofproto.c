@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2009, 2010, 2011, 2012 Nicira, Inc.
  * Copyright (c) 2010 Jean Tourrilhes - HP-Labs.
- *
+ u
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -1083,11 +1083,11 @@ ofproto_run(struct ofproto *p)
     sset_destroy(&changed_netdevs);
 
     switch (p->state) {
-    case S_OPENFLOW:
+    case S_OPENFLOW: //of commands
         connmgr_run(p->connmgr, handle_openflow);
         break;
 
-    case S_EVICT:
+    case S_EVICT: //evict flow from over-limit tables
         connmgr_run(p->connmgr, NULL);
         ofproto_evict(p);
         if (list_is_empty(&p->pending) && hmap_is_empty(&p->deletions)) {
@@ -1095,7 +1095,7 @@ ofproto_run(struct ofproto *p)
         }
         break;
 
-    case S_FLUSH:
+    case S_FLUSH: //delete all flow table rules
         connmgr_run(p->connmgr, NULL);
         ofproto_flush__(p);
         if (list_is_empty(&p->pending) && hmap_is_empty(&p->deletions)) {
