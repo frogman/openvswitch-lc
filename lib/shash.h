@@ -23,12 +23,20 @@
 extern "C" {
 #endif
 
+/**
+ * shash node
+ * including hash node (hash value and next pointer), name and data.
+ */
 struct shash_node {
     struct hmap_node node;
     char *name;
     void *data;
 };
 
+/**
+ * shash map
+ * store a hmap variable
+ */
 struct shash {
     struct hmap map;
 };
