@@ -1,5 +1,7 @@
 #This is a temporal script to test quick operations, e.g., generating docs.
 
+#doxygen doxygen.cfg; tar czf doc.tar.gz doc/
+
 #Configure openvswitch
 ./boot.sh && ./configure  --with-linux=/lib/modules/`uname -r`/build;
 
@@ -9,7 +11,6 @@ sudo su;
 make install;
 
 insmod datapath/linux/openvswitch.ko
-#modprobe datapath/linux/openvswitch.ko
 
 #configure the ovs-db
 test -z /usr/local/etc/openvswitch || mkdir -p /usr/local/etc/openvswitch

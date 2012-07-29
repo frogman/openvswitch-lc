@@ -302,7 +302,7 @@ void ovs_dp_detach_port(struct vport *p)
 
 /* Must be called with rcu_read_lock. */
 /**
- * Core processing part for incoming pkt.
+ * Core processing part for incoming data pkt.
  */
 void ovs_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
 {
@@ -319,7 +319,7 @@ void ovs_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
 		int key_len;
 
 		/* Extract flow from 'skb' into 'key'. */
-		error = ovs_flow_extract(skb, p->port_no, &key, &key_len);
+		error = ovs_flow_extract(skb, p->port_no, &key, &key_len);// extract flow header from skb, and store info into key
 		if (unlikely(error)) {
 			kfree_skb(skb);
 			return;
@@ -346,7 +346,7 @@ void ovs_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
 
 	stats_counter = &stats->n_hit;
 	ovs_flow_used(OVS_CB(skb)->flow, skb);
-	ovs_execute_actions(dp, skb);
+	ovs_execute_actions(dp, skb); //the action is stored in skb->cb->flow->sf_acts
 
 out:
 	/* Update datapath statistics. */
