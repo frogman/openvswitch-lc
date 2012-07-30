@@ -92,7 +92,7 @@ worker_start(void)
     assert(client_sock < 0);
 
     /* Create non-blocking socket pair. */
-    xsocketpair(AF_UNIX, SOCK_STREAM, 0, work_fds);
+    xsocketpair(AF_UNIX, SOCK_STREAM, 0, work_fds); //a bi-directional rw socket
     xset_nonblocking(work_fds[0]);
     xset_nonblocking(work_fds[1]);
 
@@ -327,6 +327,10 @@ worker_reply_iovec(const struct iovec *iovs, size_t n_iovs,
     free(all_iovs);
 }
 
+/**
+ * receive data from given sock, and run request_cb to handle the data.
+ * \param fd the indicator of the sock.
+ */
 static void
 worker_main(int fd)
 {
@@ -343,7 +347,7 @@ worker_main(int fd)
     for (;;) {
         int error;
 
-        error = rxbuf_run(&rx, server_sock, sizeof(struct worker_request));
+        error = rxbuf_run(&rx, server_sock, sizeof(struct worker_request)); //receive data
         if (!error) {
             request = *(struct worker_request *) rx.header.data;
 
@@ -387,11 +391,17 @@ rxbuf_clear(struct rxbuf *rx)
     ofpbuf_clear(&rx->payload);
 }
 
+/**
+ * Receive data from sock into rx.header and rx.payload.
+ * \param rx the receive buffer.
+ * \param sock the socket to get data from.
+ * \header_len the header length of the receive buffer
+ */
 static int
 rxbuf_run(struct rxbuf *rx, int sock, size_t header_len)
 {
     for (;;) {
-        if (!rx->header.size) {
+        if (!rx->header.size) { //current header is empty
             int retval;
 
             ofpbuf_clear(&rx->header);
@@ -403,7 +413,7 @@ rxbuf_run(struct rxbuf *rx, int sock, size_t header_len)
                 return retval ? -retval : EOF;
             }
             rx->header.size += retval;
-        } else if (rx->header.size < header_len) {
+        } else if (rx->header.size < header_len) {//current header still has free space
             size_t bytes_read;
             int error;
 
@@ -413,7 +423,7 @@ rxbuf_run(struct rxbuf *rx, int sock, size_t header_len)
             if (error) {
                 return error;
             }
-        } else {
+        } else {//header is full, store into payload then
             size_t payload_len = *(size_t *) rx->header.data;
 
             if (rx->payload.size < payload_len) {

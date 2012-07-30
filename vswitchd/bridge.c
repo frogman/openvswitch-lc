@@ -345,10 +345,10 @@ bridge_init(const char *remote)
                              bridge_unixctl_dump_flows, NULL);
     unixctl_command_register("bridge/reconnect", "[bridge]", 0, 1,
                              bridge_unixctl_reconnect, NULL);
-    lacp_init();
-    bond_init();
-    cfm_init();
-    stp_init();
+    lacp_init();//register the lacp show cmd
+    bond_init();//register the bond list,show,migrt cmd
+    cfm_init();//register the cfm show,set-fault cmd
+    stp_init();//register the stp/tcn cmd
 }
 
 void

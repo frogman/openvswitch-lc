@@ -84,7 +84,7 @@ main(int argc, char *argv[])
     process_init(); //create notification pipe and register signal for child process exit
     ovsrec_init(); //todo: make clear here
 
-    daemonize_start();
+    daemonize_start(); //daemonize the process
 
     if (want_mlockall) {
 #ifdef HAVE_MLOCKALL
@@ -96,24 +96,24 @@ main(int argc, char *argv[])
 #endif
     }
 
-    worker_start();
+    worker_start(); //start a worker subprocess, call worker_main (receive data and process)
 
-    retval = unixctl_server_create(unixctl_path, &unixctl);
+    retval = unixctl_server_create(unixctl_path, &unixctl);//create a unix domain socket
     if (retval) {
         exit(EXIT_FAILURE);
     }
     unixctl_command_register("exit", "", 0, 0, ovs_vswitchd_exit, &exiting);
 
-    bridge_init(remote);
+    bridge_init(remote);//ini the bridge, configure from the ovsdb server, register ctrl commands
     free(remote);
 
     exiting = false;
     while (!exiting) {
-        worker_run();
+        worker_run(); //reply with the worker subprocess
         if (signal_poll(sighup)) {
             vlog_reopen_log_file();
         }
-        memory_run();
+        memory_run();//monitor the memory
         if (memory_should_report()) {
             struct simap usage;
 
@@ -122,11 +122,11 @@ main(int argc, char *argv[])
             memory_report(&usage);
             simap_destroy(&usage);
         }
-        bridge_run_fast();
+        bridge_run_fast(); //check each bridge and run it's handler
         bridge_run();
         bridge_run_fast();
         unixctl_server_run(unixctl);
-        netdev_run();
+        netdev_run(); //run periodic functions by all network devices.
 
         worker_wait();
         signal_wait(sighup);
