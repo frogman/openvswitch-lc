@@ -288,13 +288,7 @@ vconn_open_block(const char *name, enum ofp_version min_version,
 
     error = vconn_open(name, min_version, &vconn, DSCP_DEFAULT);
     if (!error) {
-        while ((error = vconn_connect(vconn)) == EAGAIN) {
-            vconn_run(vconn);
-            vconn_run_wait(vconn);
-            vconn_connect_wait(vconn);
-            poll_block();
-        }
-        assert(error != EINPROGRESS);
+        error = vconn_connect_block(vconn);
     }
 
     if (error) {
@@ -467,9 +461,8 @@ vcs_send_error(struct vconn *vconn)
 
     snprintf(s, sizeof s, "We support versions 0x%02x to 0x%02x inclusive but "
              "you support no later than version 0x%02"PRIx8".",
-             vconn->min_version, OFP10_VERSION, vconn->version);
-    b = ofperr_encode_hello(OFPERR_OFPHFC_INCOMPATIBLE,
-                            ofperr_domain_from_version(vconn->version), s);
+             vconn->min_version, OFP12_VERSION, vconn->version);
+    b = ofperr_encode_hello(OFPERR_OFPHFC_INCOMPATIBLE, vconn->version, s);
     retval = do_send(vconn, b);
     if (retval) {
         ofpbuf_delete(b);
@@ -622,6 +615,24 @@ do_send(struct vconn *vconn, struct ofpbuf *msg)
     return retval;
 }
 
+/* Same as vconn_connect(), except that it waits until the connection on
+ * 'vconn' completes or fails.  Thus, it will never return EAGAIN. */
+int
+vconn_connect_block(struct vconn *vconn)
+{
+    int error;
+
+    while ((error = vconn_connect(vconn)) == EAGAIN) {
+        vconn_run(vconn);
+        vconn_run_wait(vconn);
+        vconn_connect_wait(vconn);
+        poll_block();
+    }
+    assert(error != EINPROGRESS);
+
+    return error;
+}
+
 /* Same as vconn_send, except that it waits until 'msg' can be transmitted. */
 int
 vconn_send_block(struct vconn *vconn, struct ofpbuf *msg)
@@ -744,7 +755,7 @@ vconn_transact_noreply(struct vconn *vconn, struct ofpbuf *request,
     }
 
     /* Send barrier. */
-    barrier = ofputil_encode_barrier_request();
+    barrier = ofputil_encode_barrier_request(vconn_get_version(vconn));
     barrier_xid = ((struct ofp_header *) barrier->data)->xid;
     error = vconn_send_block(vconn, barrier);
     if (error) {
