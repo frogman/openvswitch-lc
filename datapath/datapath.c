@@ -2202,11 +2202,11 @@ static int __init dp_init(void)
 	if (err)
 		goto error_genl_exec;
 
-	err = ovs_tnl_init(); //bh:tunnel?
+	err = ovs_tnl_init(); //init the port_table
 	if (err)
 		goto error_wq;
 
-	err = ovs_flow_init(); //flow_cache
+	err = ovs_flow_init(); //init the flow_cache (type:sw_flow)
 	if (err)
 		goto error_tnl_exit;
 
@@ -2214,7 +2214,7 @@ static int __init dp_init(void)
 	if (err)
 		goto error_flow_exit;
 
-	err = register_pernet_device(&ovs_net_ops);
+	err = register_pernet_device(&ovs_net_ops); //register a network namespace devices
 	if (err)
 		goto error_vport_exit;
 

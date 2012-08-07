@@ -1652,7 +1652,7 @@ int ovs_tnl_init(void)
 		return -ENOMEM;
 
 	for (i = 0; i < PORT_TABLE_SIZE; i++)
-		INIT_HLIST_HEAD(&port_table[i]);
+		INIT_HLIST_HEAD(&port_table[i]); //let ptr->first = NULL
 
 	return 0;
 }

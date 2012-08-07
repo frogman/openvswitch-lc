@@ -60,6 +60,9 @@ static struct genl_ops genl_exec_ops[] = {
 	},
 };
 
+/**
+ *  * General netlink initialization.
+ *   */
 int genl_exec_init(void)
 {
 	int err;

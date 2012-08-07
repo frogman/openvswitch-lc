@@ -152,6 +152,9 @@ int cancel_delayed_work_sync(struct delayed_work *dwork)
 	return __cancel_work_timer(&dwork->work, &dwork->timer);
 }
 
+/**
+ * run all funcs in the workq list.
+ */
 static void run_workqueue(void)
 {
 	spin_lock_irq(&wq_lock);
@@ -189,6 +192,9 @@ static int worker_thread(void *dummy)
 	return 0;
 }
 
+/**
+ * initialize the workq.
+ */
 int __init ovs_workqueues_init(void)
 {
 	spin_lock_init(&wq_lock);
