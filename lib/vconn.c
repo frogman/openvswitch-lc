@@ -138,10 +138,10 @@ vconn_usage(bool active, bool passive, bool bootstrap OVS_UNUSED)
     printf("\n");
     if (active) {
         printf("Active OpenFlow connection methods:\n");
-        printf("  tcp:IP[:PORT]         "
+        printf("  tcp:IP[:PORT]           "
                "PORT (default: %d) at remote IP\n", OFP_TCP_PORT);
 #ifdef HAVE_OPENSSL
-        printf("  ssl:IP[:PORT]         "
+        printf("  ssl:IP[:PORT]           "
                "SSL PORT (default: %d) at remote IP\n", OFP_SSL_PORT);
 #endif
         printf("  unix:FILE               Unix domain socket named FILE\n");
@@ -262,6 +262,12 @@ error:
 void
 vconn_run(struct vconn *vconn)
 {
+    if (vconn->state == VCS_CONNECTING ||
+        vconn->state == VCS_SEND_HELLO ||
+        vconn->state == VCS_RECV_HELLO) {
+        vconn_connect(vconn);
+    }
+
     if (vconn->class->run) {
         (vconn->class->run)(vconn);
     }
@@ -272,6 +278,12 @@ vconn_run(struct vconn *vconn)
 void
 vconn_run_wait(struct vconn *vconn)
 {
+    if (vconn->state == VCS_CONNECTING ||
+        vconn->state == VCS_SEND_HELLO ||
+        vconn->state == VCS_RECV_HELLO) {
+        vconn_connect_wait(vconn);
+    }
+
     if (vconn->class->run_wait) {
         (vconn->class->run_wait)(vconn);
     }
@@ -356,10 +368,10 @@ vconn_get_local_port(const struct vconn *vconn)
  *
  * A vconn that has successfully connected (that is, vconn_connect() or
  * vconn_send() or vconn_recv() has returned 0) always negotiated a version. */
-enum ofp_version
+int
 vconn_get_version(const struct vconn *vconn)
 {
-    return vconn->version;
+    return vconn->version ? vconn->version : -1;
 }
 
 static void
