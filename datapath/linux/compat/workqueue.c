@@ -177,6 +177,9 @@ static void run_workqueue(void)
 	spin_unlock_irq(&wq_lock);
 }
 
+/**
+ * polling to run each work in the workqueue.
+ */
 static int worker_thread(void *dummy)
 {
 	for (;;) {

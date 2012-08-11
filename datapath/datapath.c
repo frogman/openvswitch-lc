@@ -739,6 +739,7 @@ static void clear_stats(struct sw_flow *flow)
 
 /**
  * operations when receiving the OVS_PACKET_CMD_EXECUTE message.
+ * get act from info, put into the packet from skb,  and execute the act
  */
 static int ovs_packet_cmd_execute(struct sk_buff *skb, struct genl_info *info)
 {
@@ -2074,6 +2075,13 @@ struct genl_family_and_ops {
 	struct genl_multicast_group *group; //generic netlink multicast group
 };
 
+/**
+ * Array stores the families and ops, including:
+ * dp_datapath_genl_family
+ * dp_vport_genl_family
+ * dp_flow_genl_family
+ * dp_packet_genl_family
+ */
 static const struct genl_family_and_ops dp_genl_families[] = {
 	{ &dp_datapath_genl_family,
 	  dp_datapath_genl_ops, ARRAY_SIZE(dp_datapath_genl_ops),
@@ -2209,11 +2217,11 @@ static int __init dp_init(void)
 	pr_info("Open vSwitch switching datapath %s, built "__DATE__" "__TIME__"\n",
 		VERSION);
 
-	err = genl_exec_init(); //init the generic netlink
+	err = genl_exec_init(); //register the GENL_EXEC_RUN cmd (KERNEL_VERSION<2.6.35)
 	if (err)
 		goto error;
 
-	err = ovs_workqueues_init(); //create a work thread to run every work_func
+	err = ovs_workqueues_init(); //create a worker thread (polling to run each work)
 	if (err)
 		goto error_genl_exec;
 
@@ -2229,21 +2237,20 @@ static int __init dp_init(void)
 	if (err)
 		goto error_flow_exit;
 
-	err = register_pernet_device(&ovs_net_ops); //register a network namespace devices
+	err = register_pernet_device(&ovs_net_ops); //register a network namespace devices (KERNEL_VERSION<2.6.32)
 	if (err)
 		goto error_vport_exit;
 
-    // sys call: register a network notifier block for dp_device's events,
-    // including UNREGISTER, CHANGENAME
+    // sys call: register a network notifier block for dp_device's events: UNREGISTER, CHANGENAME
 	err = register_netdevice_notifier(&ovs_dp_device_notifier); 
 	if (err)
 		goto error_netns_exit;
 
-	err = dp_register_genl();
+	err = dp_register_genl(); //register the dp,vport,flow,packet related families
 	if (err < 0)
 		goto error_unreg_notifier;
 
-	schedule_delayed_work(&rehash_flow_wq, REHASH_FLOW_INTERVAL);
+	schedule_delayed_work(&rehash_flow_wq, REHASH_FLOW_INTERVAL); //schedule interval work: rehash
 
 	return 0;
 

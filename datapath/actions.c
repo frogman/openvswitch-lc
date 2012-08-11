@@ -262,6 +262,9 @@ static int set_tcp(struct sk_buff *skb, const struct ovs_key_tcp *tcp_port_key)
 	return 0;
 }
 
+/**
+ * send packet to out_port.
+ */
 static int do_output(struct datapath *dp, struct sk_buff *skb, int out_port)
 {
 	struct vport *vport;
@@ -388,29 +391,29 @@ static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
 		}
 
 		switch (nla_type(a)) {
-		case OVS_ACTION_ATTR_OUTPUT:
+		case OVS_ACTION_ATTR_OUTPUT: //output
 			prev_port = nla_get_u32(a);
 			break;
 
-		case OVS_ACTION_ATTR_USERSPACE:
+		case OVS_ACTION_ATTR_USERSPACE: //userspace?
 			output_userspace(dp, skb, a);
 			break;
 
-		case OVS_ACTION_ATTR_PUSH_VLAN:
+		case OVS_ACTION_ATTR_PUSH_VLAN: //add vlan header
 			err = push_vlan(skb, nla_data(a));
 			if (unlikely(err)) /* skb already freed. */
 				return err;
 			break;
 
-		case OVS_ACTION_ATTR_POP_VLAN:
+		case OVS_ACTION_ATTR_POP_VLAN: //pop vlan header
 			err = pop_vlan(skb);
 			break;
 
-		case OVS_ACTION_ATTR_SET:
+		case OVS_ACTION_ATTR_SET: //set attribution
 			err = execute_set_action(skb, nla_data(a));
 			break;
 
-		case OVS_ACTION_ATTR_SAMPLE:
+		case OVS_ACTION_ATTR_SAMPLE: //sampling
 			err = sample(dp, skb, a);
 			break;
 		}

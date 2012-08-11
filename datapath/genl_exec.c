@@ -53,16 +53,16 @@ enum exec_cmd {
  * \version: protocol version
  */
 static struct genl_family genl_exec_family = {
-	.id = GENL_ID_GENERATE,
+	.id = GENL_ID_GENERATE, //new family, will be assigned by the controller
 	.name = "ovs_genl_exec",
 	.version = 1,
 };
 
 /**
  * struct genl_ops - generic netlink operations
- * \cmd: command identifier
- * \doit: standard command callback
- * \flags: flags
+ * @cmd: command identifier
+ * @doit: standard command callback
+ * @flags: flags
  */
 static struct genl_ops genl_exec_ops[] = {
 	{
@@ -73,8 +73,8 @@ static struct genl_ops genl_exec_ops[] = {
 };
 
 /**
- *  * General netlink initialization.
- *   */
+ * Register a new generic netlink family and the ops
+ */
 int genl_exec_init(void)
 {
 	int err;
