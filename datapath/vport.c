@@ -37,7 +37,7 @@
 /* List of statically compiled vport implementations.  Don't forget to also
  * add yours to the list at the bottom of vport.h. */
 static const struct vport_ops *base_vport_ops_list[] = {
-	&ovs_netdev_vport_ops,
+	&ovs_netdev_vport_ops, //netdev instance
 	&ovs_internal_vport_ops,
 	&ovs_patch_vport_ops,
 	&ovs_gre_vport_ops,
@@ -78,11 +78,12 @@ int ovs_vport_init(void)
 		goto error_dev_table;
 	}
 
+    /* create a vport_ops_list, templated from base_vport_ops_list.*/
 	for (i = 0; i < ARRAY_SIZE(base_vport_ops_list); i++) {
-		const struct vport_ops *new_ops = base_vport_ops_list[i];
+		const struct vport_ops *new_ops = base_vport_ops_list[i]; //check each vport_ops instance
 
 		if (new_ops->init)
-			err = new_ops->init();
+			err = new_ops->init(); //init each vport_ops
 		else
 			err = 0;
 
