@@ -108,9 +108,9 @@ xmemdup0(const char *p_, size_t length)
 }
 
 /**
- * add '\0' at the end, to make a string.
- * \param s a char vector
- * \return string
+ * dup a string with given one, add '\0' at the end, to make a string.
+ * \param s: the source string
+ * \return new string with added '\0'
  */
 char *
 xstrdup(const char *s)

@@ -6,15 +6,17 @@
 ./boot.sh && ./configure  --with-linux=/lib/modules/`uname -r`/build;
 
 #Compile and install openvswitch
-make || exit
+make || print "make failed" && exit
 sudo su;
 make install;
 
-insmod datapath/linux/openvswitch.ko
+rmmod bridge >/dev/null
+rmmod openvswitch >/dev/null 2>&1
+insmod datapath/linux/openvswitch.ko || print "insmod failed, check dmesg" && exit
 
 #configure the ovs-db
-test -z /usr/local/etc/openvswitch || mkdir -p /usr/local/etc/openvswitch
-ovsdb-tool create /usr/local/etc/openvswitch/conf.db vswitchd/vswitch.ovsschema
+test -d /usr/local/etc/openvswitch || mkdir -p /usr/local/etc/openvswitch
+test -f /usr/local/etc/openvswitch/conf.db || ovsdb-tool create /usr/local/etc/openvswitch/conf.db vswitchd/vswitch.ovsschema
 
 #start the ovs-db server
 ovsdb-server --remote=punix:/usr/local/var/run/openvswitch/db.sock \
@@ -24,7 +26,7 @@ ovsdb-server --remote=punix:/usr/local/var/run/openvswitch/db.sock \
              --bootstrap-ca-cert=db:SSL,ca_cert \
              --pidfile --detach
 
-#Initialize the ovs-db
+#Initialize the ovs-db, just pass if initialized already
 ovs-vsctl --no-wait init
 
 #start the main ovs daemon
@@ -34,7 +36,9 @@ ovs-vswitchd --pidfile --detach
 ovs-vsctl add-br br0
 ovs-vsctl list-br
 
-exit
-
 #stop the ovs daemon
 kill `cd /usr/local/var/run/openvswitch && cat ovsdb-server.pid ovs-vswitchd.pid`
+
+#backup the database to .ovsschema file
+ovsdb-tool convert /usr/local/etc/openvswitch/conf.db vswitchd/vswitch.ovsschema
+rm /usr/local/etc/openvswitch/conf.db

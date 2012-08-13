@@ -65,6 +65,12 @@ static unixctl_cb_func ovs_vswitchd_exit;
 static char *parse_options(int argc, char *argv[], char **unixctl_path);
 static void usage(void) NO_RETURN;
 
+/**
+ * The main function.
+ * @param argc: Number of args
+ * @param argv[]: arg vector
+ * @return: 0 if success
+ */
 int
 main(int argc, char *argv[])
 {
@@ -75,7 +81,7 @@ main(int argc, char *argv[])
     bool exiting;
     int retval;
 
-    proctitle_init(argc, argv); //backup orignal argvs
+    proctitle_init(argc, argv); //copy args from its orginal location
     set_program_name(argv[0]);
     stress_init_command(); //register stress cmds to the commands
     remote = parse_options(argc, argv, &unixctl_path);
@@ -104,7 +110,7 @@ main(int argc, char *argv[])
     }
     unixctl_command_register("exit", "", 0, 0, ovs_vswitchd_exit, &exiting);
 
-    bridge_init(remote);//ini the bridge, configure from the ovsdb server, register ctrl commands
+    bridge_init(remote);//init the bridge, configure from the ovsdb server, register ctrl commands
     free(remote);
 
     exiting = false;
