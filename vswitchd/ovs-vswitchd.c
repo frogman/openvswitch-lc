@@ -84,10 +84,10 @@ main(int argc, char *argv[])
     proctitle_init(argc, argv); //copy args from its orginal location
     set_program_name(argv[0]);
     stress_init_command(); //register stress cmds to the commands
-    remote = parse_options(argc, argv, &unixctl_path);
-    signal(SIGPIPE, SIG_IGN); //ignore the pipe read end signal
+    remote = parse_options(argc, argv, &unixctl_path); //return db.sock
+    signal(SIGPIPE, SIG_IGN); //ignore the pipe read termination signal
     sighup = signal_register(SIGHUP); //register the SIGHUP signal handler
-    process_init(); //create notification pipe and register signal for child process exit
+    process_init(); //create notification pipe and register the child termination signal
     ovsrec_init(); //todo: make clear here
 
     daemonize_start(); //daemonize the process
@@ -104,7 +104,7 @@ main(int argc, char *argv[])
 
     worker_start(); //start a worker subprocess, call worker_main (receive data and process)
 
-    retval = unixctl_server_create(unixctl_path, &unixctl);//create a unix domain socket
+    retval = unixctl_server_create(unixctl_path, &unixctl);//create a unixctl server listing on path
     if (retval) {
         exit(EXIT_FAILURE);
     }

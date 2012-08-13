@@ -78,7 +78,7 @@ int ovs_vport_init(void)
 		goto error_dev_table;
 	}
 
-    /* create a vport_ops_list, templated from base_vport_ops_list.*/
+    /* run init in each op from the base_vport_ops_list.*/
 	for (i = 0; i < ARRAY_SIZE(base_vport_ops_list); i++) {
 		const struct vport_ops *new_ops = base_vport_ops_list[i]; //check each vport_ops instance
 

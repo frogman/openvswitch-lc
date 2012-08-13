@@ -91,7 +91,7 @@ process_init(void)
     sa.sa_handler = sigchld_handler;
     sigemptyset(&sa.sa_mask);
     sa.sa_flags = SA_NOCLDSTOP | SA_RESTART;
-    xsigaction(SIGCHLD, &sa, NULL);
+    xsigaction(SIGCHLD, &sa, NULL); //with SIGCHILD, run &sa
 }
 
 char *
@@ -592,7 +592,10 @@ process_run_capture(char **argv, char **stdout_log, char **stderr_log,
         exit(EXIT_FAILURE);
     }
 }
-
+
+/**
+ * SIGCHLD signal handler.
+ */
 static void
 sigchld_handler(int signr OVS_UNUSED)
 {

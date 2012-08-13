@@ -89,7 +89,7 @@ signal_register(int signr)
     sa.sa_handler = signal_handler;
     sigemptyset(&sa.sa_mask);
     sa.sa_flags = SA_RESTART;
-    xsigaction(signr, &sa, &s->saved_sa);
+    xsigaction(signr, &sa, &s->saved_sa); //sa is the new action, saved_sa is the old one
 
     return s;
 }

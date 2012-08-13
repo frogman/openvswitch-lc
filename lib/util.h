@@ -161,8 +161,8 @@ rightmost_1bit(uintmax_t x)
     ((OVS_TYPEOF(OBJECT)) (void *)                                      \
      ((char *) (POINTER) - OBJECT_OFFSETOF(OBJECT, MEMBER)))
 
-/* Given POINTER, the address of the given MEMBER within an object of the type
- * that that OBJECT points to, assigns the address of the outer object to
+/* Given POINTER (the address of the given MEMBER within an object of the type
+ * that OBJECT points to), assigns the address of the outer object to
  * OBJECT, which must be an lvalue.
  *
  * Evaluates to 1. */
