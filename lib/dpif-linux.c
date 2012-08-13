@@ -424,11 +424,13 @@ dpif_linux_port_add(struct dpif *dpif_, struct netdev *netdev,
         netdev_linux_ethtool_set_flag(netdev, ETH_FLAG_LRO, "LRO", false);
     }
 
-    /* Loop until we find a port that isn't used. */
+    /* Unless a specific port was requested, loop until we find a port
+     * that isn't used. */
     do {
         uint32_t upcall_pid;
 
-        request.port_no = ++dpif->alloc_port_no;
+        request.port_no = *port_nop != UINT16_MAX ? *port_nop
+                          : ++dpif->alloc_port_no;
         upcall_pid = dpif_linux_port_get_pid(dpif_, request.port_no);
         request.upcall_pid = &upcall_pid;
         error = dpif_linux_vport_transact(&request, &reply, &buf);
@@ -441,10 +443,13 @@ dpif_linux_port_add(struct dpif *dpif_, struct netdev *netdev,
             /* Older datapath has lower limit. */
             max_ports = dpif->alloc_port_no;
             dpif->alloc_port_no = 0;
+        } else if (error == EBUSY && *port_nop != UINT16_MAX) {
+            VLOG_INFO("%s: requested port %"PRIu16" is in use",
+                     dpif_name(dpif_), *port_nop);
         }
 
         ofpbuf_delete(buf);
-    } while ((i++ < max_ports)
+    } while ((*port_nop == UINT16_MAX) && (i++ < max_ports)
              && (error == EBUSY || error == EFBIG));
 
     return error;
@@ -590,8 +595,8 @@ dpif_linux_port_dump_next(const struct dpif *dpif OVS_UNUSED, void *state_,
         return error;
     }
 
-    dpif_port->name = (char *) vport.name;
-    dpif_port->type = (char *) netdev_vport_get_netdev_type(&vport);
+    dpif_port->name = CONST_CAST(char *, vport.name);
+    dpif_port->type = CONST_CAST(char *, netdev_vport_get_netdev_type(&vport));
     dpif_port->port_no = vport.port_no;
     return 0;
 }
@@ -663,7 +668,7 @@ dpif_linux_flow_get(const struct dpif *dpif_,
             dpif_linux_flow_get_stats(&reply, stats);
         }
         if (actionsp) {
-            buf->data = (void *) reply.actions;
+            buf->data = CONST_CAST(struct nlattr *, reply.actions);
             buf->size = reply.actions_len;
             *actionsp = buf;
         } else {
@@ -1164,9 +1169,11 @@ parse_odp_packet(struct ofpbuf *buf, struct dpif_upcall *upcall,
     memset(upcall, 0, sizeof *upcall);
     upcall->type = type;
     upcall->packet = buf;
-    upcall->packet->data = (void *) nl_attr_get(a[OVS_PACKET_ATTR_PACKET]);
+    upcall->packet->data = CONST_CAST(struct nlattr *,
+                                      nl_attr_get(a[OVS_PACKET_ATTR_PACKET]));
     upcall->packet->size = nl_attr_get_size(a[OVS_PACKET_ATTR_PACKET]);
-    upcall->key = (void *) nl_attr_get(a[OVS_PACKET_ATTR_KEY]);
+    upcall->key = CONST_CAST(struct nlattr *,
+                             nl_attr_get(a[OVS_PACKET_ATTR_KEY]));
     upcall->key_len = nl_attr_get_size(a[OVS_PACKET_ATTR_KEY]);
     upcall->userdata = (a[OVS_PACKET_ATTR_USERDATA]
                         ? nl_attr_get_u64(a[OVS_PACKET_ATTR_USERDATA])

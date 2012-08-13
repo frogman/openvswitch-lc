@@ -61,8 +61,8 @@
 #include "vport-internal_dev.h"
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,18) || \
-    LINUX_VERSION_CODE >= KERNEL_VERSION(3,5,0)
-#error Kernels before 2.6.18 or after 3.4 are not supported by this version of Open vSwitch.
+    LINUX_VERSION_CODE >= KERNEL_VERSION(3,6,0)
+#error Kernels before 2.6.18 or after 3.5 are not supported by this version of Open vSwitch.
 #endif
 
 #define REHASH_FLOW_INTERVAL (10 * 60 * HZ)
@@ -561,10 +561,10 @@ static int validate_sample(const struct nlattr *attr,
 static int validate_tp_port(const struct sw_flow_key *flow_key)
 {
 	if (flow_key->eth.type == htons(ETH_P_IP)) {
-		if (flow_key->ipv4.tp.src && flow_key->ipv4.tp.dst)
+		if (flow_key->ipv4.tp.src || flow_key->ipv4.tp.dst)
 			return 0;
 	} else if (flow_key->eth.type == htons(ETH_P_IPV6)) {
-		if (flow_key->ipv6.tp.src && flow_key->ipv6.tp.dst)
+		if (flow_key->ipv6.tp.src || flow_key->ipv6.tp.dst)
 			return 0;
 	}
 
@@ -597,7 +597,7 @@ static int validate_set(const struct nlattr *a,
 		if (flow_key->eth.type != htons(ETH_P_IP))
 			return -EINVAL;
 
-		if (!flow_key->ipv4.addr.src || !flow_key->ipv4.addr.dst)
+		if (!flow_key->ip.proto)
 			return -EINVAL;
 
 		ipv4_key = nla_data(ovs_key);

@@ -4,7 +4,7 @@ bin_PROGRAMS += \
 	utilities/ovs-dpctl \
 	utilities/ovs-ofctl \
 	utilities/ovs-vsctl
-bin_SCRIPTS += utilities/ovs-pki utilities/ovs-vsctl utilities/ovs-parse-leaks
+bin_SCRIPTS += utilities/ovs-pki utilities/ovs-parse-leaks
 if HAVE_PYTHON
 bin_SCRIPTS += \
 	utilities/ovs-l3ping \
@@ -13,7 +13,6 @@ bin_SCRIPTS += \
 	utilities/ovs-test \
 	utilities/ovs-vlan-test
 endif
-noinst_SCRIPTS += utilities/ovs-pki-cgi
 scripts_SCRIPTS += \
 	utilities/ovs-check-dead-ifs \
 	utilities/ovs-ctl \
@@ -27,7 +26,6 @@ EXTRA_DIST += \
 	utilities/ovs-lib.in \
 	utilities/ovs-parse-leaks.in \
 	utilities/ovs-pcap.in \
-	utilities/ovs-pki-cgi.in \
 	utilities/ovs-pki.in \
 	utilities/ovs-save \
 	utilities/ovs-tcpundump.in \
@@ -65,7 +63,6 @@ DISTCLEANFILES += \
 	utilities/ovs-pcap \
 	utilities/ovs-pcap.1 \
 	utilities/ovs-pki \
-	utilities/ovs-pki-cgi \
 	utilities/ovs-pki.8 \
 	utilities/ovs-tcpundump \
 	utilities/ovs-tcpundump.1 \

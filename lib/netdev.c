@@ -81,6 +81,10 @@ netdev_initialize(void)
         netdev_register_provider(&netdev_tap_class);
         netdev_vport_register();
 #endif
+#ifdef __FreeBSD__
+        netdev_register_provider(&netdev_tap_class);
+        netdev_register_provider(&netdev_bsd_class);
+#endif
     }
 }
 
@@ -843,7 +847,7 @@ do_update_flags(struct netdev *netdev, enum netdev_flags off,
 int
 netdev_get_flags(const struct netdev *netdev_, enum netdev_flags *flagsp)
 {
-    struct netdev *netdev = (struct netdev *) netdev_;
+    struct netdev *netdev = CONST_CAST(struct netdev *, netdev_);
     return do_update_flags(netdev, 0, 0, flagsp, false);
 }
 

@@ -22,6 +22,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "coverage.h"
+#include "ofp-msgs.h"
 #include "ofp-util.h"
 #include "ofpbuf.h"
 #include "openflow/openflow.h"
@@ -79,7 +80,6 @@ struct rconn {
     int backoff;
     int max_backoff;
     time_t backoff_deadline;
-    time_t last_received;
     time_t last_connected;
     time_t last_disconnected;
     unsigned int packets_sent;
@@ -104,11 +104,15 @@ struct rconn {
     time_t creation_time;
     unsigned long int total_time_connected;
 
-    /* Throughout this file, "probe" is shorthand for "inactivity probe".
-     * When nothing has been received from the peer for a while, we send out
-     * an echo request as an inactivity probe packet.  We should receive back
-     * a response. */
+    /* Throughout this file, "probe" is shorthand for "inactivity probe".  When
+     * no activity has been observed from the peer for a while, we send out an
+     * echo request as an inactivity probe packet.  We should receive back a
+     * response.
+     *
+     * "Activity" is defined as either receiving an OpenFlow message from the
+     * peer or successfully sending a message that had been in 'txq'. */
     int probe_interval;         /* Secs of inactivity before sending probe. */
+    time_t last_activity;       /* Last time we saw some activity. */
 
     /* When we create a vconn we obtain these values, to save them past the end
      * of the vconn's lifetime.  Otherwise, in-band control will only allow
@@ -178,7 +182,6 @@ rconn_create(int probe_interval, int max_backoff, uint8_t dscp)
     rc->backoff = 0;
     rc->max_backoff = max_backoff ? max_backoff : 8;
     rc->backoff_deadline = TIME_MIN;
-    rc->last_received = time_now();
     rc->last_connected = TIME_MIN;
     rc->last_disconnected = TIME_MIN;
     rc->seqno = 0;
@@ -193,6 +196,8 @@ rconn_create(int probe_interval, int max_backoff, uint8_t dscp)
     rc->n_successful_connections = 0;
     rc->creation_time = time_now();
     rc->total_time_connected = 0;
+
+    rc->last_activity = time_now();
 
     rconn_set_probe_interval(rc, probe_interval);
     rconn_set_dscp(rc, dscp);
@@ -418,6 +423,7 @@ do_tx_work(struct rconn *rc)
         if (error) {
             break;
         }
+        rc->last_activity = time_now();
     }
     if (list_is_empty(&rc->txq)) {
         poll_immediate_wake();
@@ -428,7 +434,7 @@ static unsigned int
 timeout_ACTIVE(const struct rconn *rc)
 {
     if (rc->probe_interval) {
-        unsigned int base = MAX(rc->last_received, rc->state_entered);
+        unsigned int base = MAX(rc->last_activity, rc->state_entered);
         unsigned int arg = base + rc->probe_interval - rc->state_entered;
         return arg;
     }
@@ -439,15 +445,20 @@ static void
 run_ACTIVE(struct rconn *rc)
 {
     if (timed_out(rc)) {
-        unsigned int base = MAX(rc->last_received, rc->state_entered);
+        unsigned int base = MAX(rc->last_activity, rc->state_entered);
+        int version;
+
         VLOG_DBG("%s: idle %u seconds, sending inactivity probe",
                  rc->name, (unsigned int) (time_now() - base));
+
+        version = rconn_get_version(rc);
+        assert(version >= 0 && version <= 0xff);
 
         /* Ordering is important here: rconn_send() can transition to BACKOFF,
          * and we don't want to transition back to IDLE if so, because then we
          * can end up queuing a packet with vconn == NULL and then *boom*. */
         state_transition(rc, S_IDLE);
-        rconn_send(rc, make_echo_request(), NULL);
+        rconn_send(rc, make_echo_request(version), NULL);
         return;
     }
 
@@ -542,7 +553,7 @@ rconn_recv(struct rconn *rc)
                 rc->probably_admitted = true;
                 rc->last_admitted = time_now();
             }
-            rc->last_received = time_now();
+            rc->last_activity = time_now();
             rc->packets_received++;
             if (rc->state == S_IDLE) {
                 state_transition(rc, S_ACTIVE);
@@ -770,21 +781,6 @@ rconn_get_state(const struct rconn *rc)
     return state_name(rc->state);
 }
 
-/* Returns the number of connection attempts made by 'rc', including any
- * ongoing attempt that has not yet succeeded or failed. */
-unsigned int
-rconn_get_attempted_connections(const struct rconn *rc)
-{
-    return rc->n_attempted_connections;
-}
-
-/* Returns the number of successful connection attempts made by 'rc'. */
-unsigned int
-rconn_get_successful_connections(const struct rconn *rc)
-{
-    return rc->n_successful_connections;
-}
-
 /* Returns the time at which the last successful connection was made by
  * 'rc'. Returns TIME_MIN if never connected. */
 time_t
@@ -799,45 +795,6 @@ time_t
 rconn_get_last_disconnect(const struct rconn *rc)
 {
     return rc->last_disconnected;
-}
-
-/* Returns the time at which the last OpenFlow message was received by 'rc'.
- * If no packets have been received on 'rc', returns the time at which 'rc'
- * was created. */
-time_t
-rconn_get_last_received(const struct rconn *rc)
-{
-    return rc->last_received;
-}
-
-/* Returns the time at which 'rc' was created. */
-time_t
-rconn_get_creation_time(const struct rconn *rc)
-{
-    return rc->creation_time;
-}
-
-/* Returns the approximate number of seconds that 'rc' has been connected. */
-unsigned long int
-rconn_get_total_time_connected(const struct rconn *rc)
-{
-    return (rc->total_time_connected
-            + (rconn_is_connected(rc) ? elapsed_in_this_state(rc) : 0));
-}
-
-/* Returns the current amount of backoff, in seconds.  This is the amount of
- * time after which the rconn will transition from BACKOFF to CONNECTING. */
-int
-rconn_get_backoff(const struct rconn *rc)
-{
-    return rc->backoff;
-}
-
-/* Returns the number of seconds spent in this state so far. */
-unsigned int
-rconn_get_state_elapsed(const struct rconn *rc)
-{
-    return elapsed_in_this_state(rc);
 }
 
 /* Returns 'rc''s current connection sequence number, a number that changes
@@ -1121,19 +1078,64 @@ is_connected_state(enum state state)
 static bool
 is_admitted_msg(const struct ofpbuf *b)
 {
-    struct ofp_header *oh = b->data;
-    uint8_t type = oh->type;
-    return !(type < 32
-             && (1u << type) & ((1u << OFPT_HELLO) |
-                                (1u << OFPT_ERROR) |
-                                (1u << OFPT_ECHO_REQUEST) |
-                                (1u << OFPT_ECHO_REPLY) |
-                                (1u << OFPT_VENDOR) |
-                                (1u << OFPT_FEATURES_REQUEST) |
-                                (1u << OFPT_FEATURES_REPLY) |
-                                (1u << OFPT_GET_CONFIG_REQUEST) |
-                                (1u << OFPT_GET_CONFIG_REPLY) |
-                                (1u << OFPT_SET_CONFIG)));
+    enum ofptype type;
+    enum ofperr error;
+
+    error = ofptype_decode(&type, b->data);
+    if (error) {
+        return false;
+    }
+
+    switch (type) {
+    case OFPTYPE_HELLO:
+    case OFPTYPE_ERROR:
+    case OFPTYPE_ECHO_REQUEST:
+    case OFPTYPE_ECHO_REPLY:
+    case OFPTYPE_FEATURES_REQUEST:
+    case OFPTYPE_FEATURES_REPLY:
+    case OFPTYPE_GET_CONFIG_REQUEST:
+    case OFPTYPE_GET_CONFIG_REPLY:
+    case OFPTYPE_SET_CONFIG:
+        return false;
+
+    case OFPTYPE_PACKET_IN:
+    case OFPTYPE_FLOW_REMOVED:
+    case OFPTYPE_PORT_STATUS:
+    case OFPTYPE_PACKET_OUT:
+    case OFPTYPE_FLOW_MOD:
+    case OFPTYPE_PORT_MOD:
+    case OFPTYPE_BARRIER_REQUEST:
+    case OFPTYPE_BARRIER_REPLY:
+    case OFPTYPE_DESC_STATS_REQUEST:
+    case OFPTYPE_DESC_STATS_REPLY:
+    case OFPTYPE_FLOW_STATS_REQUEST:
+    case OFPTYPE_FLOW_STATS_REPLY:
+    case OFPTYPE_AGGREGATE_STATS_REQUEST:
+    case OFPTYPE_AGGREGATE_STATS_REPLY:
+    case OFPTYPE_TABLE_STATS_REQUEST:
+    case OFPTYPE_TABLE_STATS_REPLY:
+    case OFPTYPE_PORT_STATS_REQUEST:
+    case OFPTYPE_PORT_STATS_REPLY:
+    case OFPTYPE_QUEUE_STATS_REQUEST:
+    case OFPTYPE_QUEUE_STATS_REPLY:
+    case OFPTYPE_PORT_DESC_STATS_REQUEST:
+    case OFPTYPE_PORT_DESC_STATS_REPLY:
+    case OFPTYPE_ROLE_REQUEST:
+    case OFPTYPE_ROLE_REPLY:
+    case OFPTYPE_SET_FLOW_FORMAT:
+    case OFPTYPE_FLOW_MOD_TABLE_ID:
+    case OFPTYPE_SET_PACKET_IN_FORMAT:
+    case OFPTYPE_FLOW_AGE:
+    case OFPTYPE_SET_ASYNC_CONFIG:
+    case OFPTYPE_SET_CONTROLLER_ID:
+    case OFPTYPE_FLOW_MONITOR_STATS_REQUEST:
+    case OFPTYPE_FLOW_MONITOR_STATS_REPLY:
+    case OFPTYPE_FLOW_MONITOR_CANCEL:
+    case OFPTYPE_FLOW_MONITOR_PAUSED:
+    case OFPTYPE_FLOW_MONITOR_RESUMED:
+    default:
+        return true;
+    }
 }
 
 /* Returns true if 'rc' is currently logging information about connection

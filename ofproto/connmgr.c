@@ -26,6 +26,7 @@
 #include "in-band.h"
 #include "odp-util.h"
 #include "ofp-actions.h"
+#include "ofp-msgs.h"
 #include "ofp-util.h"
 #include "ofpbuf.h"
 #include "ofproto-provider.h"
@@ -476,7 +477,7 @@ connmgr_free_controller_info(struct shash *info)
     SHASH_FOR_EACH (node, info) {
         struct ofproto_controller_info *cinfo = node->data;
         while (cinfo->pairs.n) {
-            free((char *) cinfo->pairs.values[--cinfo->pairs.n]);
+            free(CONST_CAST(char *, cinfo->pairs.values[--cinfo->pairs.n]));
         }
         free(cinfo);
     }
@@ -941,15 +942,14 @@ ofconn_send_error(const struct ofconn *ofconn,
         static struct vlog_rate_limit err_rl = VLOG_RATE_LIMIT_INIT(10, 10);
 
         if (!VLOG_DROP_INFO(&err_rl)) {
-            const struct ofputil_msg_type *type;
             const char *type_name;
             size_t request_len;
+            enum ofpraw raw;
 
             request_len = ntohs(request->length);
-            type_name = (!ofputil_decode_msg_type_partial(request,
-                                                          MIN(64, request_len),
-                                                          &type)
-                         ? ofputil_msg_type_name(type)
+            type_name = (!ofpraw_decode_partial(&raw, request,
+                                                MIN(64, request_len))
+                         ? ofpraw_get_name(raw)
                          : "invalid");
 
             VLOG_INFO("%s: sending %s error reply to %s message",
@@ -1289,7 +1289,7 @@ static void
 ofconn_send(const struct ofconn *ofconn, struct ofpbuf *msg,
             struct rconn_packet_counter *counter)
 {
-    update_openflow_length(msg);
+    ofpmsg_update_length(msg);
     rconn_send(ofconn->rconn, msg, counter);
 }
 
@@ -1407,7 +1407,8 @@ schedule_packet_in(struct ofconn *ofconn, struct ofputil_packet_in pin)
      * while (until a later call to pinsched_run()). */
     pinsched_send(ofconn->schedulers[pin.reason == OFPR_NO_MATCH ? 0 : 1],
                   pin.fmd.in_port,
-                  ofputil_encode_packet_in(&pin, ofconn->packet_in_format),
+                  ofputil_encode_packet_in(&pin, ofconn->protocol,
+                                           ofconn->packet_in_format),
                   do_send_packet_in, ofconn);
 }
 
@@ -1850,8 +1851,8 @@ ofmonitor_flush(struct connmgr *mgr)
 
                 COVERAGE_INC(ofmonitor_pause);
                 ofconn->monitor_paused = monitor_seqno++;
-                make_nxmsg_xid(sizeof(struct nicira_header),
-                               NXT_FLOW_MONITOR_PAUSED, htonl(0), &pause);
+                pause = ofpraw_alloc_xid(OFPRAW_NXT_FLOW_MONITOR_PAUSED,
+                                         OFP10_VERSION, htonl(0), 0);
                 ofconn_send(ofconn, pause, ofconn->monitor_counter);
             }
         }
@@ -1861,7 +1862,7 @@ ofmonitor_flush(struct connmgr *mgr)
 static void
 ofmonitor_resume(struct ofconn *ofconn)
 {
-    struct ofpbuf *resume;
+    struct ofpbuf *resumed;
     struct ofmonitor *m;
     struct list rules;
     struct list msgs;
@@ -1874,9 +1875,9 @@ ofmonitor_resume(struct ofconn *ofconn)
     list_init(&msgs);
     ofmonitor_compose_refresh_updates(&rules, &msgs);
 
-    make_nxmsg_xid(sizeof(struct nicira_header),
-                   NXT_FLOW_MONITOR_RESUMED, htonl(0), &resume);
-    list_push_back(&msgs, &resume->list_node);
+    resumed = ofpraw_alloc_xid(OFPRAW_NXT_FLOW_MONITOR_RESUMED, OFP10_VERSION,
+                               htonl(0), 0);
+    list_push_back(&msgs, &resumed->list_node);
     ofconn_send_replies(ofconn, &msgs);
 
     ofconn->monitor_paused = 0;

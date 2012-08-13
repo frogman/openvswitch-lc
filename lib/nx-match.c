@@ -67,7 +67,8 @@ nx_entry_ok(const void *p, unsigned int match_len)
 
     if (match_len < 4) {
         if (match_len) {
-            VLOG_DBG_RL(&rl, "nx_match ends with partial nxm_header");
+            VLOG_DBG_RL(&rl, "nx_match ends with partial (%u-byte) nxm_header",
+                        match_len);
         }
         return 0;
     }
@@ -90,27 +91,22 @@ nx_entry_ok(const void *p, unsigned int match_len)
 }
 
 static enum ofperr
-nx_pull_match__(struct ofpbuf *b, unsigned int match_len, bool strict,
-                uint16_t priority, struct cls_rule *rule,
-                ovs_be64 *cookie, ovs_be64 *cookie_mask)
+nx_pull_raw(const uint8_t *p, unsigned int match_len, bool strict,
+            uint16_t priority, struct cls_rule *rule,
+            ovs_be64 *cookie, ovs_be64 *cookie_mask)
 {
     uint32_t header;
-    uint8_t *p;
 
     assert((cookie != NULL) == (cookie_mask != NULL));
-
-    p = ofpbuf_try_pull(b, ROUND_UP(match_len, 8));
-    if (!p) {
-        VLOG_DBG_RL(&rl, "nx_match length %u, rounded up to a "
-                    "multiple of 8, is longer than space in message (max "
-                    "length %zu)", match_len, b->size);
-        return OFPERR_OFPBMC_BAD_LEN;
-    }
 
     cls_rule_init_catchall(rule, priority);
     if (cookie) {
         *cookie = *cookie_mask = htonll(0);
     }
+    if (!match_len) {
+        return 0;
+    }
+
     for (;
          (header = nx_entry_ok(p, match_len)) != 0;
          p += 4 + NXM_LENGTH(header), match_len -= 4 + NXM_LENGTH(header)) {
@@ -193,6 +189,27 @@ nx_pull_match__(struct ofpbuf *b, unsigned int match_len, bool strict,
     return match_len ? OFPERR_OFPBMC_BAD_LEN : 0;
 }
 
+static enum ofperr
+nx_pull_match__(struct ofpbuf *b, unsigned int match_len, bool strict,
+                uint16_t priority, struct cls_rule *rule,
+                ovs_be64 *cookie, ovs_be64 *cookie_mask)
+{
+    uint8_t *p = NULL;
+
+    if (match_len) {
+        p = ofpbuf_try_pull(b, ROUND_UP(match_len, 8));
+        if (!p) {
+            VLOG_DBG_RL(&rl, "nx_match length %u, rounded up to a "
+                        "multiple of 8, is longer than space in message (max "
+                        "length %zu)", match_len, b->size);
+            return OFPERR_OFPBMC_BAD_LEN;
+        }
+    }
+
+    return nx_pull_raw(p, match_len, strict, priority, rule,
+                       cookie, cookie_mask);
+}
+
 /* Parses the nx_match formatted match description in 'b' with length
  * 'match_len'.  The results are stored in 'rule', which is initialized with
  * 'priority'.  If 'cookie' and 'cookie_mask' contain valid pointers, then the
@@ -220,6 +237,61 @@ nx_pull_match_loose(struct ofpbuf *b, unsigned int match_len,
 {
     return nx_pull_match__(b, match_len, false, priority, rule, cookie,
                            cookie_mask);
+}
+
+static enum ofperr
+oxm_pull_match__(struct ofpbuf *b, bool strict,
+                 uint16_t priority, struct cls_rule *rule)
+{
+    struct ofp11_match_header *omh = b->data;
+    uint8_t *p;
+    uint16_t match_len;
+
+    if (b->size < sizeof *omh) {
+        return OFPERR_OFPBMC_BAD_LEN;
+    }
+
+    match_len = ntohs(omh->length);
+    if (match_len < sizeof *omh) {
+        return OFPERR_OFPBMC_BAD_LEN;
+    }
+
+    if (omh->type != htons(OFPMT_OXM)) {
+        return OFPERR_OFPBMC_BAD_TYPE;
+    }
+
+    p = ofpbuf_try_pull(b, ROUND_UP(match_len, 8));
+    if (!p) {
+        VLOG_DBG_RL(&rl, "oxm length %u, rounded up to a "
+                    "multiple of 8, is longer than space in message (max "
+                    "length %zu)", match_len, b->size);
+        return OFPERR_OFPBMC_BAD_LEN;
+    }
+
+    return nx_pull_raw(p + sizeof *omh, match_len - sizeof *omh,
+                       strict, priority, rule, NULL, NULL);
+}
+
+/* Parses the oxm formatted match description preceeded by a struct
+ * ofp11_match in 'b' with length 'match_len'.  The results are stored in
+ * 'rule', which is initialized with 'priority'.
+ *
+ * Fails with an error when encountering unknown OXM headers.
+ *
+ * Returns 0 if successful, otherwise an OpenFlow error code. */
+enum ofperr
+oxm_pull_match(struct ofpbuf *b, uint16_t priority, struct cls_rule *rule)
+{
+    return oxm_pull_match__(b, true, priority, rule);
+}
+
+/* Behaves the same as oxm_pull_match() with one exception.  Skips over unknown
+ * PXM headers instead of failing with an error when they are encountered. */
+enum ofperr
+oxm_pull_match_loose(struct ofpbuf *b, uint16_t priority,
+                     struct cls_rule *rule)
+{
+    return oxm_pull_match__(b, false, priority, rule);
 }
 
 /* nx_put_match() and helpers.
@@ -467,10 +539,9 @@ nxm_put_ip(struct ofpbuf *b, const struct cls_rule *cr,
 }
 
 /* Appends to 'b' the nx_match format that expresses 'cr' (except for
- * 'cr->priority', because priority is not part of nx_match), plus enough
- * zero bytes to pad the nx_match out to a multiple of 8.  For Flow Mod
- * and Flow Stats Requests messages, a 'cookie' and 'cookie_mask' may be
- * supplied.  Otherwise, 'cookie_mask' should be zero.
+ * 'cr->priority', because priority is not part of nx_match).  For Flow Mod and
+ * Flow Stats Requests messages, a 'cookie' and 'cookie_mask' may be supplied.
+ * Otherwise, 'cookie_mask' should be zero.
  *
  * This function can cause 'b''s data to be reallocated.
  *
@@ -478,9 +549,9 @@ nxm_put_ip(struct ofpbuf *b, const struct cls_rule *cr,
  *
  * If 'cr' is a catch-all rule that matches every packet, then this function
  * appends nothing to 'b' and returns 0. */
-int
-nx_put_match(struct ofpbuf *b, bool oxm, const struct cls_rule *cr,
-             ovs_be64 cookie, ovs_be64 cookie_mask)
+static int
+nx_put_raw(struct ofpbuf *b, bool oxm, const struct cls_rule *cr,
+           ovs_be64 cookie, ovs_be64 cookie_mask)
 {
     const flow_wildcards_t wc = cr->wc.wildcards;
     const struct flow *flow = &cr->flow;
@@ -488,7 +559,7 @@ nx_put_match(struct ofpbuf *b, bool oxm, const struct cls_rule *cr,
     int match_len;
     int i;
 
-    BUILD_ASSERT_DECL(FLOW_WC_SEQ == 12);
+    BUILD_ASSERT_DECL(FLOW_WC_SEQ == 14);
 
     /* Metadata. */
     if (!(wc & FWW_IN_PORT)) {
@@ -510,10 +581,24 @@ nx_put_match(struct ofpbuf *b, bool oxm, const struct cls_rule *cr,
                    ofputil_dl_type_to_openflow(flow->dl_type));
     }
 
-    /* 802.1Q.
-     *
-     * XXX missing OXM support */
-    nxm_put_16m(b, NXM_OF_VLAN_TCI, flow->vlan_tci, cr->wc.vlan_tci_mask);
+    /* 802.1Q. */
+    if (oxm) {
+        ovs_be16 vid = flow->vlan_tci & htons(VLAN_VID_MASK | VLAN_CFI);
+        ovs_be16 mask = cr->wc.vlan_tci_mask & htons(VLAN_VID_MASK | VLAN_CFI);
+
+        if (mask == htons(VLAN_VID_MASK | VLAN_CFI)) {
+            nxm_put_16(b, OXM_OF_VLAN_VID, vid);
+        } else if (mask) {
+            nxm_put_16m(b, OXM_OF_VLAN_VID, vid, mask);
+        }
+
+        if (vid && vlan_tci_to_pcp(cr->wc.vlan_tci_mask)) {
+            nxm_put_8(b, OXM_OF_VLAN_PCP, vlan_tci_to_pcp(flow->vlan_tci));
+        }
+
+    } else {
+        nxm_put_16m(b, NXM_OF_VLAN_TCI, flow->vlan_tci, cr->wc.vlan_tci_mask);
+    }
 
     /* L3. */
     if (!(wc & FWW_DL_TYPE) && flow->dl_type == htons(ETH_TYPE_IP)) {
@@ -535,25 +620,21 @@ nx_put_match(struct ofpbuf *b, bool oxm, const struct cls_rule *cr,
                    oxm ? OXM_OF_ICMPV6_TYPE : NXM_NX_ICMPV6_TYPE,
                    oxm ? OXM_OF_ICMPV6_CODE : NXM_NX_ICMPV6_CODE, oxm);
 
-        if (!(wc & FWW_IPV6_LABEL)) {
-            nxm_put_32(b, oxm ? OXM_OF_IPV6_FLABEL : NXM_NX_IPV6_LABEL,
-                       flow->ipv6_label);
-        }
+        nxm_put_32m(b, oxm ? OXM_OF_IPV6_FLABEL : NXM_NX_IPV6_LABEL,
+                    flow->ipv6_label, cr->wc.ipv6_label_mask);
 
         if (flow->nw_proto == IPPROTO_ICMPV6
             && (flow->tp_src == htons(ND_NEIGHBOR_SOLICIT) ||
                 flow->tp_src == htons(ND_NEIGHBOR_ADVERT))) {
             nxm_put_ipv6(b, oxm ? OXM_OF_IPV6_ND_TARGET : NXM_NX_ND_TARGET,
                          &flow->nd_target, &cr->wc.nd_target_mask);
-            if (!(wc & FWW_ARP_SHA)
-                && flow->tp_src == htons(ND_NEIGHBOR_SOLICIT)) {
-                nxm_put_eth(b, oxm ? OXM_OF_IPV6_ND_SLL : NXM_NX_ND_SLL,
-                            flow->arp_sha);
+            if (flow->tp_src == htons(ND_NEIGHBOR_SOLICIT)) {
+                nxm_put_eth_masked(b, oxm ? OXM_OF_IPV6_ND_SLL : NXM_NX_ND_SLL,
+                                   flow->arp_sha, cr->wc.arp_sha_mask);
             }
-            if (!(wc & FWW_ARP_THA)
-                && flow->tp_src == htons(ND_NEIGHBOR_ADVERT)) {
-                nxm_put_eth(b, oxm ? OXM_OF_IPV6_ND_TLL : NXM_NX_ND_TLL,
-                            flow->arp_tha);
+            if (flow->tp_src == htons(ND_NEIGHBOR_ADVERT)) {
+                nxm_put_eth_masked(b, oxm ? OXM_OF_IPV6_ND_TLL : NXM_NX_ND_TLL,
+                                   flow->arp_tha, cr->wc.arp_tha_mask);
             }
         }
     } else if (!(wc & FWW_DL_TYPE) && flow->dl_type == htons(ETH_TYPE_ARP)) {
@@ -566,14 +647,10 @@ nx_put_match(struct ofpbuf *b, bool oxm, const struct cls_rule *cr,
                     flow->nw_src, cr->wc.nw_src_mask);
         nxm_put_32m(b, oxm ? OXM_OF_ARP_TPA : NXM_OF_ARP_TPA,
                     flow->nw_dst, cr->wc.nw_dst_mask);
-        if (!(wc & FWW_ARP_SHA)) {
-            nxm_put_eth(b, oxm ? OXM_OF_ARP_SHA : NXM_NX_ARP_SHA,
-                        flow->arp_sha);
-        }
-        if (!(wc & FWW_ARP_THA)) {
-            nxm_put_eth(b, oxm ? OXM_OF_ARP_THA : NXM_NX_ARP_THA,
-                        flow->arp_tha);
-        }
+        nxm_put_eth_masked(b, oxm ? OXM_OF_ARP_SHA : NXM_NX_ARP_SHA,
+                           flow->arp_sha, cr->wc.arp_sha_mask);
+        nxm_put_eth_masked(b, oxm ? OXM_OF_ARP_THA : NXM_NX_ARP_THA,
+                           flow->arp_tha, cr->wc.arp_tha_mask);
     }
 
     /* Tunnel ID. */
@@ -592,7 +669,56 @@ nx_put_match(struct ofpbuf *b, bool oxm, const struct cls_rule *cr,
     nxm_put_64m(b, NXM_NX_COOKIE, cookie, cookie_mask);
 
     match_len = b->size - start_len;
+    return match_len;
+}
+
+/* Appends to 'b' the nx_match format that expresses 'cr' (except for
+ * 'cr->priority', because priority is not part of nx_match), plus enough zero
+ * bytes to pad the nx_match out to a multiple of 8.  For Flow Mod and Flow
+ * Stats Requests messages, a 'cookie' and 'cookie_mask' may be supplied.
+ * Otherwise, 'cookie_mask' should be zero.
+ *
+ * This function can cause 'b''s data to be reallocated.
+ *
+ * Returns the number of bytes appended to 'b', excluding padding.  The return
+ * value can be zero if it appended nothing at all to 'b' (which happens if
+ * 'cr' is a catch-all rule that matches every packet). */
+int
+nx_put_match(struct ofpbuf *b, const struct cls_rule *cr,
+             ovs_be64 cookie, ovs_be64 cookie_mask)
+{
+    int match_len = nx_put_raw(b, false, cr, cookie, cookie_mask);
+
     ofpbuf_put_zeros(b, ROUND_UP(match_len, 8) - match_len);
+    return match_len;
+}
+
+
+/* Appends to 'b' an struct ofp11_match_header followed by the oxm format that
+ * expresses 'cr' (except for 'cr->priority', because priority is not part of
+ * nx_match), plus enough zero bytes to pad the data appended out to a multiple
+ * of 8.
+ *
+ * This function can cause 'b''s data to be reallocated.
+ *
+ * Returns the number of bytes appended to 'b', excluding the padding.  Never
+ * returns zero. */
+int
+oxm_put_match(struct ofpbuf *b, const struct cls_rule *cr)
+{
+    int match_len;
+    struct ofp11_match_header *omh;
+    size_t start_len = b->size;
+    ovs_be64 cookie = htonll(0), cookie_mask = htonll(0);
+
+    ofpbuf_put_uninit(b, sizeof *omh);
+    match_len = nx_put_raw(b, true, cr, cookie, cookie_mask) + sizeof *omh;
+    ofpbuf_put_zeros(b, ROUND_UP(match_len, 8) - match_len);
+
+    omh = (struct ofp11_match_header *)((char *)b->data + start_len);
+    omh->type = htons(OFPMT_OXM);
+    omh->length = htons(match_len);
+
     return match_len;
 }
 
@@ -648,6 +774,43 @@ nx_match_to_string(const uint8_t *p, unsigned int match_len)
         ds_put_format(&s, "<%u invalid bytes>", match_len);
     }
 
+    return ds_steal_cstr(&s);
+}
+
+char *
+oxm_match_to_string(const uint8_t *p, unsigned int match_len)
+{
+    const struct ofp11_match_header *omh = (struct ofp11_match_header *)p;
+    uint16_t match_len_;
+    struct ds s;
+
+    ds_init(&s);
+
+    if (match_len < sizeof *omh) {
+        ds_put_format(&s, "<match too short: %u>", match_len);
+        goto err;
+    }
+
+    if (omh->type != htons(OFPMT_OXM)) {
+        ds_put_format(&s, "<bad match type field: %u>", ntohs(omh->type));
+        goto err;
+    }
+
+    match_len_ = ntohs(omh->length);
+    if (match_len_ < sizeof *omh) {
+        ds_put_format(&s, "<match length field too short: %u>", match_len_);
+        goto err;
+    }
+
+    if (match_len_ != match_len) {
+        ds_put_format(&s, "<match length field incorrect: %u != %u>",
+                      match_len_, match_len);
+        goto err;
+    }
+
+    return nx_match_to_string(p + sizeof *omh, match_len - sizeof *omh);
+
+err:
     return ds_steal_cstr(&s);
 }
 
@@ -727,12 +890,11 @@ parse_nxm_field_name(const char *name, int name_len)
 
 /* nx_match_from_string(). */
 
-int
-nx_match_from_string(const char *s, struct ofpbuf *b)
+static int
+nx_match_from_string_raw(const char *s, struct ofpbuf *b)
 {
     const char *full_s = s;
     const size_t start_len = b->size;
-    int match_len;
 
     if (!strcmp(s, "<any>")) {
         /* Ensure that 'b->data' isn't actually null. */
@@ -784,8 +946,32 @@ nx_match_from_string(const char *s, struct ofpbuf *b)
         s++;
     }
 
-    match_len = b->size - start_len;
+    return b->size - start_len;
+}
+
+int
+nx_match_from_string(const char *s, struct ofpbuf *b)
+{
+    int match_len = nx_match_from_string_raw(s, b);
     ofpbuf_put_zeros(b, ROUND_UP(match_len, 8) - match_len);
+    return match_len;
+}
+
+int
+oxm_match_from_string(const char *s, struct ofpbuf *b)
+{
+    int match_len;
+    struct ofp11_match_header *omh;
+    size_t start_len = b->size;
+
+    ofpbuf_put_uninit(b, sizeof *omh);
+    match_len = nx_match_from_string_raw(s, b) + sizeof *omh;
+    ofpbuf_put_zeros(b, ROUND_UP(match_len, 8) - match_len);
+
+    omh = (struct ofp11_match_header *)((char *)b->data + start_len);
+    omh->type = htons(OFPMT_OXM);
+    omh->length = htons(match_len);
+
     return match_len;
 }
 

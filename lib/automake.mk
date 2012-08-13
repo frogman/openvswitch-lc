@@ -100,6 +100,8 @@ lib_libopenvswitch_a_SOURCES = \
 	lib/ofp-actions.h \
 	lib/ofp-errors.c \
 	lib/ofp-errors.h \
+	lib/ofp-msgs.c \
+	lib/ofp-msgs.h \
 	lib/ofp-parse.c \
 	lib/ofp-parse.h \
 	lib/ofp-print.c \
@@ -199,7 +201,9 @@ lib_libopenvswitch_a_SOURCES = \
 	lib/vlog.c \
 	lib/vlog.h \
 	lib/vswitch-idl.c \
-	lib/vswitch-idl.h
+	lib/vswitch-idl.h \
+	lib/worker.c \
+	lib/worker.h
 
 nodist_lib_libopenvswitch_a_SOURCES = \
 	lib/dirs.c
@@ -242,6 +246,9 @@ endif
 
 if HAVE_IF_DL
 lib_libopenvswitch_a_SOURCES += \
+	lib/netdev-bsd.c \
+	lib/rtbsd.c \
+	lib/rtbsd.h \
 	lib/route-table-bsd.c
 endif
 
@@ -272,6 +279,7 @@ MAN_FRAGMENTS += \
 	lib/daemon.man \
 	lib/daemon-syn.man \
 	lib/leak-checker.man \
+	lib/memory-unixctl.man \
 	lib/ovs.tmac \
 	lib/ssl-bootstrap.man \
 	lib/ssl-bootstrap-syn.man \
@@ -305,6 +313,7 @@ lib/dirs.c: lib/dirs.c.in Makefile
 		-e 's,[@]srcdir[@],$(srcdir),g' \
 		-e 's,[@]LOGDIR[@],"$(LOGDIR)",g' \
 		-e 's,[@]RUNDIR[@],"$(RUNDIR)",g' \
+		-e 's,[@]DBDIR[@],"$(DBDIR)",g' \
 		-e 's,[@]bindir[@],"$(bindir)",g' \
 		-e 's,[@]sysconfdir[@],"$(sysconfdir)",g' \
 		-e 's,[@]pkgdatadir[@],"$(pkgdatadir)",g') \
@@ -318,11 +327,19 @@ $(srcdir)/lib/ofp-errors.inc: \
 $(srcdir)/lib/ofp-errors.c: $(srcdir)/lib/ofp-errors.inc
 EXTRA_DIST += build-aux/extract-ofp-errors lib/ofp-errors.inc
 
+$(srcdir)/lib/ofp-msgs.inc: \
+	lib/ofp-msgs.h $(srcdir)/build-aux/extract-ofp-msgs
+	$(run_python) $(srcdir)/build-aux/extract-ofp-msgs \
+		$(srcdir)/lib/ofp-msgs.h $@ > $@.tmp && mv $@.tmp $@
+$(srcdir)/lib/ofp-msgs.c: $(srcdir)/lib/ofp-msgs.inc
+EXTRA_DIST += build-aux/extract-ofp-msgs lib/ofp-msgs.inc
+
 INSTALL_DATA_LOCAL += lib-install-data-local
 lib-install-data-local:
 	$(MKDIR_P) $(DESTDIR)$(RUNDIR)
 	$(MKDIR_P) $(DESTDIR)$(PKIDIR)
 	$(MKDIR_P) $(DESTDIR)$(LOGDIR)
+	$(MKDIR_P) $(DESTDIR)$(DBDIR)
 
 if !USE_LINKER_SECTIONS
 # All distributed sources, with names adjust properly for referencing

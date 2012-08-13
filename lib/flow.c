@@ -26,6 +26,7 @@
 #include <string.h>
 #include "byte-order.h"
 #include "coverage.h"
+#include "csum.h"
 #include "dynamic-string.h"
 #include "hash.h"
 #include "ofpbuf.h"
@@ -179,7 +180,7 @@ parse_ipv6(struct ofpbuf *packet, struct flow *flow)
                 || (nexthdr == IPPROTO_DSTOPTS)) {
             /* These headers, while different, have the fields we care about
              * in the same location and with the same interpretation. */
-            const struct ip6_ext *ext_hdr = (struct ip6_ext *)packet->data;
+            const struct ip6_ext *ext_hdr = packet->data;
             nexthdr = ext_hdr->ip6e_nxt;
             if (!ofpbuf_try_pull(packet, (ext_hdr->ip6e_len + 1) * 8)) {
                 return EINVAL;
@@ -189,13 +190,13 @@ parse_ipv6(struct ofpbuf *packet, struct flow *flow)
              * we care about are in the same location as the generic
              * option header--only the header length is calculated
              * differently. */
-            const struct ip6_ext *ext_hdr = (struct ip6_ext *)packet->data;
+            const struct ip6_ext *ext_hdr = packet->data;
             nexthdr = ext_hdr->ip6e_nxt;
             if (!ofpbuf_try_pull(packet, (ext_hdr->ip6e_len + 2) * 4)) {
                return EINVAL;
             }
         } else if (nexthdr == IPPROTO_FRAGMENT) {
-            const struct ip6_frag *frag_hdr = (struct ip6_frag *)packet->data;
+            const struct ip6_frag *frag_hdr = packet->data;
 
             nexthdr = frag_hdr->ip6f_nxt;
             if (!ofpbuf_try_pull(packet, sizeof *frag_hdr)) {
@@ -444,7 +445,7 @@ flow_zero_wildcards(struct flow *flow, const struct flow_wildcards *wildcards)
     const flow_wildcards_t wc = wildcards->wildcards;
     int i;
 
-    BUILD_ASSERT_DECL(FLOW_WC_SEQ == 12);
+    BUILD_ASSERT_DECL(FLOW_WC_SEQ == 14);
 
     for (i = 0; i < FLOW_N_REGS; i++) {
         flow->regs[i] &= wildcards->reg_masks[i];
@@ -467,9 +468,7 @@ flow_zero_wildcards(struct flow *flow, const struct flow_wildcards *wildcards)
     if (wc & FWW_NW_PROTO) {
         flow->nw_proto = 0;
     }
-    if (wc & FWW_IPV6_LABEL) {
-        flow->ipv6_label = htonl(0);
-    }
+    flow->ipv6_label &= wildcards->ipv6_label_mask;
     if (wc & FWW_NW_DSCP) {
         flow->nw_tos &= ~IP_DSCP_MASK;
     }
@@ -480,12 +479,8 @@ flow_zero_wildcards(struct flow *flow, const struct flow_wildcards *wildcards)
         flow->nw_ttl = 0;
     }
     flow->nw_frag &= wildcards->nw_frag_mask;
-    if (wc & FWW_ARP_SHA) {
-        memset(flow->arp_sha, 0, sizeof flow->arp_sha);
-    }
-    if (wc & FWW_ARP_THA) {
-        memset(flow->arp_tha, 0, sizeof flow->arp_tha);
-    }
+    eth_addr_bitand(flow->arp_sha, wildcards->arp_sha_mask, flow->arp_sha);
+    eth_addr_bitand(flow->arp_tha, wildcards->arp_tha_mask, flow->arp_tha);
     flow->ipv6_src = ipv6_addr_bitand(&flow->ipv6_src,
             &wildcards->ipv6_src_mask);
     flow->ipv6_dst = ipv6_addr_bitand(&flow->ipv6_dst,
@@ -499,7 +494,7 @@ flow_zero_wildcards(struct flow *flow, const struct flow_wildcards *wildcards)
 void
 flow_get_metadata(const struct flow *flow, struct flow_metadata *fmd)
 {
-    BUILD_ASSERT_DECL(FLOW_WC_SEQ == 12);
+    BUILD_ASSERT_DECL(FLOW_WC_SEQ == 14);
 
     fmd->tun_id = flow->tun_id;
     fmd->tun_id_mask = htonll(UINT64_MAX);
@@ -593,7 +588,7 @@ flow_print(FILE *stream, const struct flow *flow)
 void
 flow_wildcards_init_catchall(struct flow_wildcards *wc)
 {
-    BUILD_ASSERT_DECL(FLOW_WC_SEQ == 12);
+    BUILD_ASSERT_DECL(FLOW_WC_SEQ == 14);
 
     wc->wildcards = FWW_ALL;
     wc->tun_id_mask = htonll(0);
@@ -601,6 +596,7 @@ flow_wildcards_init_catchall(struct flow_wildcards *wc)
     wc->nw_dst_mask = htonl(0);
     wc->ipv6_src_mask = in6addr_any;
     wc->ipv6_dst_mask = in6addr_any;
+    wc->ipv6_label_mask = htonl(0);
     wc->nd_target_mask = in6addr_any;
     memset(wc->reg_masks, 0, sizeof wc->reg_masks);
     wc->metadata_mask = htonll(0);
@@ -610,6 +606,8 @@ flow_wildcards_init_catchall(struct flow_wildcards *wc)
     wc->tp_dst_mask = htons(0);
     memset(wc->dl_src_mask, 0, ETH_ADDR_LEN);
     memset(wc->dl_dst_mask, 0, ETH_ADDR_LEN);
+    memset(wc->arp_sha_mask, 0, ETH_ADDR_LEN);
+    memset(wc->arp_tha_mask, 0, ETH_ADDR_LEN);
     memset(wc->zeros, 0, sizeof wc->zeros);
 }
 
@@ -618,7 +616,7 @@ flow_wildcards_init_catchall(struct flow_wildcards *wc)
 void
 flow_wildcards_init_exact(struct flow_wildcards *wc)
 {
-    BUILD_ASSERT_DECL(FLOW_WC_SEQ == 12);
+    BUILD_ASSERT_DECL(FLOW_WC_SEQ == 14);
 
     wc->wildcards = 0;
     wc->tun_id_mask = htonll(UINT64_MAX);
@@ -626,6 +624,7 @@ flow_wildcards_init_exact(struct flow_wildcards *wc)
     wc->nw_dst_mask = htonl(UINT32_MAX);
     wc->ipv6_src_mask = in6addr_exact;
     wc->ipv6_dst_mask = in6addr_exact;
+    wc->ipv6_label_mask = htonl(UINT32_MAX);
     wc->nd_target_mask = in6addr_exact;
     memset(wc->reg_masks, 0xff, sizeof wc->reg_masks);
     wc->metadata_mask = htonll(UINT64_MAX);
@@ -635,6 +634,8 @@ flow_wildcards_init_exact(struct flow_wildcards *wc)
     wc->tp_dst_mask = htons(UINT16_MAX);
     memset(wc->dl_src_mask, 0xff, ETH_ADDR_LEN);
     memset(wc->dl_dst_mask, 0xff, ETH_ADDR_LEN);
+    memset(wc->arp_sha_mask, 0xff, ETH_ADDR_LEN);
+    memset(wc->arp_tha_mask, 0xff, ETH_ADDR_LEN);
     memset(wc->zeros, 0, sizeof wc->zeros);
 }
 
@@ -645,7 +646,7 @@ flow_wildcards_is_exact(const struct flow_wildcards *wc)
 {
     int i;
 
-    BUILD_ASSERT_DECL(FLOW_WC_SEQ == 12);
+    BUILD_ASSERT_DECL(FLOW_WC_SEQ == 14);
 
     if (wc->wildcards
         || wc->tun_id_mask != htonll(UINT64_MAX)
@@ -657,8 +658,11 @@ flow_wildcards_is_exact(const struct flow_wildcards *wc)
         || wc->metadata_mask != htonll(UINT64_MAX)
         || !eth_mask_is_exact(wc->dl_src_mask)
         || !eth_mask_is_exact(wc->dl_dst_mask)
+        || !eth_mask_is_exact(wc->arp_sha_mask)
+        || !eth_mask_is_exact(wc->arp_tha_mask)
         || !ipv6_mask_is_exact(&wc->ipv6_src_mask)
         || !ipv6_mask_is_exact(&wc->ipv6_dst_mask)
+        || wc->ipv6_label_mask != htonl(UINT32_MAX)
         || !ipv6_mask_is_exact(&wc->nd_target_mask)
         || wc->nw_frag_mask != UINT8_MAX) {
         return false;
@@ -680,7 +684,7 @@ flow_wildcards_is_catchall(const struct flow_wildcards *wc)
 {
     int i;
 
-    BUILD_ASSERT_DECL(FLOW_WC_SEQ == 12);
+    BUILD_ASSERT_DECL(FLOW_WC_SEQ == 14);
 
     if (wc->wildcards != FWW_ALL
         || wc->tun_id_mask != htonll(0)
@@ -692,8 +696,11 @@ flow_wildcards_is_catchall(const struct flow_wildcards *wc)
         || wc->metadata_mask != htonll(0)
         || !eth_addr_is_zero(wc->dl_src_mask)
         || !eth_addr_is_zero(wc->dl_dst_mask)
+        || !eth_addr_is_zero(wc->arp_sha_mask)
+        || !eth_addr_is_zero(wc->arp_tha_mask)
         || !ipv6_mask_is_any(&wc->ipv6_src_mask)
         || !ipv6_mask_is_any(&wc->ipv6_dst_mask)
+        || wc->ipv6_label_mask != htonl(0)
         || !ipv6_mask_is_any(&wc->nd_target_mask)
         || wc->nw_frag_mask != 0) {
         return false;
@@ -718,7 +725,7 @@ flow_wildcards_combine(struct flow_wildcards *dst,
 {
     int i;
 
-    BUILD_ASSERT_DECL(FLOW_WC_SEQ == 12);
+    BUILD_ASSERT_DECL(FLOW_WC_SEQ == 14);
 
     dst->wildcards = src1->wildcards | src2->wildcards;
     dst->tun_id_mask = src1->tun_id_mask & src2->tun_id_mask;
@@ -728,6 +735,7 @@ flow_wildcards_combine(struct flow_wildcards *dst,
                                         &src2->ipv6_src_mask);
     dst->ipv6_dst_mask = ipv6_addr_bitand(&src1->ipv6_dst_mask,
                                         &src2->ipv6_dst_mask);
+    dst->ipv6_label_mask = src1->ipv6_label_mask & src2->ipv6_label_mask;
     dst->nd_target_mask = ipv6_addr_bitand(&src1->nd_target_mask,
                                         &src2->nd_target_mask);
     for (i = 0; i < FLOW_N_REGS; i++) {
@@ -737,8 +745,11 @@ flow_wildcards_combine(struct flow_wildcards *dst,
     dst->vlan_tci_mask = src1->vlan_tci_mask & src2->vlan_tci_mask;
     dst->tp_src_mask = src1->tp_src_mask & src2->tp_src_mask;
     dst->tp_dst_mask = src1->tp_dst_mask & src2->tp_dst_mask;
+    dst->nw_frag_mask = src1->nw_frag_mask & src2->nw_frag_mask;
     eth_addr_bitand(src1->dl_src_mask, src2->dl_src_mask, dst->dl_src_mask);
     eth_addr_bitand(src1->dl_dst_mask, src2->dl_dst_mask, dst->dl_dst_mask);
+    eth_addr_bitand(src1->arp_sha_mask, src2->arp_sha_mask, dst->arp_sha_mask);
+    eth_addr_bitand(src1->arp_tha_mask, src2->arp_tha_mask, dst->arp_tha_mask);
 }
 
 /* Returns a hash of the wildcards in 'wc'. */
@@ -748,7 +759,7 @@ flow_wildcards_hash(const struct flow_wildcards *wc, uint32_t basis)
     /* If you change struct flow_wildcards and thereby trigger this
      * assertion, please check that the new struct flow_wildcards has no holes
      * in it before you update the assertion. */
-    BUILD_ASSERT_DECL(sizeof *wc == 96 + FLOW_N_REGS * 4);
+    BUILD_ASSERT_DECL(sizeof *wc == 112 + FLOW_N_REGS * 4);
     return hash_bytes(wc, sizeof *wc, basis);
 }
 
@@ -760,7 +771,7 @@ flow_wildcards_equal(const struct flow_wildcards *a,
 {
     int i;
 
-    BUILD_ASSERT_DECL(FLOW_WC_SEQ == 12);
+    BUILD_ASSERT_DECL(FLOW_WC_SEQ == 14);
 
     if (a->wildcards != b->wildcards
         || a->tun_id_mask != b->tun_id_mask
@@ -770,11 +781,15 @@ flow_wildcards_equal(const struct flow_wildcards *a,
         || a->metadata_mask != b->metadata_mask
         || !ipv6_addr_equals(&a->ipv6_src_mask, &b->ipv6_src_mask)
         || !ipv6_addr_equals(&a->ipv6_dst_mask, &b->ipv6_dst_mask)
+        || a->ipv6_label_mask != b->ipv6_label_mask
         || !ipv6_addr_equals(&a->nd_target_mask, &b->nd_target_mask)
         || a->tp_src_mask != b->tp_src_mask
         || a->tp_dst_mask != b->tp_dst_mask
+        || a->nw_frag_mask != b->nw_frag_mask
         || !eth_addr_equals(a->dl_src_mask, b->dl_src_mask)
-        || !eth_addr_equals(a->dl_dst_mask, b->dl_dst_mask)) {
+        || !eth_addr_equals(a->dl_dst_mask, b->dl_dst_mask)
+        || !eth_addr_equals(a->arp_sha_mask, b->arp_sha_mask)
+        || !eth_addr_equals(a->arp_tha_mask, b->arp_tha_mask)) {
         return false;
     }
 
@@ -797,7 +812,7 @@ flow_wildcards_has_extra(const struct flow_wildcards *a,
     uint8_t eth_masked[ETH_ADDR_LEN];
     struct in6_addr ipv6_masked;
 
-    BUILD_ASSERT_DECL(FLOW_WC_SEQ == 12);
+    BUILD_ASSERT_DECL(FLOW_WC_SEQ == 14);
 
     for (i = 0; i < FLOW_N_REGS; i++) {
         if ((a->reg_masks[i] & b->reg_masks[i]) != b->reg_masks[i]) {
@@ -812,6 +827,16 @@ flow_wildcards_has_extra(const struct flow_wildcards *a,
 
     eth_addr_bitand(a->dl_dst_mask, b->dl_dst_mask, eth_masked);
     if (!eth_addr_equals(eth_masked, b->dl_dst_mask)) {
+        return true;
+    }
+
+    eth_addr_bitand(a->arp_sha_mask, b->arp_sha_mask, eth_masked);
+    if (!eth_addr_equals(eth_masked, b->arp_sha_mask)) {
+        return true;
+    }
+
+    eth_addr_bitand(a->arp_tha_mask, b->arp_tha_mask, eth_masked);
+    if (!eth_addr_equals(eth_masked, b->arp_tha_mask)) {
         return true;
     }
 
@@ -834,10 +859,12 @@ flow_wildcards_has_extra(const struct flow_wildcards *a,
             || (a->tun_id_mask & b->tun_id_mask) != b->tun_id_mask
             || (a->nw_src_mask & b->nw_src_mask) != b->nw_src_mask
             || (a->nw_dst_mask & b->nw_dst_mask) != b->nw_dst_mask
+            || (a->ipv6_label_mask & b->ipv6_label_mask) != b->ipv6_label_mask
             || (a->vlan_tci_mask & b->vlan_tci_mask) != b->vlan_tci_mask
             || (a->metadata_mask & b->metadata_mask) != b->metadata_mask
             || (a->tp_src_mask & b->tp_src_mask) != b->tp_src_mask
-            || (a->tp_dst_mask & b->tp_dst_mask) != b->tp_dst_mask);
+            || (a->tp_dst_mask & b->tp_dst_mask) != b->tp_dst_mask
+            || (a->nw_frag_mask & b->nw_frag_mask) != b->nw_frag_mask);
 }
 
 /* Sets the wildcard mask for register 'idx' in 'wc' to 'mask'.
@@ -945,7 +972,7 @@ flow_hash_fields_valid(enum nx_hash_fields fields)
  *
  *      - Other values of 'vid' should not be used. */
 void
-flow_set_vlan_vid(struct flow *flow, ovs_be16 vid)
+flow_set_dl_vlan(struct flow *flow, ovs_be16 vid)
 {
     if (vid == htons(OFP10_VLAN_NONE)) {
         flow->vlan_tci = htons(0);
@@ -954,6 +981,17 @@ flow_set_vlan_vid(struct flow *flow, ovs_be16 vid)
         flow->vlan_tci &= ~htons(VLAN_VID_MASK);
         flow->vlan_tci |= htons(VLAN_CFI) | vid;
     }
+}
+
+/* Sets the VLAN VID that 'flow' matches to 'vid', which is interpreted as an
+ * OpenFlow 1.2 "vlan_vid" value, that is, the low 13 bits of 'vlan_tci' (VID
+ * plus CFI). */
+void
+flow_set_vlan_vid(struct flow *flow, ovs_be16 vid)
+{
+    ovs_be16 mask = htons(VLAN_VID_MASK | VLAN_CFI);
+    flow->vlan_tci &= ~mask;
+    flow->vlan_tci |= vid & mask;
 }
 
 /* Sets the VLAN PCP that 'flow' matches to 'pcp', which should be in the
@@ -975,7 +1013,7 @@ flow_set_vlan_pcp(struct flow *flow, uint8_t pcp)
  * 'flow'.
  *
  * (This is useful only for testing, obviously, and the packet isn't really
- * valid.  It hasn't got any checksums filled in, for one, and lots of fields
+ * valid. It hasn't got some checksums filled in, for one, and lots of fields
  * are just zeroed.) */
 void
 flow_compose(struct ofpbuf *b, const struct flow *flow)
@@ -1028,11 +1066,14 @@ flow_compose(struct ofpbuf *b, const struct flow *flow)
                 b->l4 = icmp = ofpbuf_put_zeros(b, sizeof *icmp);
                 icmp->icmp_type = ntohs(flow->tp_src);
                 icmp->icmp_code = ntohs(flow->tp_dst);
+                icmp->icmp_csum = csum(icmp, ICMP_HEADER_LEN);
             }
         }
 
+        ip = b->l3;
         ip->ip_tot_len = htons((uint8_t *) b->data + b->size
                                - (uint8_t *) b->l3);
+        ip->ip_csum = csum(ip, sizeof *ip);
     } else if (flow->dl_type == htons(ETH_TYPE_IPV6)) {
         /* XXX */
     } else if (flow->dl_type == htons(ETH_TYPE_ARP)) {
