@@ -1051,7 +1051,7 @@ ofproto_run(struct ofproto *p)
     struct ofport *ofport;
     int error;
 
-    error = p->ofproto_class->run(p);
+    error = p->ofproto_class->run(p); //should call connmgr_send_packet_in() to connect the controller
     if (error && error != EAGAIN) {
         VLOG_ERR_RL(&rl, "%s: run failed (%s)", p->name, strerror(error));
     }
@@ -1084,7 +1084,7 @@ ofproto_run(struct ofproto *p)
     sset_destroy(&changed_netdevs);
 
     switch (p->state) {
-    case S_OPENFLOW: //of commands
+    case S_OPENFLOW: //of commands, run its parser
         connmgr_run(p->connmgr, handle_openflow);
         break;
 
@@ -1109,7 +1109,7 @@ ofproto_run(struct ofproto *p)
         NOT_REACHED();
     }
 
-    if (time_msec() >= p->next_op_report) {
+    if (time_msec() >= p->next_op_report) {//time to report ops
         long long int ago = (time_msec() - p->first_op) / 1000;
         long long int interval = (p->last_op - p->first_op) / 1000;
         struct ds s;
@@ -3683,6 +3683,11 @@ handle_flow_monitor_cancel(struct ofconn *ofconn, const struct ofp_header *oh)
     return 0;
 }
 
+/**
+ * handle openflow msg
+ * @param ofconn: openflow connection
+ * @param msg: the msg
+ */
 static enum ofperr
 handle_openflow__(struct ofconn *ofconn, const struct ofpbuf *msg)
 {

@@ -260,10 +260,10 @@ fork_and_clean_up(void)
     pid = fork();
     if (pid > 0) {
         /* Running in parent process. */
-        fatal_signal_fork();
+        fatal_signal_fork(); //clear all fatal signal hooks
     } else if (!pid) {
         /* Running in child process. */
-        time_postfork();
+        time_postfork(); //a interval timer
         lockfile_postfork();
     } else {
         VLOG_FATAL("fork failed (%s)", strerror(errno));

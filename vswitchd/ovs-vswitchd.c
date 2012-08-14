@@ -84,7 +84,7 @@ main(int argc, char *argv[])
     proctitle_init(argc, argv); //copy args from its orginal location
     set_program_name(argv[0]);
     stress_init_command(); //register stress cmds to the commands
-    remote = parse_options(argc, argv, &unixctl_path); //return db.sock
+    remote = parse_options(argc, argv, &unixctl_path); //remote stores unix domain sock file name, unixctl stores punix:...db.sock
     signal(SIGPIPE, SIG_IGN); //ignore the pipe read termination signal
     sighup = signal_register(SIGHUP); //register the SIGHUP signal handler
     process_init(); //create notification pipe and register the child termination signal
@@ -102,20 +102,20 @@ main(int argc, char *argv[])
 #endif
     }
 
-    worker_start(); //start a worker subprocess, call worker_main (receive data and process)
+    worker_start(); //start a worker subprocess, call worker_main (receive data and process), init a pipe: parent send data to the worker?
 
-    retval = unixctl_server_create(unixctl_path, &unixctl);//create a unixctl server listing on path
+    retval = unixctl_server_create(unixctl_path, &unixctl);//create a unixctl server (unixctl) listing on unixctl_path
     if (retval) {
         exit(EXIT_FAILURE);
     }
     unixctl_command_register("exit", "", 0, 0, ovs_vswitchd_exit, &exiting);
 
-    bridge_init(remote);//init the bridge, configure from the ovsdb server, register ctrl commands
+    bridge_init(remote);//init the bridge, get config from the ovsdb server, and register unix ctl cmds: qos, bridge
     free(remote);
 
     exiting = false;
     while (!exiting) {
-        worker_run(); //reply with the worker subprocess
+        worker_run(); //process the RPC reply from the worker subprocess, call its cb_reply callback
         if (signal_poll(sighup)) {
             vlog_reopen_log_file();
         }
@@ -128,13 +128,13 @@ main(int argc, char *argv[])
             memory_report(&usage);
             simap_destroy(&usage);
         }
-        bridge_run_fast(); //check each bridge and run it's handler
-        bridge_run(); //main process part, process of pkts
-        bridge_run_fast();
-        unixctl_server_run(unixctl);
-        netdev_run(); //run periodic functions by all network devices.
+        bridge_run_fast(); //check each bridge and run it's ofproto->run with least possible latency
+        bridge_run(); //main process part, handling pkts
+        bridge_run_fast(); //could be run to check the bridge multi-times
+        unixctl_server_run(unixctl); //db.sock server
+        netdev_run(); //perform the run() of each class in netdev_classes
 
-        worker_wait();
+        worker_wait(); //poll loop to wake up if there's RPC replies
         signal_wait(sighup);
         memory_wait();
         bridge_wait();
@@ -204,7 +204,7 @@ parse_options(int argc, char *argv[], char **unixctl_pathp)
             break;
 
         case OPT_UNIXCTL:
-            *unixctl_pathp = optarg;
+            *unixctl_pathp = optarg; //override default control socket name
             break;
 
         VLOG_OPTION_HANDLERS

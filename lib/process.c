@@ -65,7 +65,7 @@ static void sigchld_handler(int signr OVS_UNUSED);
 static bool is_member(int x, const int *array, size_t);
 
 /* Initializes the process subsystem (if it is not already initialized).  Calls
- * exit() if initialization fails.
+ * exit() if initialization fails, including setup fds, and prepare for the SIGCHLD signal
  *
  * Calling this function is optional; it will be called automatically by
  * process_start() if necessary.  Calling it explicitly allows the client to
@@ -88,9 +88,9 @@ process_init(void)
 
     /* Set up child termination signal handler. */
     memset(&sa, 0, sizeof sa);
-    sa.sa_handler = sigchld_handler;
+    sa.sa_handler = sigchld_handler; //run each member process in all_processes
     sigemptyset(&sa.sa_mask);
-    sa.sa_flags = SA_NOCLDSTOP | SA_RESTART;
+    sa.sa_flags = SA_NOCLDSTOP | SA_RESTART; //only generate SIGCHLD with real exit, not stop | restart interruptible functions such as the slow system calls
     xsigaction(SIGCHLD, &sa, NULL); //with SIGCHILD, run &sa
 }
 
@@ -594,7 +594,7 @@ process_run_capture(char **argv, char **stdout_log, char **stderr_log,
 }
 
 /**
- * SIGCHLD signal handler.
+ * SIGCHLD signal handler: run each process in all_processes
  */
 static void
 sigchld_handler(int signr OVS_UNUSED)

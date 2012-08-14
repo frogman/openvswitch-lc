@@ -100,8 +100,8 @@ worker_start(void)
         /* In child (worker) process. */
         daemonize_post_detach();
         close(work_fds[0]);
-        worker_main(work_fds[1]);
-        NOT_REACHED();
+        worker_main(work_fds[1]); //receive data from work_fds[1]
+        NOT_REACHED(); //abort()
     }
 
     /* In parent (main) process. */
@@ -147,8 +147,8 @@ worker_run(void)
 void
 worker_wait(void)
 {
-    if (worker_is_running()) {
-        poll_fd_wait(client_sock, POLLIN);
+    if (worker_is_running()) { //there is worker started
+        poll_fd_wait(client_sock, POLLIN); //register client_sock as waiting for the POLLIN event
     }
 }
 

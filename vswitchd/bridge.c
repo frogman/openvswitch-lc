@@ -2018,10 +2018,10 @@ bridge_run(void)
     bool vlan_splinters_changed;
     struct bridge *br;
 
-    ovsrec_open_vswitch_init((struct ovsrec_open_vswitch *) &null_cfg);
+    ovsrec_open_vswitch_init((struct ovsrec_open_vswitch *) &null_cfg); //init an ovs table
 
     /* (Re)configure if necessary. */
-    if (!reconfiguring) {
+    if (!reconfiguring) { //reconfiguring == false when inited
         ovsdb_idl_run(idl);
 
         if (ovsdb_idl_is_lock_contended(idl)) {
@@ -2039,7 +2039,7 @@ bridge_run(void)
             return;
         }
     }
-    cfg = ovsrec_open_vswitch_first(idl);
+    cfg = ovsrec_open_vswitch_first(idl); //get the openvswitch configuration
 
     /* Let each bridge do the work that it needs to do. */
     HMAP_FOR_EACH (br, node, &all_bridges) {

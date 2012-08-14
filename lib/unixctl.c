@@ -335,6 +335,9 @@ kill_connection(struct unixctl_conn *conn)
     free(conn);
 }
 
+/**
+ * accept server
+ */
 void
 unixctl_server_run(struct unixctl_server *server)
 {
