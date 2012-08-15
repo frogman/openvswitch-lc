@@ -408,7 +408,7 @@ rxbuf_run(struct rxbuf *rx, int sock, size_t header_len)
             ofpbuf_prealloc_tailroom(&rx->header, header_len);
 
             retval = recv_data_and_fds(sock, rx->header.data, header_len,
-                                       rx->fds, &rx->n_fds);
+                                       rx->fds, &rx->n_fds); //read data from sock, write into rx
             if (retval <= 0) {
                 return retval ? -retval : EOF;
             }

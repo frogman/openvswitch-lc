@@ -36,6 +36,9 @@ ovs-vswitchd --pidfile --detach
 ovs-vsctl add-br br0
 ovs-vsctl list-br
 
+#configure controller on localhost:6633
+ovs-vsctl set-controller br0 tcp:127.0.0.1
+
 #stop the ovs daemon
 kill `cd /usr/local/var/run/openvswitch && cat ovsdb-server.pid ovs-vswitchd.pid`
 

@@ -88,7 +88,7 @@ main(int argc, char *argv[])
     signal(SIGPIPE, SIG_IGN); //ignore the pipe read termination signal
     sighup = signal_register(SIGHUP); //register the SIGHUP signal handler
     process_init(); //create notification pipe and register the child termination signal
-    ovsrec_init(); //todo: make clear here
+    ovsrec_init(); //init the ovs configuration tables
 
     daemonize_start(); //daemonize the process
 
@@ -104,7 +104,7 @@ main(int argc, char *argv[])
 
     worker_start(); //start a worker subprocess, call worker_main (receive data and process), init a pipe: parent send data to the worker?
 
-    retval = unixctl_server_create(unixctl_path, &unixctl);//create a unixctl server (unixctl) listing on unixctl_path
+    retval = unixctl_server_create(unixctl_path, &unixctl);//create a punixctl server (&unixctl) listing on unixctl_path
     if (retval) {
         exit(EXIT_FAILURE);
     }
@@ -199,7 +199,7 @@ parse_options(int argc, char *argv[], char **unixctl_pathp)
             ovs_print_version(OFP10_VERSION, OFP10_VERSION);
             exit(EXIT_SUCCESS);
 
-        case OPT_MLOCKALL:
+        case OPT_MLOCKALL: //lock all the memory into physical RAM
             want_mlockall = true;
             break;
 
