@@ -153,7 +153,7 @@ static struct vport *netdev_create(const struct vport_parms *parms)
 	}
 
 	err = netdev_rx_handler_register(netdev_vport->dev, netdev_frame_hook,
-					 vport);
+					 vport); //register the receive handler (netdev_frame_hook) for the dev
 	if (err)
 		goto error_put;
 
@@ -246,7 +246,12 @@ int ovs_netdev_get_mtu(const struct vport *vport)
 	return netdev_vport->dev->mtu;
 }
 
-/* Must be called with rcu_read_lock. */
+/**
+ * Must be called with rcu_read_lock.
+ * when network device receive pkt, will call this function.
+ * \param vport: vport that receives pkt
+ * \param skb: pkt buffer
+ */
 static void netdev_port_receive(struct vport *vport, struct sk_buff *skb)
 {
 	if (unlikely(!vport)) {
@@ -270,7 +275,7 @@ static void netdev_port_receive(struct vport *vport, struct sk_buff *skb)
 	}
 	vlan_copy_skb_tci(skb);
 
-	ovs_vport_receive(vport, skb);
+	ovs_vport_receive(vport, skb); //send the skb to higher level
 }
 
 static unsigned int packet_length(const struct sk_buff *skb)

@@ -86,7 +86,7 @@ signal_register(int signr)
     /* Set up signal handler. */
     assert(signr >= 1 && signr < N_SIGNALS);
     memset(&sa, 0, sizeof sa);
-    sa.sa_handler = signal_handler;
+    sa.sa_handler = signal_handler; //write 1-byte "" to fds[1]
     sigemptyset(&sa.sa_mask);
     sa.sa_flags = SA_RESTART;
     xsigaction(signr, &sa, &s->saved_sa); //sa is the new action, saved_sa is the old one

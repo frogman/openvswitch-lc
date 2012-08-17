@@ -121,8 +121,10 @@ int nlmsg_notify(struct sock *sk, struct sk_buff *skb, u32 pid,
 }
 #endif
 
-/* This is analogous to rtnl_notify() but uses genl_sock instead of rtnl.
- *
+/** This is analogous to rtnl_notify() but uses genl_sock instead of rtnl.
+ * @param skb: notification message.
+ * @param pid: destination netlink pid for reports or 0
+ * @param group: destination multicast group or 0
  * This is not (yet) in any upstream kernel. */
 void genl_notify(struct sk_buff *skb, struct net *net, u32 pid, u32 group,
 		 struct nlmsghdr *nlh, gfp_t flags)

@@ -395,7 +395,7 @@ static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
 			prev_port = nla_get_u32(a);
 			break;
 
-		case OVS_ACTION_ATTR_USERSPACE: //userspace?
+		case OVS_ACTION_ATTR_USERSPACE: //send to userspace
 			output_userspace(dp, skb, a);
 			break;
 

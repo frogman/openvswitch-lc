@@ -791,6 +791,10 @@ u32 ovs_flow_hash(const struct sw_flow_key *key, int key_len)
 	return jhash2((u32 *)key, DIV_ROUND_UP(key_len, sizeof(u32)), 0);
 }
 
+/**
+ * lookup a key in the flow table
+ * @return: the right flow or NULL.
+ */
 struct sw_flow *ovs_flow_tbl_lookup(struct flow_table *table,
 				struct sw_flow_key *key, int key_len)
 {
@@ -802,6 +806,7 @@ struct sw_flow *ovs_flow_tbl_lookup(struct flow_table *table,
 	hash = ovs_flow_hash(key, key_len);
 
 	head = find_bucket(table, hash);
+    /*run a linear search here to find the flow*/
 	hlist_for_each_entry_rcu(flow, n, head, hash_node[table->node_ver]) {
 
 		if (flow->hash == hash &&

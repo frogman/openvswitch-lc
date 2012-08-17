@@ -84,7 +84,7 @@ main(int argc, char *argv[])
     proctitle_init(argc, argv); //copy args from its orginal location
     set_program_name(argv[0]);
     stress_init_command(); //register stress cmds to the commands
-    remote = parse_options(argc, argv, &unixctl_path); //remote stores unix domain sock file name, unixctl stores punix:...db.sock
+    remote = parse_options(argc, argv, &unixctl_path); //remote stores the db sock (punix:...db.sock), unixctl stores the control server: ovsd works as a client to receive cmds from servers such as ovs-appctl
     signal(SIGPIPE, SIG_IGN); //ignore the pipe read termination signal
     sighup = signal_register(SIGHUP); //register the SIGHUP signal handler
     process_init(); //create notification pipe and register the child termination signal
@@ -104,7 +104,7 @@ main(int argc, char *argv[])
 
     worker_start(); //start a worker subprocess, call worker_main (receive data and process), init a pipe: parent send data to the worker?
 
-    retval = unixctl_server_create(unixctl_path, &unixctl);//create a punixctl server (&unixctl) listing on unixctl_path
+    retval = unixctl_server_create(unixctl_path, &unixctl);//create a punixctl server (&unixctl) listing on unixctl_path (ovswitchd.pid.ctl)
     if (retval) {
         exit(EXIT_FAILURE);
     }
@@ -208,7 +208,7 @@ parse_options(int argc, char *argv[], char **unixctl_pathp)
             break;
 
         VLOG_OPTION_HANDLERS
-        DAEMON_OPTION_HANDLERS
+        DAEMON_OPTION_HANDLERS //detach, pid, chdir, etc.
         LEAK_CHECKER_OPTION_HANDLERS
         STREAM_SSL_OPTION_HANDLERS
 

@@ -34,6 +34,11 @@ static struct completion done;
 
 static struct sk_buff *genlmsg_skb;
 
+/**
+ * the callback function of GENL_EXEC_RUN cmd.
+ * @param dummy: the message buffer which triggered the handler
+ * @param dummy2: related gn information
+ */
 static int genl_exec_cmd(struct sk_buff *dummy, struct genl_info *dummy2)
 {
 	genl_exec_function_ret = genl_exec_function(genl_exec_data);
@@ -47,27 +52,27 @@ enum exec_cmd {
 };
 
 /**
- * struct genl_family
+ * struct genl_family: the family and its associated communication channel
  * \id: protocol family idenfitier
  * \name: name of family
  * \version: protocol version
  */
 static struct genl_family genl_exec_family = {
-	.id = GENL_ID_GENERATE, //new family, will be assigned by the controller
+	.id = GENL_ID_GENERATE, //channel number: will be assigned by the controller
 	.name = "ovs_genl_exec",
 	.version = 1,
 };
 
 /**
- * struct genl_ops - generic netlink operations
+ * struct genl_ops: services or operations for other gn users
  * @cmd: command identifier
  * @doit: standard command callback
  * @flags: flags
  */
 static struct genl_ops genl_exec_ops[] = {
 	{
-	 .cmd = GENL_EXEC_RUN,
-	 .doit = genl_exec_cmd,
+	 .cmd = GENL_EXEC_RUN, //reference the operation
+	 .doit = genl_exec_cmd, //the callback function
 	 .flags = CAP_NET_ADMIN,
 	},
 };
@@ -88,6 +93,7 @@ int genl_exec_init(void)
 	if (err)
 		return err;
 
+    /*test the family is registered successfully*/
 	genlmsg_skb = genlmsg_new(0, GFP_KERNEL);
 	if (!genlmsg_skb) {
 		genl_unregister_family(&genl_exec_family);

@@ -42,7 +42,7 @@ static int dp_device_event(struct notifier_block *unused, unsigned long event,
 		return NOTIFY_DONE;
 
 	switch (event) {
-	case NETDEV_UNREGISTER:
+	case NETDEV_UNREGISTER: //unregister event
 		if (!ovs_is_internal_dev(dev)) {
 			struct sk_buff *notify;
 			struct datapath *dp = vport->dp;
@@ -63,7 +63,7 @@ static int dp_device_event(struct notifier_block *unused, unsigned long event,
 		}
 		break;
 
-	case NETDEV_CHANGENAME:
+	case NETDEV_CHANGENAME: //change the name event
 		if (vport->port_no != OVSP_LOCAL) {
 			ovs_dp_sysfs_del_if(vport);
 			ovs_dp_sysfs_add_if(vport);

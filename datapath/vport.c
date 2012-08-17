@@ -38,7 +38,7 @@
  * add yours to the list at the bottom of vport.h. */
 static const struct vport_ops *base_vport_ops_list[] = {
 	&ovs_netdev_vport_ops, //netdev instance
-	&ovs_internal_vport_ops,
+	&ovs_internal_vport_ops, //internal, the default value for new vport
 	&ovs_patch_vport_ops,
 	&ovs_gre_vport_ops,
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,26)
@@ -465,7 +465,7 @@ void ovs_vport_receive(struct vport *vport, struct sk_buff *skb)
 	if (!(vport->ops->flags & VPORT_F_TUN_ID))
 		OVS_CB(skb)->tun_id = 0;
 
-	ovs_dp_process_received_packet(vport, skb);
+	ovs_dp_process_received_packet(vport, skb); //process the pkt
 }
 
 /**

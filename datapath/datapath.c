@@ -267,7 +267,10 @@ struct vport *ovs_lookup_vport(const struct datapath *dp, u16 port_no)
 	return NULL;
 }
 
-/* Called with RTNL lock and genl_lock. */
+/**
+ * Called with RTNL lock and genl_lock.
+ * new a vport, call the corresponding create() function, and generate hash bucket
+ */
 static struct vport *new_vport(const struct vport_parms *parms)
 {
 	struct vport *vport;
@@ -328,14 +331,14 @@ void ovs_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
 		/* Look up flow. */
 		flow = ovs_flow_tbl_lookup(rcu_dereference(dp->table),
 					   &key, key_len);
-		if (unlikely(!flow)) {
+		if (unlikely(!flow)) { //if there is not corresponding flow in the table yet
 			struct dp_upcall_info upcall;
 
-			upcall.cmd = OVS_PACKET_CMD_MISS;
+			upcall.cmd = OVS_PACKET_CMD_MISS; //MISS cmd
 			upcall.key = &key;
 			upcall.userdata = NULL;
 			upcall.pid = p->upcall_pid;
-			ovs_dp_upcall(dp, skb, &upcall);
+			ovs_dp_upcall(dp, skb, &upcall); //send the MISS cmd
 			consume_skb(skb);
 			stats_counter = &stats->n_missed;
 			goto out;
@@ -346,6 +349,7 @@ void ovs_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
 
 	stats_counter = &stats->n_hit;
 	ovs_flow_used(OVS_CB(skb)->flow, skb);
+    /*run the actions in the corresponding flow*/
 	ovs_execute_actions(dp, skb); //the action is stored in skb->cb->flow->sf_acts
 
 out:
@@ -384,7 +388,7 @@ int ovs_dp_upcall(struct datapath *dp, struct sk_buff *skb,
 
 	forward_ip_summed(skb, true);
 
-	if (!skb_is_gso(skb))
+	if (!skb_is_gso(skb)) //Generic Segmentation Offload
 		err = queue_userspace_packet(ovs_dp_get_net(dp), dp_ifindex, skb, upcall_info);
 	else
 		err = queue_gso_packets(ovs_dp_get_net(dp), dp_ifindex, skb, upcall_info);
@@ -450,6 +454,9 @@ static int queue_gso_packets(struct net *net, int dp_ifindex,
 	return err;
 }
 
+/**
+ * send netlink cmd 
+ */
 static int queue_userspace_packet(struct net *net, int dp_ifindex,
 				  struct sk_buff *skb,
 				  const struct dp_upcall_info *upcall_info)
@@ -740,12 +747,14 @@ static void clear_stats(struct sw_flow *flow)
 /**
  * operations when receiving the OVS_PACKET_CMD_EXECUTE message.
  * get act from info, put into the packet from skb,  and execute the act
+ * @param skb: the message buffer which triggered the handler
+ * @param info: genl_info structure
  */
 static int ovs_packet_cmd_execute(struct sk_buff *skb, struct genl_info *info)
 {
-	struct ovs_header *ovs_header = info->userhdr;
-	struct nlattr **a = info->attrs;
-	struct sw_flow_actions *acts;
+	struct ovs_header *ovs_header = info->userhdr; //family specific header
+	struct nlattr **a = info->attrs; //the parsed Netlink attributes from the request, act is stored here
+	struct sw_flow_actions *acts; 
 	struct sk_buff *packet;
 	struct sw_flow *flow;
 	struct datapath *dp;
@@ -803,7 +812,7 @@ static int ovs_packet_cmd_execute(struct sk_buff *skb, struct genl_info *info)
 
 	flow->hash = ovs_flow_hash(&flow->key, key_len);
 
-	acts = ovs_flow_actions_alloc(a[OVS_PACKET_ATTR_ACTIONS]);
+	acts = ovs_flow_actions_alloc(a[OVS_PACKET_ATTR_ACTIONS]); //the action
 	err = PTR_ERR(acts);
 	if (IS_ERR(acts))
 		goto err_flow_put;
@@ -819,11 +828,11 @@ static int ovs_packet_cmd_execute(struct sk_buff *skb, struct genl_info *info)
 		goto err_unlock;
 
 	local_bh_disable();
-	err = ovs_execute_actions(dp, packet);
+	err = ovs_execute_actions(dp, packet); //execute the actions for the packet
 	local_bh_enable();
 	rcu_read_unlock();
 
-	ovs_flow_put(flow);
+	ovs_flow_put(flow); //free the flow data structures
 	return err;
 
 err_unlock:
@@ -1347,6 +1356,11 @@ error:
 	return -EMSGSIZE;
 }
 
+/**
+ * build a nl info.
+ * @param dp: datapth
+ * @param pid: destination netlink pid
+ */
 static struct sk_buff *ovs_dp_cmd_build_info(struct datapath *dp, u32 pid,
 					     u32 seq, u8 cmd)
 {
@@ -1390,6 +1404,9 @@ static struct datapath *lookup_datapath(struct net *net,
 	return dp ? dp : ERR_PTR(-ENODEV);
 }
 
+/**
+ * when add a new datapath: set up a dp, add new vport
+ */
 static int ovs_dp_cmd_new(struct sk_buff *skb, struct genl_info *info)
 {
 	struct nlattr **a = info->attrs;
@@ -1445,13 +1462,13 @@ static int ovs_dp_cmd_new(struct sk_buff *skb, struct genl_info *info)
 
 	/* Set up our datapath device. */
 	parms.name = nla_data(a[OVS_DP_ATTR_NAME]);
-	parms.type = OVS_VPORT_TYPE_INTERNAL;
+	parms.type = OVS_VPORT_TYPE_INTERNAL; //internal port by default
 	parms.options = NULL;
 	parms.dp = dp;
 	parms.port_no = OVSP_LOCAL;
 	parms.upcall_pid = nla_get_u32(a[OVS_DP_ATTR_UPCALL_PID]);
 
-	vport = new_vport(&parms);
+	vport = new_vport(&parms); //add a new internal port, call its create()
 	if (IS_ERR(vport)) {
 		err = PTR_ERR(vport);
 		if (err == -EBUSY)
@@ -1461,7 +1478,7 @@ static int ovs_dp_cmd_new(struct sk_buff *skb, struct genl_info *info)
 	}
 
 	reply = ovs_dp_cmd_build_info(dp, info->snd_pid,
-				      info->snd_seq, OVS_DP_CMD_NEW);
+				      info->snd_seq, OVS_DP_CMD_NEW); //send the NEW cmd
 	err = PTR_ERR(reply);
 	if (IS_ERR(reply))
 		goto err_destroy_local_port;
@@ -1553,6 +1570,9 @@ static int ovs_dp_cmd_del(struct sk_buff *skb, struct genl_info *info)
 	return 0;
 }
 
+/**
+ * set dp.
+ */
 static int ovs_dp_cmd_set(struct sk_buff *skb, struct genl_info *info)
 {
 	struct sk_buff *reply;
@@ -2085,16 +2105,16 @@ struct genl_family_and_ops {
 static const struct genl_family_and_ops dp_genl_families[] = {
 	{ &dp_datapath_genl_family,
 	  dp_datapath_genl_ops, ARRAY_SIZE(dp_datapath_genl_ops),
-	  &ovs_dp_datapath_multicast_group }, //datapath
+	  &ovs_dp_datapath_multicast_group }, //DATAPATH_CMD: NEW,DEL,GET,SET
 	{ &dp_vport_genl_family,
 	  dp_vport_genl_ops, ARRAY_SIZE(dp_vport_genl_ops),
-	  &ovs_dp_vport_multicast_group }, //vport
+	  &ovs_dp_vport_multicast_group }, //VPORT_CMD: NEW,DEL,GET,SET
 	{ &dp_flow_genl_family,
 	  dp_flow_genl_ops, ARRAY_SIZE(dp_flow_genl_ops),
-	  &ovs_dp_flow_multicast_group }, //flow
+	  &ovs_dp_flow_multicast_group }, //FLOW_CMD: NEW,DEL,GET,SET
 	{ &dp_packet_genl_family,
 	  dp_packet_genl_ops, ARRAY_SIZE(dp_packet_genl_ops),
-	  NULL },//packet
+	  NULL },//PACKET_CMD:EXECUTE
 };
 
 static void dp_unregister_genl(int n_families)
@@ -2233,7 +2253,7 @@ static int __init dp_init(void)
 	if (err)
 		goto error_tnl_exit;
 
-	err = ovs_vport_init(); //vport subsystem
+	err = ovs_vport_init(); //init the vport subsystem
 	if (err)
 		goto error_flow_exit;
 
@@ -2246,7 +2266,9 @@ static int __init dp_init(void)
 	if (err)
 		goto error_netns_exit;
 
-	err = dp_register_genl(); //register the dp,vport,flow,packet related families
+    /*register the important genl_families: dp_datapath,dp_vport,dp_flow,dp_packet*/
+    /*after here, the datapath will hold to wait for the registered genl_family msg*/
+	err = dp_register_genl(); 
 	if (err < 0)
 		goto error_unreg_notifier;
 

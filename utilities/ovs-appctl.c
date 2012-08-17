@@ -50,7 +50,7 @@ main(int argc, char *argv[])
 
     /* Parse command line and connect to target. */
     target = parse_command_line(argc, argv);
-    client = connect_to_target(target);
+    client = connect_to_target(target); //connect to the ovs-vswitchd
 
     /* Transact request and process reply. */
     cmd = argv[optind++];

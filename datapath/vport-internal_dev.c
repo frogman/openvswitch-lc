@@ -222,6 +222,9 @@ static void do_setup(struct net_device *netdev)
 	eth_hw_addr_random(netdev);
 }
 
+/**
+ * create a new internal vport.
+ */
 static struct vport *internal_dev_create(const struct vport_parms *parms)
 {
 	struct vport *vport;
@@ -236,10 +239,10 @@ static struct vport *internal_dev_create(const struct vport_parms *parms)
 		goto error;
 	}
 
-	netdev_vport = netdev_vport_priv(vport);
+	netdev_vport = netdev_vport_priv(vport); //private data
 
 	netdev_vport->dev = alloc_netdev(sizeof(struct internal_dev),
-					 parms->name, do_setup);
+					 parms->name, do_setup); //allocate a network device
 	if (!netdev_vport->dev) {
 		err = -ENOMEM;
 		goto error_free_vport;
@@ -253,7 +256,7 @@ static struct vport *internal_dev_create(const struct vport_parms *parms)
 	if (vport->port_no == OVSP_LOCAL)
 		netdev_vport->dev->features |= NETIF_F_NETNS_LOCAL;
 
-	err = register_netdevice(netdev_vport->dev);
+	err = register_netdevice(netdev_vport->dev); //register and init
 	if (err)
 		goto error_free_netdev;
 

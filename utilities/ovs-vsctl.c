@@ -153,6 +153,9 @@ static bool is_condition_satisfied(const struct vsctl_table_class *,
                                    const char *arg,
                                    struct ovsdb_symbol_table *);
 
+/**
+ * receive the commands, update the db to let it run in ovsd?
+ */
 int
 main(int argc, char *argv[])
 {
@@ -182,7 +185,7 @@ main(int argc, char *argv[])
     }
 
     /* Initialize IDL. */
-    idl = the_idl = ovsdb_idl_create(db, &ovsrec_idl_class, false);
+    idl = the_idl = ovsdb_idl_create(db, &ovsrec_idl_class, false); //...db.sock
     run_prerequisites(commands, n_commands, idl);
 
     /* Execute the commands.
@@ -3745,6 +3748,9 @@ run_prerequisites(struct vsctl_command *commands, size_t n_commands,
     }
 }
 
+/**
+ * execute the commands to update the idl db.
+ */
 static void
 do_vsctl(const char *args, struct vsctl_command *commands, size_t n_commands,
          struct ovsdb_idl *idl)
