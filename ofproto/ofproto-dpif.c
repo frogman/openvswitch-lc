@@ -66,7 +66,7 @@ COVERAGE_DEFINE(facet_suppress);
 
 /* Maximum depth of flow table recursion (due to resubmit actions) in a
  * flow translation. */
-#define MAX_RESUBMIT_RECURSION 32
+#define MAX_RESUBMIT_RECURSION 64
 
 /* Number of implemented OpenFlow tables. */
 enum { N_TABLES = 255 };
@@ -1316,6 +1316,14 @@ get_cfm_fault(const struct ofport *ofport_)
 }
 
 static int
+get_cfm_opup(const struct ofport *ofport_)
+{
+    struct ofport_dpif *ofport = ofport_dpif_cast(ofport_);
+
+    return ofport->cfm ? cfm_get_opup(ofport->cfm) : -1;
+}
+
+static int
 get_cfm_remote_mpids(const struct ofport *ofport_, const uint64_t **rmps,
                      size_t *n_rmps)
 {
@@ -2464,9 +2472,14 @@ port_run(struct ofport_dpif *ofport)
 
     port_run_fast(ofport);
     if (ofport->cfm) {
+        int cfm_opup = cfm_get_opup(ofport->cfm);
+
         cfm_run(ofport->cfm);
-        enable = enable && !cfm_get_fault(ofport->cfm)
-            && cfm_get_opup(ofport->cfm);
+        enable = enable && !cfm_get_fault(ofport->cfm);
+
+        if (cfm_opup >= 0) {
+            enable = enable && cfm_opup;
+        }
     }
 
     if (ofport->bundle) {
@@ -2570,7 +2583,7 @@ port_get_stats(const struct ofport *ofport_, struct netdev_stats *stats)
 
         /* ofproto->stats.rx_packets represents packets that were received on
          * some port and we processed internally and dropped (e.g. STP).
-         * Account fro them as if they had been forwarded to OFPP_LOCAL. */
+         * Account for them as if they had been forwarded to OFPP_LOCAL. */
 
         if (stats->tx_packets != UINT64_MAX) {
             stats->tx_packets += ofproto->stats.rx_packets;
@@ -3781,7 +3794,8 @@ facet_is_controller_flow(struct facet *facet)
         const struct ofpact *ofpacts = rule->ofpacts;
         size_t ofpacts_len = rule->ofpacts_len;
 
-        if (ofpacts->type == OFPACT_CONTROLLER &&
+        if (ofpacts_len > 0 &&
+            ofpacts->type == OFPACT_CONTROLLER &&
             ofpact_next(ofpacts) >= ofpact_end(ofpacts, ofpacts_len)) {
             return true;
         }
@@ -4242,20 +4256,33 @@ subfacet_create(struct facet *facet, enum odp_key_fitness key_fitness,
     uint32_t key_hash = odp_flow_key_hash(key, key_len);
     struct subfacet *subfacet;
 
-    subfacet = subfacet_find__(ofproto, key, key_len, key_hash, &facet->flow);
-    if (subfacet) {
-        if (subfacet->facet == facet) {
-            return subfacet;
+    if (list_is_empty(&facet->subfacets)) {
+        subfacet = &facet->one_subfacet;
+
+        /* This subfacet should conceptually be created, and have its first
+         * packet pass through, at the same time that its facet was created.
+         * If we called time_msec() here, then the subfacet could look
+         * (occasionally) as though it was used some time after the facet was
+         * used.  That can make a one-packet flow look like it has a nonzero
+         * duration, which looks odd in e.g. NetFlow statistics. */
+        subfacet->used = facet->used;
+    } else {
+        subfacet = subfacet_find__(ofproto, key, key_len, key_hash,
+                                   &facet->flow);
+        if (subfacet) {
+            if (subfacet->facet == facet) {
+                return subfacet;
+            }
+
+            /* This shouldn't happen. */
+            VLOG_ERR_RL(&rl, "subfacet with wrong facet");
+            subfacet_destroy(subfacet);
         }
 
-        /* This shouldn't happen. */
-        VLOG_ERR_RL(&rl, "subfacet with wrong facet");
-        subfacet_destroy(subfacet);
+        subfacet = xmalloc(sizeof *subfacet);
+        subfacet->used = time_msec();
     }
 
-    subfacet = (list_is_empty(&facet->subfacets)
-                ? &facet->one_subfacet
-                : xmalloc(sizeof *subfacet));
     hmap_insert(&ofproto->subfacets, &subfacet->hmap_node, key_hash);
     list_push_back(&facet->subfacets, &subfacet->list_node);
     subfacet->facet = facet;
@@ -4267,7 +4294,6 @@ subfacet_create(struct facet *facet, enum odp_key_fitness key_fitness,
         subfacet->key = NULL;
         subfacet->key_len = 0;
     }
-    subfacet->used = time_msec();
     subfacet->dp_packet_count = 0;
     subfacet->dp_byte_count = 0;
     subfacet->actions_len = 0;
@@ -5134,7 +5160,7 @@ execute_controller_action(struct action_xlate_ctx *ctx, int len,
 }
 
 static bool
-compose_dec_ttl(struct action_xlate_ctx *ctx)
+compose_dec_ttl(struct action_xlate_ctx *ctx, struct ofpact_cnt_ids *ids)
 {
     if (ctx->flow.dl_type != htons(ETH_TYPE_IP) &&
         ctx->flow.dl_type != htons(ETH_TYPE_IPV6)) {
@@ -5145,7 +5171,12 @@ compose_dec_ttl(struct action_xlate_ctx *ctx)
         ctx->flow.nw_ttl--;
         return false;
     } else {
-        execute_controller_action(ctx, UINT16_MAX, OFPR_INVALID_TTL, 0);
+        size_t i;
+
+        for (i = 0; i < ids->n_controllers; i++) {
+            execute_controller_action(ctx, UINT16_MAX, OFPR_INVALID_TTL,
+                                      ids->cnt_ids[i]);
+        }
 
         /* Stop processing for current table. */
         return true;
@@ -5505,7 +5536,7 @@ do_xlate_actions(const struct ofpact *ofpacts, size_t ofpacts_len,
             break;
 
         case OFPACT_DEC_TTL:
-            if (compose_dec_ttl(ctx)) {
+            if (compose_dec_ttl(ctx, ofpact_get_DEC_TTL(a))) {
                 goto out;
             }
             break;
@@ -7168,6 +7199,7 @@ const struct ofproto_class ofproto_dpif_class = {
     set_sflow,
     set_cfm,
     get_cfm_fault,
+    get_cfm_opup,
     get_cfm_remote_mpids,
     get_cfm_health,
     set_stp,
