@@ -368,6 +368,15 @@ static struct genl_family dp_packet_genl_family = {
 	 SET_NETNSOK
 };
 
+/**
+ * @param dp: the datapath to handler the pkt
+ * @param skb: the received packet data
+ * @param upcall.cmd = OVS_PACKET_CMD_MISS; //MISS cmd
+   upcall.key = &key;
+   upcall.userdata = NULL;
+   upcall.pid = p->upcall_pid;
+ */
+
 int ovs_dp_upcall(struct datapath *dp, struct sk_buff *skb,
 		  const struct dp_upcall_info *upcall_info)
 {
@@ -388,9 +397,9 @@ int ovs_dp_upcall(struct datapath *dp, struct sk_buff *skb,
 
 	forward_ip_summed(skb, true);
 
-	if (!skb_is_gso(skb)) //Generic Segmentation Offload
+	if (!skb_is_gso(skb))
 		err = queue_userspace_packet(ovs_dp_get_net(dp), dp_ifindex, skb, upcall_info);
-	else
+	else //Generic Segmentation Offload
 		err = queue_gso_packets(ovs_dp_get_net(dp), dp_ifindex, skb, upcall_info);
 	if (err)
 		goto err;

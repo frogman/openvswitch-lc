@@ -131,7 +131,7 @@ main(int argc, char *argv[])
         bridge_run_fast(); //check each bridge and run it's ofproto->run with least possible latency
         bridge_run(); //main process part, handling pkts
         bridge_run_fast(); //could be run to check the bridge multi-times
-        unixctl_server_run(unixctl); //db.sock server
+        unixctl_server_run(unixctl); //...pid.ctl
         netdev_run(); //perform the run() of each class in netdev_classes
 
         worker_wait(); //poll loop to wake up if there's RPC replies
