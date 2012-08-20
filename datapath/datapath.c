@@ -331,14 +331,14 @@ void ovs_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
 		/* Look up flow. */
 		flow = ovs_flow_tbl_lookup(rcu_dereference(dp->table),
 					   &key, key_len);
-		if (unlikely(!flow)) { //if there is not corresponding flow in the table yet
+		if (unlikely(!flow)) { //if there is no corresponding flow in the table yet
 			struct dp_upcall_info upcall;
 
 			upcall.cmd = OVS_PACKET_CMD_MISS; //MISS cmd
 			upcall.key = &key;
 			upcall.userdata = NULL;
-			upcall.pid = p->upcall_pid;
-			ovs_dp_upcall(dp, skb, &upcall); //send the MISS cmd
+			upcall.pid = p->upcall_pid; //to the userspace app that generate the dp
+			ovs_dp_upcall(dp, skb, &upcall); //send the MISS cmd to up
 			consume_skb(skb);
 			stats_counter = &stats->n_missed;
 			goto out;
@@ -398,7 +398,7 @@ int ovs_dp_upcall(struct datapath *dp, struct sk_buff *skb,
 	forward_ip_summed(skb, true);
 
 	if (!skb_is_gso(skb))
-		err = queue_userspace_packet(ovs_dp_get_net(dp), dp_ifindex, skb, upcall_info);
+		err = queue_userspace_packet(ovs_dp_get_net(dp), dp_ifindex, skb, upcall_info); //send cmd to userspace
 	else //Generic Segmentation Offload
 		err = queue_gso_packets(ovs_dp_get_net(dp), dp_ifindex, skb, upcall_info);
 	if (err)
@@ -464,7 +464,7 @@ static int queue_gso_packets(struct net *net, int dp_ifindex,
 }
 
 /**
- * send netlink cmd 
+ * send netlink cmd  to userspace, will be handled by ovs-vSwitchd
  */
 static int queue_userspace_packet(struct net *net, int dp_ifindex,
 				  struct sk_buff *skb,
@@ -500,7 +500,7 @@ static int queue_userspace_packet(struct net *net, int dp_ifindex,
 	if (upcall_info->cmd == OVS_PACKET_CMD_ACTION)
 		len += nla_total_size(8);
 
-	user_skb = genlmsg_new(len, GFP_ATOMIC);
+	user_skb = genlmsg_new(len, GFP_ATOMIC); //the genl msg
 	if (!user_skb) {
 		err = -ENOMEM;
 		goto out;

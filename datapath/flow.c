@@ -180,6 +180,11 @@ static bool icmp6hdr_ok(struct sk_buff *skb)
 #define TCP_FLAGS_OFFSET 13
 #define TCP_FLAG_MASK 0x3f
 
+/**
+ * update the used stats variables in flow.
+ * @param flow: flow to update
+ * @param skb: packet buff
+ */
 void ovs_flow_used(struct sw_flow *flow, struct sk_buff *skb)
 {
 	u8 tcp_flags = 0;

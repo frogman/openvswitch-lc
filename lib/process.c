@@ -88,7 +88,7 @@ process_init(void)
 
     /* Set up child termination signal handler. */
     memset(&sa, 0, sizeof sa);
-    sa.sa_handler = sigchld_handler; //run each member process in all_processes
+    sa.sa_handler = sigchld_handler; //the handler will run each member process in all_processes
     sigemptyset(&sa.sa_mask);
     sa.sa_flags = SA_NOCLDSTOP | SA_RESTART; //only generate SIGCHLD with real exit, not stop | restart interruptible functions such as the slow system calls
     xsigaction(SIGCHLD, &sa, NULL); //with SIGCHILD, run &sa

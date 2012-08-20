@@ -131,7 +131,7 @@ static struct vport *netdev_create(const struct vport_parms *parms)
 	int err;
 
 	vport = ovs_vport_alloc(sizeof(struct netdev_vport),
-				&ovs_netdev_vport_ops, parms);
+				&ovs_netdev_vport_ops, parms); //alloc and init a new port
 	if (IS_ERR(vport)) {
 		err = PTR_ERR(vport);
 		goto error;

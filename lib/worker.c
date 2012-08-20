@@ -148,7 +148,7 @@ void
 worker_wait(void)
 {
     if (worker_is_running()) { //there is worker started
-        poll_fd_wait(client_sock, POLLIN); //register client_sock as waiting for the POLLIN event
+        poll_fd_wait(client_sock, POLLIN); //register client_sock as waiting for the POLLIN event (there is data to read)
     }
 }
 
