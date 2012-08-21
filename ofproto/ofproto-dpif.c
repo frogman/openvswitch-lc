@@ -925,6 +925,9 @@ destruct(struct ofproto *ofproto_)
     dpif_close(ofproto->dpif);
 }
 
+/**
+ * run on the bridge, to handle the upcall from kernel space.
+ */
 static int
 run_fast(struct ofproto *ofproto_)
 {
@@ -2982,7 +2985,7 @@ static void
 handle_flow_miss(struct ofproto_dpif *ofproto, struct flow_miss *miss,
                  struct flow_miss_op *ops, size_t *n_ops)
 {
-    struct facet *facet;
+    struct facet *facet; //exact match
     uint32_t hash;
 
     /* The caller must ensure that miss->hmap_node.hash contains
@@ -3061,6 +3064,9 @@ ofproto_dpif_extract_flow_key(const struct ofproto_dpif *ofproto,
     return fitness;
 }
 
+/**
+ * Handle the MISS upcalls from the datapath kernel module.
+ */
 static void
 handle_miss_upcalls(struct ofproto_dpif *ofproto, struct dpif_upcall *upcalls,
                     size_t n_upcalls)
@@ -3211,6 +3217,9 @@ handle_sflow_upcall(struct ofproto_dpif *ofproto,
     dpif_sflow_received(ofproto->sflow, upcall->packet, &flow, &cookie);
 }
 
+/**
+ * handle the upcalls from the kernel space (the datapath module)
+ */
 static int
 handle_upcalls(struct ofproto_dpif *ofproto, unsigned int max_batch)
 {
@@ -3231,13 +3240,13 @@ handle_upcalls(struct ofproto_dpif *ofproto, unsigned int max_batch)
 
         ofpbuf_use_stub(buf, miss_buf_stubs[n_misses],
                         sizeof miss_buf_stubs[n_misses]);
-        error = dpif_recv(ofproto->dpif, upcall, buf);
+        error = dpif_recv(ofproto->dpif, upcall, buf); /*receive upcall from dpif*/
         if (error) {
             ofpbuf_uninit(buf);
             break;
         }
 
-        switch (classify_upcall(upcall)) {
+        switch (classify_upcall(upcall)) { //handle the upcall according to the type
         case MISS_UPCALL:
             /* Handle it later. */
             n_misses++;

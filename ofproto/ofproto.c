@@ -223,6 +223,9 @@ static struct hmap all_ofprotos = HMAP_INITIALIZER(&all_ofprotos);
 
 static struct vlog_rate_limit rl = VLOG_RATE_LIMIT_INIT(1, 5);
 
+/**
+ * let ofproto_classes[] be initialized by ofproto_dpif_class
+ */
 static void
 ofproto_initialize(void)
 {
@@ -372,7 +375,7 @@ ofproto_create(const char *datapath_name, const char *datapath_type,
 
     /* Initialize. */
     memset(ofproto, 0, sizeof *ofproto);
-    ofproto->ofproto_class = class;
+    ofproto->ofproto_class = class; //implement the ofproto_class virtual functions
     ofproto->name = xstrdup(datapath_name);
     ofproto->type = xstrdup(datapath_type);
     hmap_insert(&all_ofprotos, &ofproto->hmap_node,

@@ -2,6 +2,9 @@
 
 #doxygen doxygen.cfg; tar czf doc.tar.gz doc/
 
+#cscope
+#find . -name "*.h" -o -name "*.c" -o -name "*.cc" -o -name "*.inc" | cscope -bkq
+
 #Configure openvswitch
 ./boot.sh && ./configure  --with-linux=/lib/modules/`uname -r`/build;
 
