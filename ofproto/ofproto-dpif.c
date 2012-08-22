@@ -66,7 +66,7 @@ COVERAGE_DEFINE(facet_suppress);
 
 /* Maximum depth of flow table recursion (due to resubmit actions) in a
  * flow translation. */
-#define MAX_RESUBMIT_RECURSION 32
+#define MAX_RESUBMIT_RECURSION 64
 
 /* Number of implemented OpenFlow tables. */
 enum { N_TABLES = 255 };
@@ -368,7 +368,8 @@ struct subfacet {
 
 static struct subfacet *subfacet_create(struct facet *, enum odp_key_fitness,
                                         const struct nlattr *key,
-                                        size_t key_len, ovs_be16 initial_tci);
+                                        size_t key_len, ovs_be16 initial_tci,
+                                        long long int now);
 static struct subfacet *subfacet_find(struct ofproto_dpif *,
                                       const struct nlattr *key, size_t key_len);
 static void subfacet_destroy(struct subfacet *);
@@ -1313,6 +1314,14 @@ get_cfm_fault(const struct ofport *ofport_)
     struct ofport_dpif *ofport = ofport_dpif_cast(ofport_);
 
     return ofport->cfm ? cfm_get_fault(ofport->cfm) : -1;
+}
+
+static int
+get_cfm_opup(const struct ofport *ofport_)
+{
+    struct ofport_dpif *ofport = ofport_dpif_cast(ofport_);
+
+    return ofport->cfm ? cfm_get_opup(ofport->cfm) : -1;
 }
 
 static int
@@ -2464,9 +2473,14 @@ port_run(struct ofport_dpif *ofport)
 
     port_run_fast(ofport);
     if (ofport->cfm) {
+        int cfm_opup = cfm_get_opup(ofport->cfm);
+
         cfm_run(ofport->cfm);
-        enable = enable && !cfm_get_fault(ofport->cfm)
-            && cfm_get_opup(ofport->cfm);
+        enable = enable && !cfm_get_fault(ofport->cfm);
+
+        if (cfm_opup >= 0) {
+            enable = enable && cfm_opup;
+        }
     }
 
     if (ofport->bundle) {
@@ -2570,7 +2584,7 @@ port_get_stats(const struct ofport *ofport_, struct netdev_stats *stats)
 
         /* ofproto->stats.rx_packets represents packets that were received on
          * some port and we processed internally and dropped (e.g. STP).
-         * Account fro them as if they had been forwarded to OFPP_LOCAL. */
+         * Account for them as if they had been forwarded to OFPP_LOCAL. */
 
         if (stats->tx_packets != UINT64_MAX) {
             stats->tx_packets += ofproto->stats.rx_packets;
@@ -2720,9 +2734,6 @@ send_packet_in_miss(struct ofproto_dpif *ofproto, const struct ofpbuf *packet,
 
     flow_get_metadata(flow, &pin.fmd);
 
-    /* Registers aren't meaningful on a miss. */
-    memset(pin.fmd.reg_masks, 0, sizeof pin.fmd.reg_masks);
-
     connmgr_send_packet_in(ofproto->up.connmgr, &pin);
 }
 
@@ -2856,6 +2867,7 @@ handle_flow_miss_without_facet(struct flow_miss *miss,
                                struct flow_miss_op *ops, size_t *n_ops)
 {
     struct ofproto_dpif *ofproto = ofproto_dpif_cast(rule->up.ofproto);
+    long long int now = time_msec();
     struct action_xlate_ctx ctx;
     struct ofpbuf *packet;
 
@@ -2868,7 +2880,7 @@ handle_flow_miss_without_facet(struct flow_miss *miss,
 
         ofpbuf_use_stub(&odp_actions, op->stub, sizeof op->stub);
 
-        dpif_flow_stats_extract(&miss->flow, packet, &stats);
+        dpif_flow_stats_extract(&miss->flow, packet, now, &stats);
         rule_credit_stats(rule, &stats);
 
         action_xlate_ctx_init(&ctx, ofproto, &miss->flow, miss->initial_tci,
@@ -2893,9 +2905,17 @@ handle_flow_miss_without_facet(struct flow_miss *miss,
 }
 
 /* Handles 'miss', which matches 'facet'.  May add any required datapath
- * operations to 'ops', incrementing '*n_ops' for each new op. */
+ * operations to 'ops', incrementing '*n_ops' for each new op.
+ *
+ * All of the packets in 'miss' are considered to have arrived at time 'now'.
+ * This is really important only for new facets: if we just called time_msec()
+ * here, then the new subfacet or its packets could look (occasionally) as
+ * though it was used some time after the facet was used.  That can make a
+ * one-packet flow look like it has a nonzero duration, which looks odd in
+ * e.g. NetFlow statistics. */
 static void
 handle_flow_miss_with_facet(struct flow_miss *miss, struct facet *facet,
+                            long long int now,
                             struct flow_miss_op *ops, size_t *n_ops)
 {
     struct ofproto_dpif *ofproto = ofproto_dpif_cast(facet->rule->up.ofproto);
@@ -2905,7 +2925,7 @@ handle_flow_miss_with_facet(struct flow_miss *miss, struct facet *facet,
 
     subfacet = subfacet_create(facet,
                                miss->key_fitness, miss->key, miss->key_len,
-                               miss->initial_tci);
+                               miss->initial_tci, now);
 
     LIST_FOR_EACH (packet, list_node, &miss->packets) {
         struct flow_miss_op *op = &ops[*n_ops];
@@ -2919,7 +2939,7 @@ handle_flow_miss_with_facet(struct flow_miss *miss, struct facet *facet,
             subfacet_make_actions(subfacet, packet, &odp_actions);
         }
 
-        dpif_flow_stats_extract(&facet->flow, packet, &stats);
+        dpif_flow_stats_extract(&facet->flow, packet, now, &stats);
         subfacet_update_stats(subfacet, &stats);
 
         if (subfacet->actions_len) {
@@ -2973,6 +2993,7 @@ handle_flow_miss(struct ofproto_dpif *ofproto, struct flow_miss *miss,
                  struct flow_miss_op *ops, size_t *n_ops)
 {
     struct facet *facet;
+    long long int now;
     uint32_t hash;
 
     /* The caller must ensure that miss->hmap_node.hash contains
@@ -2989,8 +3010,11 @@ handle_flow_miss(struct ofproto_dpif *ofproto, struct flow_miss *miss,
         }
 
         facet = facet_create(rule, &miss->flow, hash);
+        now = facet->used;
+    } else {
+        now = time_msec();
     }
-    handle_flow_miss_with_facet(miss, facet, ops, n_ops);
+    handle_flow_miss_with_facet(miss, facet, now, ops, n_ops);
 }
 
 /* Like odp_flow_key_to_flow(), this function converts the 'key_len' bytes of
@@ -3781,7 +3805,8 @@ facet_is_controller_flow(struct facet *facet)
         const struct ofpact *ofpacts = rule->ofpacts;
         size_t ofpacts_len = rule->ofpacts_len;
 
-        if (ofpacts->type == OFPACT_CONTROLLER &&
+        if (ofpacts_len > 0 &&
+            ofpacts->type == OFPACT_CONTROLLER &&
             ofpact_next(ofpacts) >= ofpact_end(ofpacts, ofpacts_len)) {
             return true;
         }
@@ -4236,26 +4261,31 @@ subfacet_find__(struct ofproto_dpif *ofproto,
  * subfacet_make_actions(). */
 static struct subfacet *
 subfacet_create(struct facet *facet, enum odp_key_fitness key_fitness,
-                const struct nlattr *key, size_t key_len, ovs_be16 initial_tci)
+                const struct nlattr *key, size_t key_len,
+                ovs_be16 initial_tci, long long int now)
 {
     struct ofproto_dpif *ofproto = ofproto_dpif_cast(facet->rule->up.ofproto);
     uint32_t key_hash = odp_flow_key_hash(key, key_len);
     struct subfacet *subfacet;
 
-    subfacet = subfacet_find__(ofproto, key, key_len, key_hash, &facet->flow);
-    if (subfacet) {
-        if (subfacet->facet == facet) {
-            return subfacet;
+    if (list_is_empty(&facet->subfacets)) {
+        subfacet = &facet->one_subfacet;
+    } else {
+        subfacet = subfacet_find__(ofproto, key, key_len, key_hash,
+                                   &facet->flow);
+        if (subfacet) {
+            if (subfacet->facet == facet) {
+                return subfacet;
+            }
+
+            /* This shouldn't happen. */
+            VLOG_ERR_RL(&rl, "subfacet with wrong facet");
+            subfacet_destroy(subfacet);
         }
 
-        /* This shouldn't happen. */
-        VLOG_ERR_RL(&rl, "subfacet with wrong facet");
-        subfacet_destroy(subfacet);
+        subfacet = xmalloc(sizeof *subfacet);
     }
 
-    subfacet = (list_is_empty(&facet->subfacets)
-                ? &facet->one_subfacet
-                : xmalloc(sizeof *subfacet));
     hmap_insert(&ofproto->subfacets, &subfacet->hmap_node, key_hash);
     list_push_back(&facet->subfacets, &subfacet->list_node);
     subfacet->facet = facet;
@@ -4267,7 +4297,7 @@ subfacet_create(struct facet *facet, enum odp_key_fitness key_fitness,
         subfacet->key = NULL;
         subfacet->key_len = 0;
     }
-    subfacet->used = time_msec();
+    subfacet->used = now;
     subfacet->dp_packet_count = 0;
     subfacet->dp_byte_count = 0;
     subfacet->actions_len = 0;
@@ -4685,7 +4715,7 @@ rule_execute(struct rule *rule_, const struct flow *flow,
     uint64_t odp_actions_stub[1024 / 8];
     struct ofpbuf odp_actions;
 
-    dpif_flow_stats_extract(flow, packet, &stats);
+    dpif_flow_stats_extract(flow, packet, time_msec(), &stats);
     rule_credit_stats(rule, &stats);
 
     ofpbuf_use_stub(&odp_actions, odp_actions_stub, sizeof odp_actions_stub);
@@ -5134,7 +5164,7 @@ execute_controller_action(struct action_xlate_ctx *ctx, int len,
 }
 
 static bool
-compose_dec_ttl(struct action_xlate_ctx *ctx)
+compose_dec_ttl(struct action_xlate_ctx *ctx, struct ofpact_cnt_ids *ids)
 {
     if (ctx->flow.dl_type != htons(ETH_TYPE_IP) &&
         ctx->flow.dl_type != htons(ETH_TYPE_IPV6)) {
@@ -5145,7 +5175,12 @@ compose_dec_ttl(struct action_xlate_ctx *ctx)
         ctx->flow.nw_ttl--;
         return false;
     } else {
-        execute_controller_action(ctx, UINT16_MAX, OFPR_INVALID_TTL, 0);
+        size_t i;
+
+        for (i = 0; i < ids->n_controllers; i++) {
+            execute_controller_action(ctx, UINT16_MAX, OFPR_INVALID_TTL,
+                                      ids->cnt_ids[i]);
+        }
 
         /* Stop processing for current table. */
         return true;
@@ -5505,7 +5540,7 @@ do_xlate_actions(const struct ofpact *ofpacts, size_t ofpacts_len,
             break;
 
         case OFPACT_DEC_TTL:
-            if (compose_dec_ttl(ctx)) {
+            if (compose_dec_ttl(ctx, ofpact_get_DEC_TTL(a))) {
                 goto out;
             }
             break;
@@ -6406,7 +6441,7 @@ packet_out(struct ofproto *ofproto_, struct ofpbuf *packet,
         ofpbuf_use_stack(&key, &keybuf, sizeof keybuf);
         odp_flow_key_from_flow(&key, flow);
 
-        dpif_flow_stats_extract(flow, packet, &stats);
+        dpif_flow_stats_extract(flow, packet, time_msec(), &stats);
 
         action_xlate_ctx_init(&ctx, ofproto, flow, flow->vlan_tci, NULL,
                               packet_get_tcp_flags(packet, flow), packet);
@@ -7168,6 +7203,7 @@ const struct ofproto_class ofproto_dpif_class = {
     set_sflow,
     set_cfm,
     get_cfm_fault,
+    get_cfm_opup,
     get_cfm_remote_mpids,
     get_cfm_health,
     set_stp,
