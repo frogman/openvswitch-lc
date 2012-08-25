@@ -368,7 +368,8 @@ struct subfacet {
 
 static struct subfacet *subfacet_create(struct facet *, enum odp_key_fitness,
                                         const struct nlattr *key,
-                                        size_t key_len, ovs_be16 initial_tci);
+                                        size_t key_len, ovs_be16 initial_tci,
+                                        long long int now);
 static struct subfacet *subfacet_find(struct ofproto_dpif *,
                                       const struct nlattr *key, size_t key_len);
 static void subfacet_destroy(struct subfacet *);
@@ -2869,6 +2870,7 @@ handle_flow_miss_without_facet(struct flow_miss *miss,
                                struct flow_miss_op *ops, size_t *n_ops)
 {
     struct ofproto_dpif *ofproto = ofproto_dpif_cast(rule->up.ofproto);
+    long long int now = time_msec();
     struct action_xlate_ctx ctx;
     struct ofpbuf *packet;
 
@@ -2881,7 +2883,7 @@ handle_flow_miss_without_facet(struct flow_miss *miss,
 
         ofpbuf_use_stub(&odp_actions, op->stub, sizeof op->stub);
 
-        dpif_flow_stats_extract(&miss->flow, packet, &stats);
+        dpif_flow_stats_extract(&miss->flow, packet, now, &stats);
         rule_credit_stats(rule, &stats);
 
         action_xlate_ctx_init(&ctx, ofproto, &miss->flow, miss->initial_tci,
@@ -2906,9 +2908,17 @@ handle_flow_miss_without_facet(struct flow_miss *miss,
 }
 
 /* Handles 'miss', which matches 'facet'.  May add any required datapath
- * operations to 'ops', incrementing '*n_ops' for each new op. */
+ * operations to 'ops', incrementing '*n_ops' for each new op.
+ *
+ * All of the packets in 'miss' are considered to have arrived at time 'now'.
+ * This is really important only for new facets: if we just called time_msec()
+ * here, then the new subfacet or its packets could look (occasionally) as
+ * though it was used some time after the facet was used.  That can make a
+ * one-packet flow look like it has a nonzero duration, which looks odd in
+ * e.g. NetFlow statistics. */
 static void
 handle_flow_miss_with_facet(struct flow_miss *miss, struct facet *facet,
+                            long long int now,
                             struct flow_miss_op *ops, size_t *n_ops)
 {
     struct ofproto_dpif *ofproto = ofproto_dpif_cast(facet->rule->up.ofproto);
@@ -2918,7 +2928,7 @@ handle_flow_miss_with_facet(struct flow_miss *miss, struct facet *facet,
 
     subfacet = subfacet_create(facet,
                                miss->key_fitness, miss->key, miss->key_len,
-                               miss->initial_tci);
+                               miss->initial_tci, now);
 
     LIST_FOR_EACH (packet, list_node, &miss->packets) {
         struct flow_miss_op *op = &ops[*n_ops];
@@ -2932,7 +2942,7 @@ handle_flow_miss_with_facet(struct flow_miss *miss, struct facet *facet,
             subfacet_make_actions(subfacet, packet, &odp_actions);
         }
 
-        dpif_flow_stats_extract(&facet->flow, packet, &stats);
+        dpif_flow_stats_extract(&facet->flow, packet, now, &stats);
         subfacet_update_stats(subfacet, &stats);
 
         if (subfacet->actions_len) {
@@ -2986,6 +2996,7 @@ handle_flow_miss(struct ofproto_dpif *ofproto, struct flow_miss *miss,
                  struct flow_miss_op *ops, size_t *n_ops)
 {
     struct facet *facet; //exact match
+    long long int now;
     uint32_t hash;
 
     /* The caller must ensure that miss->hmap_node.hash contains
@@ -3002,8 +3013,11 @@ handle_flow_miss(struct ofproto_dpif *ofproto, struct flow_miss *miss,
         }
 
         facet = facet_create(rule, &miss->flow, hash);
+        now = facet->used;
+    } else {
+        now = time_msec();
     }
-    handle_flow_miss_with_facet(miss, facet, ops, n_ops);
+    handle_flow_miss_with_facet(miss, facet, now, ops, n_ops);
 }
 
 /* Like odp_flow_key_to_flow(), this function converts the 'key_len' bytes of
@@ -4256,7 +4270,8 @@ subfacet_find__(struct ofproto_dpif *ofproto,
  * subfacet_make_actions(). */
 static struct subfacet *
 subfacet_create(struct facet *facet, enum odp_key_fitness key_fitness,
-                const struct nlattr *key, size_t key_len, ovs_be16 initial_tci)
+                const struct nlattr *key, size_t key_len,
+                ovs_be16 initial_tci, long long int now)
 {
     struct ofproto_dpif *ofproto = ofproto_dpif_cast(facet->rule->up.ofproto);
     uint32_t key_hash = odp_flow_key_hash(key, key_len);
@@ -4264,14 +4279,6 @@ subfacet_create(struct facet *facet, enum odp_key_fitness key_fitness,
 
     if (list_is_empty(&facet->subfacets)) {
         subfacet = &facet->one_subfacet;
-
-        /* This subfacet should conceptually be created, and have its first
-         * packet pass through, at the same time that its facet was created.
-         * If we called time_msec() here, then the subfacet could look
-         * (occasionally) as though it was used some time after the facet was
-         * used.  That can make a one-packet flow look like it has a nonzero
-         * duration, which looks odd in e.g. NetFlow statistics. */
-        subfacet->used = facet->used;
     } else {
         subfacet = subfacet_find__(ofproto, key, key_len, key_hash,
                                    &facet->flow);
@@ -4286,7 +4293,6 @@ subfacet_create(struct facet *facet, enum odp_key_fitness key_fitness,
         }
 
         subfacet = xmalloc(sizeof *subfacet);
-        subfacet->used = time_msec();
     }
 
     hmap_insert(&ofproto->subfacets, &subfacet->hmap_node, key_hash);
@@ -4300,6 +4306,7 @@ subfacet_create(struct facet *facet, enum odp_key_fitness key_fitness,
         subfacet->key = NULL;
         subfacet->key_len = 0;
     }
+    subfacet->used = now;
     subfacet->dp_packet_count = 0;
     subfacet->dp_byte_count = 0;
     subfacet->actions_len = 0;
@@ -4717,7 +4724,7 @@ rule_execute(struct rule *rule_, const struct flow *flow,
     uint64_t odp_actions_stub[1024 / 8];
     struct ofpbuf odp_actions;
 
-    dpif_flow_stats_extract(flow, packet, &stats);
+    dpif_flow_stats_extract(flow, packet, time_msec(), &stats);
     rule_credit_stats(rule, &stats);
 
     ofpbuf_use_stub(&odp_actions, odp_actions_stub, sizeof odp_actions_stub);
@@ -6443,7 +6450,7 @@ packet_out(struct ofproto *ofproto_, struct ofpbuf *packet,
         ofpbuf_use_stack(&key, &keybuf, sizeof keybuf);
         odp_flow_key_from_flow(&key, flow);
 
-        dpif_flow_stats_extract(flow, packet, &stats);
+        dpif_flow_stats_extract(flow, packet, time_msec(), &stats);
 
         action_xlate_ctx_init(&ctx, ofproto, flow, flow->vlan_tci, NULL,
                               packet_get_tcp_flags(packet, flow), packet);
