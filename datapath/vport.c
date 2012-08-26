@@ -83,7 +83,7 @@ int ovs_vport_init(void)
 		const struct vport_ops *new_ops = base_vport_ops_list[i]; //check each vport_ops instance
 
 		if (new_ops->init)
-			err = new_ops->init(); //init each vport_ops
+			err = new_ops->init(); //run each init() in ops
 		else
 			err = 0;
 

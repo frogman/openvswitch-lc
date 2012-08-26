@@ -2264,7 +2264,7 @@ static int __init dp_init(void)
 	if (err)
 		goto error_tnl_exit;
 
-	err = ovs_vport_init(); //init the vport subsystem
+	err = ovs_vport_init(); //run init() in each ops in base_vport_ops_list
 	if (err)
 		goto error_flow_exit;
 
@@ -2272,7 +2272,7 @@ static int __init dp_init(void)
 	if (err)
 		goto error_vport_exit;
 
-    // sys call: register a network notifier block for dp_device's events: UNREGISTER, CHANGENAME
+    // sys call: register network notifier block for dp_device's events: UNREGISTER, CHANGENAME
 	err = register_netdevice_notifier(&ovs_dp_device_notifier); 
 	if (err)
 		goto error_netns_exit;
