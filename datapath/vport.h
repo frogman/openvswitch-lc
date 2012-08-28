@@ -27,6 +27,7 @@
 #include <linux/u64_stats_sync.h>
 
 #include "vport-capwap.h"
+#include "dcm.h"
 
 struct vport;
 struct vport_parms;
@@ -115,6 +116,10 @@ struct vport {
 #define VPORT_F_REQUIRED	(1 << 0) /* If init fails, module loading fails. */
 #define VPORT_F_FLOW		(1 << 1) /* Sets OVS_CB(skb)->flow. */
 #define VPORT_F_TUN_ID		(1 << 2) /* Sets OVS_CB(skb)->tun_id. */
+
+#ifdef NEED_LC_PEER
+#define VPORT_F_LC_MCAST    (1 << 4) /* Sets OVS_CB(skb)->lc_mcast. */
+#endif
 
 /**
  * struct vport_parms - parameters for creating a new vport

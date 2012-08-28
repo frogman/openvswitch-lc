@@ -34,6 +34,8 @@
 #include "vport.h"
 #include "vport-internal_dev.h"
 
+//#include "dcm.h"
+
 /* List of statically compiled vport implementations.  Don't forget to also
  * add yours to the list at the bottom of vport.h. */
 static const struct vport_ops *base_vport_ops_list[] = {
@@ -244,7 +246,7 @@ struct vport *ovs_vport_add(const struct vport_parms *parms)
 	ASSERT_RTNL();
 
 	for (i = 0; i < n_vport_types; i++) {
-		if (vport_ops_list[i]->type == parms->type) {
+		if (vport_ops_list[i]->type == parms->type) { //find corresponding type
 			struct hlist_head *bucket;
 
 			vport = vport_ops_list[i]->create(parms);
@@ -463,6 +465,11 @@ void ovs_vport_receive(struct vport *vport, struct sk_buff *skb)
 
 	if (!(vport->ops->flags & VPORT_F_TUN_ID))
 		OVS_CB(skb)->tun_id = 0;
+
+#ifdef NEED_LC_PEER
+	if (!(vport->ops->flags & VPORT_F_LC_MCAST))
+		OVS_CB(skb)->lc_mcast = 0;
+#endif
 
 	ovs_dp_process_received_packet(vport, skb);
 }

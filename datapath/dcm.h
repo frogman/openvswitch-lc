@@ -19,6 +19,11 @@
 #ifndef DCM_H
 #define DCM_H 1
 
-int dcm_init(void);
+#include <linux/skbuff.h>
 
+//#define NEED_LC_PEER
+
+//int ovs_dcm_init(void);
+
+//void ovs_dcm_process_received_packet(struct vport *p, struct sk_buff *skb);
 #endif /* dcm.h */

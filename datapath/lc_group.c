@@ -16,34 +16,28 @@
  * 02110-1301, USA
  */
 
-#include "flow.h"
-#include "vport.h"
-#include "dcm.h"
+#include <linux/errno.h>
+#include <linux/slab.h>
+#include "lc_group.h"
 
 /**
- * Init the dcm module.
+ * Init the group module.
  */
-int ovs_dcm_init(void)
+int lc_group_init(struct lc_group *group)
 {
+    if (group)
+    {
+        group->id = LC_GROUP_UNDEF;
+    }
 	return 0;
 }
 
 /**
- * Handle the lc_mcast packet.
- * @param p: vport from which the pkt comes.
- * @param skb: packet data.
+ * Free the group data structure.
+ * @param group: group to free.
  */
-void ovs_dcm_process_received_packet(struct vport *p, struct sk_buff *skb)
+void ovs_lc_group_free(struct lc_group *group)
 {
-    struct sw_flow_key key;
-    int key_len;
-    int error;
-
-    /* Extract flow from 'skb' into 'key'. */
-    error = ovs_flow_extract(skb, p->port_no, &key, &key_len);
-    if (unlikely(error)) {
-        kfree_skb(skb);
-        return;
-    }
+    kfree(group);
     return;
 }

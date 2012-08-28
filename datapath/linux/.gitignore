@@ -41,3 +41,5 @@
 /vport-patch.c
 /vport.c
 /workqueue.c
+/dcm.c
+/lc_group.c
