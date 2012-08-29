@@ -203,7 +203,9 @@ lib_libopenvswitch_a_SOURCES = \
 	lib/vswitch-idl.c \
 	lib/vswitch-idl.h \
 	lib/worker.c \
-	lib/worker.h
+	lib/worker.h \
+	lib/bf.c \
+	lib/bf.h
 
 nodist_lib_libopenvswitch_a_SOURCES = \
 	lib/dirs.c

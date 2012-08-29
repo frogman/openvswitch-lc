@@ -33,7 +33,7 @@
 #include "tunnel.h"
 #include "vlan.h"
 #include "vport.h"
-//#include "dcm.h"
+#include "lc_group.h"
 
 #define DP_MAX_PORTS		USHRT_MAX
 #define DP_VPORT_HASH_BUCKETS	1024

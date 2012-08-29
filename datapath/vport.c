@@ -34,8 +34,6 @@
 #include "vport.h"
 #include "vport-internal_dev.h"
 
-//#include "dcm.h"
-
 /* List of statically compiled vport implementations.  Don't forget to also
  * add yours to the list at the bottom of vport.h. */
 static const struct vport_ops *base_vport_ops_list[] = {

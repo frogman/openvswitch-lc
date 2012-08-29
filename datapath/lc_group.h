@@ -21,6 +21,8 @@
 
 #include <linux/types.h>
 
+#include "../lib/bf.h"
+
 #define LC_GROUP_UNDEF -1
 
 /**

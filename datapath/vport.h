@@ -27,7 +27,9 @@
 #include <linux/u64_stats_sync.h>
 
 #include "vport-capwap.h"
-#include "dcm.h"
+
+/*We need the LC peer interncommunication support*/
+#define NEED_LC_PEER
 
 struct vport;
 struct vport_parms;

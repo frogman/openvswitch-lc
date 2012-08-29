@@ -59,7 +59,8 @@
 #include "vlan.h"
 #include "tunnel.h"
 #include "vport-internal_dev.h"
-//#include "lc_group.h"
+#include "dcm.h"
+#include "lc_group.h"
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,18) || \
     LINUX_VERSION_CODE >= KERNEL_VERSION(3,6,0)
