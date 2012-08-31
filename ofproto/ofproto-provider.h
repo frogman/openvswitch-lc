@@ -67,7 +67,7 @@ struct ofproto {
     int n_tables;
 
     /* OpenFlow connections. */
-    struct connmgr *connmgr;
+    struct connmgr *connmgr; //connection to controller
 
     /* Flow table operation tracking. */
     int state;                  /* Internal state. */

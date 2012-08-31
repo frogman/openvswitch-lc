@@ -1343,7 +1343,8 @@ connmgr_send_flow_removed(struct connmgr *mgr,
 }
 
 /* Given 'pin', sends an OFPT_PACKET_IN message to each OpenFlow controller as
- * necessary according to their individual configurations.
+ * necessary according to their individual configurations. 
+ * For pkt that missed in the flow table or that had a OFPP_CONTROLLER output action.
  *
  * The caller doesn't need to fill in pin->buffer_id or pin->total_len. */
 void
