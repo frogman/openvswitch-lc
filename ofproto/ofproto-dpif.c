@@ -2875,6 +2875,7 @@ handle_flow_miss_without_facet(struct flow_miss *miss,
     struct action_xlate_ctx ctx;
     struct ofpbuf *packet;
 
+    /*deal with every missed-rule packet*/
     LIST_FOR_EACH (packet, list_node, &miss->packets) {
         struct flow_miss_op *op = &ops[*n_ops];
         struct dpif_flow_stats stats;
@@ -2887,8 +2888,8 @@ handle_flow_miss_without_facet(struct flow_miss *miss,
         dpif_flow_stats_extract(&miss->flow, packet, now, &stats);
         rule_credit_stats(rule, &stats);
 
-        action_xlate_ctx_init(&ctx, ofproto, &miss->flow, miss->initial_tci,
-                              rule, 0, packet);
+        action_xlate_ctx_init(&ctx, ofproto, &miss->flow, miss->initial_tci, 
+                              rule, 0, packet); //init ctx
         ctx.resubmit_stats = &stats;
         xlate_actions(&ctx, rule->up.ofpacts, rule->up.ofpacts_len,
                       &odp_actions);
@@ -2931,27 +2932,28 @@ handle_flow_miss_with_facet(struct flow_miss *miss, struct facet *facet,
                                miss->key_fitness, miss->key, miss->key_len,
                                miss->initial_tci, now);
 
+    /*deal with every missed-rule pkt*/
     LIST_FOR_EACH (packet, list_node, &miss->packets) {
         struct flow_miss_op *op = &ops[*n_ops];
         struct dpif_flow_stats stats;
         struct ofpbuf odp_actions;
 
-        handle_flow_miss_common(facet->rule, packet, &miss->flow);
+        handle_flow_miss_common(facet->rule, packet, &miss->flow); //check if in fail-open mod
 
         ofpbuf_use_stub(&odp_actions, op->stub, sizeof op->stub);
         if (!subfacet->actions || subfacet->slow) {
-            subfacet_make_actions(subfacet, packet, &odp_actions);
+            subfacet_make_actions(subfacet, packet, &odp_actions); //compose dp action
         }
 
         dpif_flow_stats_extract(&facet->flow, packet, now, &stats);
         subfacet_update_stats(subfacet, &stats);
 
-        if (subfacet->actions_len) {
+        if (subfacet->actions_len) { //has action
             struct dpif_execute *execute = &op->dpif_op.u.execute;
 
             init_flow_miss_execute_op(miss, packet, op);
             op->subfacet = subfacet;
-            if (!subfacet->slow) {
+            if (!subfacet->slow) { //fast path may be used
                 execute->actions = subfacet->actions;
                 execute->actions_len = subfacet->actions_len;
                 ofpbuf_uninit(&odp_actions);
@@ -2962,12 +2964,12 @@ handle_flow_miss_with_facet(struct flow_miss *miss, struct facet *facet,
             }
 
             (*n_ops)++;
-        } else {
+        } else { //no action
             ofpbuf_uninit(&odp_actions);
         }
     }
 
-    want_path = subfacet_want_path(subfacet->slow);
+    want_path = subfacet_want_path(subfacet->slow); //slow path or fast path
     if (miss->upcall_type == DPIF_UC_MISS || subfacet->path != want_path) {
         struct flow_miss_op *op = &ops[(*n_ops)++];
         struct dpif_flow_put *put = &op->dpif_op.u.flow_put;
@@ -5457,7 +5459,7 @@ do_xlate_actions(const struct ofpact *ofpacts, size_t ofpacts_len,
             break;
         }
 
-        switch (a->type) {
+        switch (a->type) { //handle each type of action
         case OFPACT_OUTPUT:
             xlate_output_action(ctx, ofpact_get_OUTPUT(a)->port,
                                 ofpact_get_OUTPUT(a)->max_len);
@@ -5692,7 +5694,7 @@ xlate_actions(struct action_xlate_ctx *ctx,
         }
     }
 
-    special = process_special(ctx->ofproto, &ctx->flow, ctx->packet);
+    special = process_special(ctx->ofproto, &ctx->flow, ctx->packet);//get slow path reason
     if (special) {
         ctx->slow |= special;
     } else {
