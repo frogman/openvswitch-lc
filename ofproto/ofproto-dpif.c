@@ -936,7 +936,8 @@ run_fast(struct ofproto *ofproto_)
     struct ofport_dpif *ofport;
     unsigned int work;
 
-    HMAP_FOR_EACH (ofport, up.hmap_node, &ofproto->up.ports) {
+    /* check to send CCM */
+    HMAP_FOR_EACH (ofport, up.hmap_node, &ofproto->up.ports) { 
         port_run_fast(ofport);
     }
 
@@ -2455,7 +2456,7 @@ ofproto_port_from_dpif_port(struct ofproto_port *ofproto_port,
 static void
 port_run_fast(struct ofport_dpif *ofport)
 {
-    if (ofport->cfm && cfm_should_send_ccm(ofport->cfm)) {
+    if (ofport->cfm && cfm_should_send_ccm(ofport->cfm)) { //continulity check msg
         struct ofpbuf packet;
 
         ofpbuf_init(&packet, 0);
@@ -2846,7 +2847,7 @@ static bool
 flow_miss_should_make_facet(struct ofproto_dpif *ofproto,
                             struct flow_miss *miss, uint32_t hash)
 {
-    if (!ofproto->governor) {
+    if (!ofproto->governor) { /*flow setup rate limiter*/
         size_t n_subfacets;
 
         n_subfacets = hmap_count(&ofproto->subfacets);
@@ -3003,8 +3004,8 @@ handle_flow_miss(struct ofproto_dpif *ofproto, struct flow_miss *miss,
      * flow_hash(miss->flow, 0). */
     hash = miss->hmap_node.hash;
 
-    facet = facet_lookup_valid(ofproto, &miss->flow, hash);
-    if (!facet) {
+    facet = facet_lookup_valid(ofproto, &miss->flow, hash);//facet stores the resulted flow
+    if (!facet) { /*no found exact match*/
         struct rule_dpif *rule = rule_dpif_lookup(ofproto, &miss->flow);
 
         if (!flow_miss_should_make_facet(ofproto, miss, hash)) {
@@ -3116,7 +3117,7 @@ handle_miss_upcalls(struct ofproto_dpif *ofproto, struct dpif_upcall *upcalls,
         miss->key_fitness = ofproto_dpif_extract_flow_key(
             ofproto, upcall->key, upcall->key_len,
             &miss->flow, &miss->initial_tci, upcall->packet);
-        if (miss->key_fitness == ODP_FIT_ERROR) {
+        if (miss->key_fitness == ODP_FIT_ERROR) {/*how well the kernel key match user expectation*/
             continue;
         }
         flow_extract(upcall->packet, miss->flow.skb_priority,
@@ -3247,22 +3248,21 @@ handle_upcalls(struct ofproto_dpif *ofproto, unsigned int max_batch)
     assert(max_batch <= FLOW_MISS_MAX_BATCH);
 
     n_misses = 0;
-    for (n_processed = 0; n_processed < max_batch; n_processed++) {
+    for (n_processed = 0; n_processed < max_batch; n_processed++) { /*handle max_batch upcalls*/
         struct dpif_upcall *upcall = &misses[n_misses];
         struct ofpbuf *buf = &miss_bufs[n_misses];
         int error;
 
         ofpbuf_use_stub(buf, miss_buf_stubs[n_misses],
-                        sizeof miss_buf_stubs[n_misses]);
-        error = dpif_recv(ofproto->dpif, upcall, buf); /*receive upcall from dpif*/
+                        sizeof miss_buf_stubs[n_misses]); /*let buf point to miss_buf_stubs*/
+        error = dpif_recv(ofproto->dpif, upcall, buf); /*receive upcall from dpif, stored in buf*/
         if (error) {
-            ofpbuf_uninit(buf);
+            ofpbuf_uninit(buf); /*free the memory by buf*/
             break;
         }
 
-        switch (classify_upcall(upcall)) { //handle the upcall according to the type
-        case MISS_UPCALL:
-            /* Handle it later. */
+        switch (classify_upcall(upcall)) { /*check the upcall type, will handle them later */
+        case MISS_UPCALL: /*miss msg*/
             n_misses++;
             break;
 
@@ -3902,7 +3902,7 @@ facet_lookup_valid(struct ofproto_dpif *ofproto, const struct flow *flow,
     facet = facet_find(ofproto, flow, hash);
     if (facet
         && (ofproto->need_revalidate
-            || tag_set_intersects(&ofproto->revalidate_set, facet->tags))) {
+        || tag_set_intersects(&ofproto->revalidate_set, facet->tags))) {
         facet_revalidate(facet);
     }
 

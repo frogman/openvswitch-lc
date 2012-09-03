@@ -84,7 +84,7 @@ main(int argc, char *argv[])
     proctitle_init(argc, argv); //copy args from its orginal location
     set_program_name(argv[0]);
     stress_init_command(); //register stress cmds to the commands
-    remote = parse_options(argc, argv, &unixctl_path); //remote stores the db sock (punix:...db.sock), unixctl stores the control server: ovsd works as a client to receive cmds from servers such as ovs-appctl
+    remote = parse_options(argc, argv, &unixctl_path); //remote stores the db sock, unixctl stores the control server: ovsd works as a client to receive cmds from servers such as ovs-appctl
     signal(SIGPIPE, SIG_IGN); //ignore the pipe read termination signal
     sighup = signal_register(SIGHUP); //register the SIGHUP signal handler
     process_init(); //create notification pipe and register the handler for child termination signal

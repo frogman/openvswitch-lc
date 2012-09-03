@@ -2048,6 +2048,9 @@ bridge_run_fast(void)
     }
 }
 
+/**
+ * Run each ofproto->run at this bridge.
+ */
 void
 bridge_run(void)
 {
