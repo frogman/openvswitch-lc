@@ -3898,6 +3898,7 @@ facet_lookup_valid(struct ofproto_dpif *ofproto, const struct flow *flow,
 {
     struct facet *facet;
 
+    /*try to find a facet in ofproto, to match the flow*/
     facet = facet_find(ofproto, flow, hash);
     if (facet
         && (ofproto->need_revalidate
