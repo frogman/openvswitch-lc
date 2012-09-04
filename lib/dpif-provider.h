@@ -53,7 +53,7 @@ static inline void dpif_assert_class(const struct dpif *dpif,
 }
 
 /* Datapath interface class structure, to be defined by each implementation of
- * a datapath interface.
+ * a datapath interface (lib/dpif.c).
  *
  * These functions return 0 if successful or a positive errno value on failure,
  * except where otherwise noted.

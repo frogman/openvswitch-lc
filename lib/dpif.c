@@ -57,6 +57,7 @@ COVERAGE_DEFINE(dpif_flow_query_list_n);
 COVERAGE_DEFINE(dpif_execute);
 COVERAGE_DEFINE(dpif_purge);
 
+/*real implementation of the dpif_class*/
 static const struct dpif_class *base_dpif_classes[] = {
 #ifdef HAVE_NETLINK
     &dpif_linux_class,
@@ -777,6 +778,9 @@ dpif_flow_get(const struct dpif *dpif,
     return error;
 }
 
+/**
+ * call dpif_class->flow_put()
+ */
 static int
 dpif_flow_put__(struct dpif *dpif, const struct dpif_flow_put *put)
 {
@@ -1008,7 +1012,7 @@ dpif_operate(struct dpif *dpif, struct dpif_op **ops, size_t n_ops)
     size_t i;
 
     if (dpif->dpif_class->operate) {
-        dpif->dpif_class->operate(dpif, ops, n_ops);
+        dpif->dpif_class->operate(dpif, ops, n_ops); //run the action
 
         for (i = 0; i < n_ops; i++) {
             struct dpif_op *op = ops[i];

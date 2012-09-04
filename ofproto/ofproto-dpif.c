@@ -3109,6 +3109,7 @@ handle_miss_upcalls(struct ofproto_dpif *ofproto, struct dpif_upcall *upcalls,
      * that we can process them together. */
     hmap_init(&todo);
     n_misses = 0;
+    /*check every miss call, classy them into flows, stored in a to-do list*/
     for (upcall = upcalls; upcall < &upcalls[n_upcalls]; upcall++) {
         struct flow_miss *miss = &misses[n_misses];
         struct flow_miss *existing_miss;
@@ -3125,7 +3126,7 @@ handle_miss_upcalls(struct ofproto_dpif *ofproto, struct dpif_upcall *upcalls,
         flow_extract(upcall->packet, miss->flow.skb_priority,
                      miss->flow.tun_id, miss->flow.in_port, &miss->flow);
 
-        /* Add other packets to a to-do list. */
+        /* Add other packets to a to-do list, classified by flow. */
         hash = flow_hash(&miss->flow, 0);
         existing_miss = flow_miss_find(&todo, &miss->flow, hash);
         if (!existing_miss) {
@@ -3143,14 +3144,14 @@ handle_miss_upcalls(struct ofproto_dpif *ofproto, struct dpif_upcall *upcalls,
     }
 
     /* Process each element in the to-do list, constructing the set of
-     * operations to batch. */
+     * operations to the flow_miss_ops. */
     n_ops = 0;
     HMAP_FOR_EACH (miss, hmap_node, &todo) {
         handle_flow_miss(ofproto, miss, flow_miss_ops, &n_ops);
     }
     assert(n_ops <= ARRAY_SIZE(flow_miss_ops));
 
-    /* Execute batch. */
+    /* Execute the flow_miss_ops. */
     for (i = 0; i < n_ops; i++) {
         dpif_ops[i] = &flow_miss_ops[i].dpif_op;
     }
