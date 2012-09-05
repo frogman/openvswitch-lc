@@ -14,6 +14,10 @@ lib_libopenvswitch_a_SOURCES = \
 	lib/autopath.h \
 	lib/backtrace.c \
 	lib/backtrace.h \
+	lib/bf.c \
+	lib/bf.h \
+	lib/bf-gdt.c \
+	lib/bf-gdt.h \
 	lib/bitmap.c \
 	lib/bitmap.h \
 	lib/bond.c \
@@ -203,9 +207,7 @@ lib_libopenvswitch_a_SOURCES = \
 	lib/vswitch-idl.c \
 	lib/vswitch-idl.h \
 	lib/worker.c \
-	lib/worker.h \
-	lib/bf.c \
-	lib/bf.h
+	lib/worker.h
 
 nodist_lib_libopenvswitch_a_SOURCES = \
 	lib/dirs.c

@@ -16,31 +16,24 @@
  * 02110-1301, USA
  */
 
-#ifndef BF_H
-#define BF_H
+#ifndef BF_GDT_H
+#define BF_GDT_H
 
-/* only for userspace compatibility */
-#ifndef __KERNEL__
-typedef unsigned int u32;
-typedef unsigned char u8;
-#endif
+#include "bf.h"
 
-typedef unsigned int (*hashfunc_t)(const char *);
+#define BF_GDT_MAX_FILTERS 64
 
-struct bloom_filter{
-    u32 dp_id; /*id of the corresponding sw*/
-    u32 len; /*length of the bit array*/
-    u8 *array; /*the bit array*/
-    u32 nfuncs; /*number of hash functions*/
-    hashfunc_t *funcs; /*hash functions array*/
+struct bf_gdt{
+    u32 gid; /*id of the group, dp should not care*/
+    u32 nbf; /*number of the bloom_filters*/
+    struct bloom_filter **bf_array; /*the bloom_filter array*/
 };
 
-u32 sax_hash(const char *key);
-u32 sdbm_hash(const char *key);
+struct bf_gdt *bf_gdt_init(u32 gid);
+struct bloom_filter *bf_gdt_add_filter(struct bf_gdt *gdt, u32 dp_id, u32 len);
+int bf_gdt_destroy(struct bf_gdt *gdt);
+int bf_gdt_add_item(struct bf_gdt *gdt, u32 dp_id, const char *s);
 
-struct bloom_filter *bf_create(u32 dp_id, u32 len, u32 nfuncs); 
-int bf_destroy(struct bloom_filter *bf);
-int bf_add(struct bloom_filter *bf, const char *s);
-int bf_check(struct bloom_filter *bf, const char *s);
+struct bloom_filter *bf_gdt_check(struct bf_gdt *gdt, const char *s);
 
 #endif
