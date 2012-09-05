@@ -16,34 +16,14 @@
  * 02110-1301, USA
  */
 
-#include "flow.h"
+#ifndef DP_DCM_H
+#define DP_DCM_H 1
+
+#include <linux/skbuff.h>
+
 #include "vport.h"
-#include "dcm.h"
 
-/**
- * Init the dcm module.
- */
-int ovs_dcm_init(void)
-{
-	return 0;
-}
+//int ovs_dcm_init(void);
 
-/**
- * Handle the lc_mcast packet.
- * @param p: vport from which the pkt comes.
- * @param skb: packet data.
- */
-void ovs_dcm_process_received_packet(struct vport *p, struct sk_buff *skb)
-{
-    struct sw_flow_key key;
-    int key_len;
-    int error;
-
-    /* Extract flow from 'skb' into 'key'. */
-    error = ovs_flow_extract(skb, p->port_no, &key, &key_len);
-    if (unlikely(error)) {
-        kfree_skb(skb);
-        return;
-    }
-    return;
-}
+void ovs_dcm_process_received_packet(struct vport *p, struct sk_buff *skb);
+#endif /* dcm.h */

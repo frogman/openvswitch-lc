@@ -33,7 +33,7 @@
 #include "tunnel.h"
 #include "vlan.h"
 #include "vport.h"
-#include "lc_group.h"
+#include "lib/bf-gdt.h"
 
 #define DP_MAX_PORTS		USHRT_MAX
 #define DP_VPORT_HASH_BUCKETS	1024
@@ -56,7 +56,7 @@ struct dp_stats_percpu {
 	u64 n_hit;
 	u64 n_missed;
 	u64 n_lost;
-#ifdef NEED_LC_PEER
+#ifdef LC_ENABLE
 	u64 n_lc_mcast;
 #endif
 	struct u64_stats_sync sync;
@@ -95,8 +95,8 @@ struct datapath {
 	/* Network namespace ref. */
 	struct net *net;
 #endif
-#ifdef NEED_LC_PEER
-    struct lc_group *grp;
+#ifdef LC_ENABLE
+    struct bf_gdt *grp;
 #endif
 };
 
@@ -122,7 +122,7 @@ struct ovs_skb_cb {
 #ifdef NEED_VLAN_FIELD
 	u16			vlan_tci;
 #endif
-#ifdef NEED_LC_PEER
+#ifdef LC_ENABLE
 	u16			lc_mcast;
 	u16			lc_gid;
 #endif

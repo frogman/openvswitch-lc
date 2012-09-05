@@ -21,7 +21,17 @@
 
 #include "bf.h"
 
+#ifndef BF_GDT_MAX_FILTERS
 #define BF_GDT_MAX_FILTERS 64
+#endif
+
+#ifndef LC_DP_DFT_ID
+#define LC_DP_DFT_ID 0
+#endif
+
+#ifndef LC_GROUP_LOCAL_ID
+#define LC_GROUP_LOCAL_ID 0
+#endif
 
 struct bf_gdt{
     u32 gid; /*id of the group, dp should not care*/
@@ -30,8 +40,9 @@ struct bf_gdt{
 };
 
 struct bf_gdt *bf_gdt_init(u32 gid);
-struct bloom_filter *bf_gdt_add_filter(struct bf_gdt *gdt, u32 dp_id, u32 len);
 int bf_gdt_destroy(struct bf_gdt *gdt);
+
+struct bloom_filter *bf_gdt_add_filter(struct bf_gdt *gdt, u32 dp_id, u32 len);
 int bf_gdt_add_item(struct bf_gdt *gdt, u32 dp_id, const char *s);
 
 struct bloom_filter *bf_gdt_check(struct bf_gdt *gdt, const char *s);

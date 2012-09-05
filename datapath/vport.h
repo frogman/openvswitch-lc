@@ -28,8 +28,8 @@
 
 #include "vport-capwap.h"
 
-/*We need the LC peer interncommunication support*/
-#define NEED_LC_PEER
+/*We need the LC support*/
+#define LC_ENABLE
 
 struct vport;
 struct vport_parms;
@@ -119,7 +119,7 @@ struct vport {
 #define VPORT_F_FLOW		(1 << 1) /* Sets OVS_CB(skb)->flow. */
 #define VPORT_F_TUN_ID		(1 << 2) /* Sets OVS_CB(skb)->tun_id. */
 
-#ifdef NEED_LC_PEER
+#ifdef LC_ENABLE
 #define VPORT_F_LC_MCAST    (1 << 4) /* Sets OVS_CB(skb)->lc_mcast. */
 #endif
 

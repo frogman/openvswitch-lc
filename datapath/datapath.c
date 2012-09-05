@@ -59,7 +59,7 @@
 #include "vlan.h"
 #include "tunnel.h"
 #include "vport-internal_dev.h"
-#include "dcm.h"
+#include "dp_dcm.h"
 #include "lc_group.h"
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,18) || \
@@ -313,8 +313,8 @@ void ovs_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
 
 	stats = per_cpu_ptr(dp->stats_percpu, smp_processor_id());
 
-#ifdef NEED_LC_PEER
-	if (OVS_CB(skb)->lc_mcast && dp->grp->id == OVS_CB(skb)->lc_gid) { /*valid lc_mcast pkt*/
+#ifdef LC_ENABLE
+	if (OVS_CB(skb)->lc_mcast && dp->grp->gid == OVS_CB(skb)->lc_gid) { /*valid lc_mcast pkt*/
         ovs_dcm_process_received_packet(p,skb);
         stats_counter = &stats->n_lc_mcast;
         goto out;
@@ -1441,13 +1441,13 @@ static int ovs_dp_cmd_new(struct sk_buff *skb, struct genl_info *info)
 	for (i = 0; i < DP_VPORT_HASH_BUCKETS; i++)
 		INIT_HLIST_HEAD(&dp->ports[i]);
 
-#ifdef NEED_LC_PEER
-	dp->grp = kmalloc(sizeof(struct lc_group), GFP_KERNEL);
+#ifdef LC_ENABLE /*init the lc_group*/
+	dp->grp = bf_gdt_init(LC_GROUP_DFT_ID);
 	if (!dp->grp) {
 		err = -ENOMEM;
 		goto err_destroy_percpu;
     }
-    lc_group_init(dp->grp);
+    bf_gdt_add_filter(dp->grp,LC_DP_DFT_ID,1024);
 #endif
 
 	/* Set up our datapath device. */
