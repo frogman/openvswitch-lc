@@ -60,7 +60,6 @@
 #include "tunnel.h"
 #include "vport-internal_dev.h"
 #include "dp_dcm.h"
-#include "lc_group.h"
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,18) || \
     LINUX_VERSION_CODE >= KERNEL_VERSION(3,6,0)
@@ -310,18 +309,12 @@ void ovs_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
 	struct dp_stats_percpu *stats;
 	u64 *stats_counter;
 	int error;
+    struct bloom_filter *bf;
+    char tmp_dst[11]; /*store char format of the address*/
 
 	stats = per_cpu_ptr(dp->stats_percpu, smp_processor_id());
 
-#ifdef LC_ENABLE
-	if (OVS_CB(skb)->lc_mcast && dp->grp->gid == OVS_CB(skb)->lc_gid) { /*valid lc_mcast pkt*/
-        ovs_dcm_process_received_packet(p,skb);
-        stats_counter = &stats->n_lc_mcast;
-        goto out;
-    }
-#endif
-
-	if (!OVS_CB(skb)->flow) { 
+	if (!OVS_CB(skb)->flow) { //no flow associated with the pkt
 		struct sw_flow_key key;
 		int key_len;
 
@@ -333,19 +326,45 @@ void ovs_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
 		}
 
 		/* Look up flow. */
-		flow = ovs_flow_tbl_lookup(rcu_dereference(dp->table),
-					   &key, key_len);
+		flow = ovs_flow_tbl_lookup(rcu_dereference(dp->table), &key, key_len);
 		if (unlikely(!flow)) {
-			struct dp_upcall_info upcall;
+            sprintf(tmp_dst,"%u",key.ipv4.addr.dst);
+            bf = bf_gdt_check(dp->gdt,tmp_dst);
+            if (likely(bf)){ //in bf-gdt
+                //TODO:construct the flow here.
+                flow = kmalloc(sizeof(struct sw_flow), GFP_ATOMIC);
+                if (!flow) {
+                    goto packet_miss;
+                }
+                flow.sf_acts = kmalloc(sizeof(struct sw_flow_actions), GFP_ATOMIC);
+                if (!flow.sf_acts) {
+                    kfree(flow);
+                    goto packet_miss;
+                }
+                memcpy(&(flow->key),&key,sizeof(struct sw_flow_key));
+                flow.sf_acts->actions = kmalloc(sizeof(struct nlattr), GFP_ATOMIC);
+                if (!flow.sf_acts->actions) {
+                    kfree(flow);
+                    kfree(flow.sf_acts);
+                    goto packet_miss;
+                }
+                flow.sf_acts->actions_len = 1;
+                flow.sf_acts->actions[0].nla_len = 1; //TODO: how to set act.
+                flow.sf_acts->actions[0].nla_type = OVS_ACTION_ATTR_OUTPUT;
 
-			upcall.cmd = OVS_PACKET_CMD_MISS;
-			upcall.key = &key;
-			upcall.userdata = NULL;
-			upcall.pid = p->upcall_pid;
-			ovs_dp_upcall(dp, skb, &upcall);
-			consume_skb(skb);
-			stats_counter = &stats->n_missed;
-			goto out;
+            } else { //not in bf-gdt
+packet_miss:
+                struct dp_upcall_info upcall;
+
+                upcall.cmd = OVS_PACKET_CMD_MISS;
+                upcall.key = &key;
+                upcall.userdata = NULL;
+                upcall.pid = p->upcall_pid;
+                ovs_dp_upcall(dp, skb, &upcall);
+                consume_skb(skb);
+                stats_counter = &stats->n_missed;
+                goto out;
+            }
 		}
 
 		OVS_CB(skb)->flow = flow;
@@ -1441,13 +1460,13 @@ static int ovs_dp_cmd_new(struct sk_buff *skb, struct genl_info *info)
 	for (i = 0; i < DP_VPORT_HASH_BUCKETS; i++)
 		INIT_HLIST_HEAD(&dp->ports[i]);
 
-#ifdef LC_ENABLE /*init the lc_group*/
-	dp->grp = bf_gdt_init(LC_GROUP_DFT_ID);
-	if (!dp->grp) {
+#ifdef LC_ENABLE /*init the lc_group, TODO*/
+	dp->gdt = bf_gdt_init(LC_GROUP_DFT_ID);
+	if (!dp->gdt) {
 		err = -ENOMEM;
 		goto err_destroy_percpu;
     }
-    bf_gdt_add_filter(dp->grp,LC_DP_DFT_ID,1024);
+    bf_gdt_add_filter(dp->gdt,LC_DP_DFT_ID,1024);
 #endif
 
 	/* Set up our datapath device. */

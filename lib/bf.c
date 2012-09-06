@@ -160,3 +160,36 @@ int bf_check(struct bloom_filter *bf, const char *s)
 
     return 1;
 }
+
+/**
+ * set the array content.
+ * @param bf: bf who owns the array
+ * @param array: new array content
+ * @param len: new length
+ * @return 0 if success, else -1
+ */
+int bf_set_array(struct bloom_filter *bf, const u8 *array, u32 len)
+{
+    if (!bf || !array)
+        return -1;
+    u8 * tmp_array = NULL;
+#ifdef __KERNEL__
+    if(!(tmp_array=kcalloc((len+sizeof(char)-1)/sizeof(char), sizeof(char),GFP_KERNEL))) {
+        kfree(tmp_array);
+        //printk("Error when kcalloc in bf_set_array()\n");
+        return -1;
+    }
+    kfree(bf->array);
+#else
+    if(!(tmp_array=calloc((len+sizeof(char)-1)/sizeof(char), sizeof(char)))) {
+        free(tmp_array);
+        //printk("Error when kcalloc in bf_set_array()\n");
+        return -1;
+    }
+    free(bf->array);
+#endif
+    memcpy(tmp_array,array,(len+sizeof(char)-1)/sizeof(char));
+    bf->array = tmp_array;
+    bf->len = len;
+    return 0;
+}

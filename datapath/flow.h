@@ -99,8 +99,8 @@ struct sw_flow {
 	struct hlist_node hash_node[2];
 	u32 hash;
 
-	struct sw_flow_key key;
-	struct sw_flow_actions __rcu *sf_acts;
+	struct sw_flow_key key; //packet header
+	struct sw_flow_actions __rcu *sf_acts; //actions
 
 	atomic_t refcnt;
 	bool dead;

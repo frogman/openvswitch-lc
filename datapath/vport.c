@@ -464,11 +464,6 @@ void ovs_vport_receive(struct vport *vport, struct sk_buff *skb)
 	if (!(vport->ops->flags & VPORT_F_TUN_ID))
 		OVS_CB(skb)->tun_id = 0;
 
-#ifdef LC_ENABLE
-	if (!(vport->ops->flags & VPORT_F_LC_MCAST))
-		OVS_CB(skb)->lc_mcast = 0;
-#endif
-
 	ovs_dp_process_received_packet(vport, skb);
 }
 

@@ -28,7 +28,7 @@ typedef unsigned char u8;
 typedef unsigned int (*hashfunc_t)(const char *);
 
 struct bloom_filter{
-    u32 dp_id; /*id of the corresponding sw*/
+    u32 dp_id; /*id of the corresponding switch*/
     u32 len; /*length of the bit array*/
     u8 *array; /*the bit array*/
     u32 nfuncs; /*number of hash functions*/
@@ -42,5 +42,6 @@ struct bloom_filter *bf_create(u32 dp_id, u32 len, u32 nfuncs);
 int bf_destroy(struct bloom_filter *bf);
 int bf_add(struct bloom_filter *bf, const char *s);
 int bf_check(struct bloom_filter *bf, const char *s);
+int bf_set_array(struct bloom_filter *bf, const u8 *array, u32 len);
 
 #endif

@@ -378,8 +378,7 @@ static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
 	const struct nlattr *a;
 	int rem;
 
-	for (a = attr, rem = len; rem > 0;
-	     a = nla_next(a, &rem)) {
+	for (a = attr, rem = len; rem > 0; a = nla_next(a, &rem)) {
 		int err = 0;
 
 		if (prev_port != -1) {

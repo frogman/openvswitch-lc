@@ -29,8 +29,8 @@
 #define LC_DP_DFT_ID 0
 #endif
 
-#ifndef LC_GROUP_LOCAL_ID
-#define LC_GROUP_LOCAL_ID 0
+#ifndef LC_GROUP_DFT_ID
+#define LC_GROUP_DFT_ID 0
 #endif
 
 struct bf_gdt{
