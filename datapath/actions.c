@@ -382,7 +382,7 @@ static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
 	int rem;
 
 	for (a = attr, rem = len; rem > 0;
-	     a = nla_next(a, &rem)) {
+	     a = nla_next(a, &rem)) { //sequentially check each attr in a.
 		int err = 0;
 
 		if (prev_port != -1) {

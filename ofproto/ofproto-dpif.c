@@ -2891,8 +2891,7 @@ handle_flow_miss_without_facet(struct flow_miss *miss,
         action_xlate_ctx_init(&ctx, ofproto, &miss->flow, miss->initial_tci, 
                               rule, 0, packet); //init ctx
         ctx.resubmit_stats = &stats;
-        xlate_actions(&ctx, rule->up.ofpacts, rule->up.ofpacts_len,
-                      &odp_actions);
+        xlate_actions(&ctx, rule->up.ofpacts, rule->up.ofpacts_len, &odp_actions); //talk with controller
 
         if (odp_actions.size) {
             struct dpif_execute *execute = &op->dpif_op.u.execute;
