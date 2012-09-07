@@ -55,12 +55,13 @@ hashfunc_t hashFunctions[] = {sax_hash,sdbm_hash};
 
 /**
  * Create array bloom_filter.
- * @param dp_id: dp_id for the bloom_filter
+ * @param bf_id: bf_id for the bloom_filter
  * @param len: number of the bits in the bloom_filter
+ * @param port_no: port_no associated.
  * @param nfuncs: number of the hash functions
  * @return: Pointer to the created bloom_filter. NULL if failed.
  */
-struct bloom_filter *bf_create(u32 dp_id, u32 len, u32 nfuncs)
+struct bloom_filter *bf_create(u32 bf_id, u32 len, u16 port_no, u32 nfuncs)
 {
     struct bloom_filter *bf;
     int i;
@@ -100,7 +101,8 @@ struct bloom_filter *bf_create(u32 dp_id, u32 len, u32 nfuncs)
         bf->funcs[i]=hashFunctions[i];
     }
 
-    bf->dp_id = dp_id;
+    bf->bf_id = bf_id;
+    bf->port_no = port_no;
     bf->len=len;
     bf->nfuncs=nfuncs;
 
@@ -176,14 +178,14 @@ int bf_set_array(struct bloom_filter *bf, const u8 *array, u32 len)
 #ifdef __KERNEL__
     if(!(tmp_array=kcalloc((len+sizeof(char)-1)/sizeof(char), sizeof(char),GFP_KERNEL))) {
         kfree(tmp_array);
-        //printk("Error when kcalloc in bf_set_array()\n");
+        /*printk("Error when kcalloc in bf_set_array()\n");*/
         return -1;
     }
     kfree(bf->array);
 #else
     if(!(tmp_array=calloc((len+sizeof(char)-1)/sizeof(char), sizeof(char)))) {
         free(tmp_array);
-        //printk("Error when kcalloc in bf_set_array()\n");
+        /*printk("Error when kcalloc in bf_set_array()\n");*/
         return -1;
     }
     free(bf->array);

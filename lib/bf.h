@@ -22,14 +22,16 @@
 /* only for userspace compatibility */
 #ifndef __KERNEL__
 typedef unsigned int u32;
+typedef unsigned short u16;
 typedef unsigned char u8;
 #endif
 
 typedef unsigned int (*hashfunc_t)(const char *);
 
 struct bloom_filter{
-    u32 dp_id; /*id of the corresponding switch*/
+    u32 bf_id; /*id*/
     u32 len; /*length of the bit array*/
+    u16 port_no; /*how to reach the switch*/
     u8 *array; /*the bit array*/
     u32 nfuncs; /*number of hash functions*/
     hashfunc_t *funcs; /*hash functions array*/
@@ -38,7 +40,7 @@ struct bloom_filter{
 u32 sax_hash(const char *key);
 u32 sdbm_hash(const char *key);
 
-struct bloom_filter *bf_create(u32 dp_id, u32 len, u32 nfuncs); 
+struct bloom_filter *bf_create(u32 bf_id, u32 len, u16 port_no, u32 nfuncs); 
 int bf_destroy(struct bloom_filter *bf);
 int bf_add(struct bloom_filter *bf, const char *s);
 int bf_check(struct bloom_filter *bf, const char *s);

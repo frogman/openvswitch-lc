@@ -33,6 +33,10 @@
 #define LC_GROUP_DFT_ID 0
 #endif
 
+#ifndef LC_BF_DFT_PORT_NO
+#define LC_BF_DFT_PORT_NO 0
+#endif
+
 struct bf_gdt{
     u32 gid; /*id of the group, dp should not care*/
     u32 nbf; /*number of the bloom_filters*/
@@ -42,8 +46,8 @@ struct bf_gdt{
 struct bf_gdt *bf_gdt_init(u32 gid);
 int bf_gdt_destroy(struct bf_gdt *gdt);
 
-struct bloom_filter *bf_gdt_add_filter(struct bf_gdt *gdt, u32 dp_id, u32 len);
-int bf_gdt_add_item(struct bf_gdt *gdt, u32 dp_id, const char *s);
+struct bloom_filter *bf_gdt_add_filter(struct bf_gdt *gdt, u16 port_no, u32 len);
+int bf_gdt_add_item(struct bf_gdt *gdt, u32 bf_id, const char *s);
 
 struct bloom_filter *bf_gdt_check(struct bf_gdt *gdt, const char *s);
 

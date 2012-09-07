@@ -328,38 +328,32 @@ void ovs_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
 		/* Look up flow. */
 		flow = ovs_flow_tbl_lookup(rcu_dereference(dp->table), &key, key_len);
 		if (unlikely(!flow)) {
+#ifdef LC_ENABLE
             sprintf(tmp_dst,"%u",key.ipv4.addr.dst);
             bf = bf_gdt_check(dp->gdt,tmp_dst);
             if (likely(bf)){ //in bf-gdt
                 //TODO:construct the flow here.
                 flow = kmalloc(sizeof(struct sw_flow), GFP_ATOMIC);
-                if (!flow) {
-                    goto packet_miss;
-                }
-                flow.sf_acts = kmalloc(sizeof(struct sw_flow_actions), GFP_ATOMIC);
-                if (!flow.sf_acts) {
-                    kfree(flow);
-                    goto packet_miss;
-                }
+                flow->sf_acts = kmalloc(sizeof(struct sw_flow_actions)+sizeof(struct nlattr)+sizeof(u32), GFP_ATOMIC);
                 memcpy(&(flow->key),&key,sizeof(struct sw_flow_key));
-                flow.sf_acts->actions = kmalloc(sizeof(struct nlattr), GFP_ATOMIC);
-                if (!flow.sf_acts->actions) {
-                    kfree(flow);
-                    kfree(flow.sf_acts);
-                    goto packet_miss;
-                }
-                flow.sf_acts->actions_len = 1;
-                flow.sf_acts->actions[0].nla_len = 1; //TODO: how to set act.
-                flow.sf_acts->actions[0].nla_type = OVS_ACTION_ATTR_OUTPUT;
+                
+                /*construct the action of sending to port*/
+                flow->sf_acts->actions_len = NLA_HDRLEN + sizeof(int);
+                flow->sf_acts->actions[0].nla_len = NLA_HDRLEN + sizeof(int); //len of the attr
+                flow->sf_acts->actions[0].nla_type = OVS_ACTION_ATTR_OUTPUT;
+                ((u32*)flow->sf_acts->actions)[1] = bf->port_no; //actually, here it means the port_no
 
-            } else { //not in bf-gdt
-packet_miss:
+            } else { /* not in bf-gdt yet, then send to ovsd using upcall */
+#endif
                 struct dp_upcall_info upcall;
 
                 upcall.cmd = OVS_PACKET_CMD_MISS;
                 upcall.key = &key;
                 upcall.userdata = NULL;
                 upcall.pid = p->upcall_pid;
+#ifdef LC_ENABLE
+                upcall.port_no = p->port_no; /*ovsd should maintain a dict to map vm ip to port_no*/
+#endif
                 ovs_dp_upcall(dp, skb, &upcall);
                 consume_skb(skb);
                 stats_counter = &stats->n_missed;
@@ -379,6 +373,12 @@ out:
 	u64_stats_update_begin(&stats->sync);
 	(*stats_counter)++;
 	u64_stats_update_end(&stats->sync);
+#ifdef LC_ENABLE
+    if (likely(bf)){ //in bf-gdt
+    if(flow->sf_acts) kfree(flow->sf_acts);
+    if(flow)  kfree(flow);
+    }
+#endif
 }
 
 static struct genl_family dp_packet_genl_family = {
@@ -1466,7 +1466,7 @@ static int ovs_dp_cmd_new(struct sk_buff *skb, struct genl_info *info)
 		err = -ENOMEM;
 		goto err_destroy_percpu;
     }
-    bf_gdt_add_filter(dp->gdt,LC_DP_DFT_ID,1024);
+    bf_gdt_add_filter(dp->gdt,LC_BF_DFT_PORT_NO,1024); /*empty filter*/
 #endif
 
 	/* Set up our datapath device. */
@@ -1572,6 +1572,10 @@ static int ovs_dp_cmd_del(struct sk_buff *skb, struct genl_info *info)
 		return err;
 
 	__dp_destroy(dp);
+
+#ifdef LC_ENABLE /*destroy the bf-gdt*/
+    bf_gdt_destroy(dp->gdt);
+#endif
 
 	genl_notify(reply, genl_info_net(info), info->snd_pid,
 		    ovs_dp_datapath_multicast_group.id, info->nlhdr,

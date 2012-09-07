@@ -67,13 +67,16 @@ struct bf_gdt *bf_gdt_init(u32 gid)
 /**
  * Create and add a new bloom_filter into the given gdt
  * @param gdt: the gdt to update
- * @param dp_id: the dp_id of the new bloom_filter
+ * @param port_no: the port_no of the new bloom_filter
  * @param len: the len of the new bloom_filter
  * @return: Pointer to the created bloom_filter. NULL if failed.
  */
-struct bloom_filter *bf_gdt_add_filter(struct bf_gdt *gdt, u32 dp_id, u32 len)
+struct bloom_filter *bf_gdt_add_filter(struct bf_gdt *gdt, u16 port_no, u32 len)
 {
-    struct bloom_filter *bf = bf_create(dp_id,len,2);
+    if (!gdt) {
+        return NULL;
+    }
+    struct bloom_filter *bf = bf_create(gdt->nbf,len,port_no,2);
     if (bf) {
         if(gdt->nbf < BF_GDT_MAX_FILTERS) {
             gdt->bf_array[gdt->nbf++] = bf;
@@ -91,6 +94,7 @@ struct bloom_filter *bf_gdt_add_filter(struct bf_gdt *gdt, u32 dp_id, u32 len)
  */
 int bf_gdt_destroy(struct bf_gdt *gdt)
 {
+    if(!gdt) return 0;
     if (gdt->bf_array) {
         u32 i = 0;
         for (i=0;i<gdt->nbf;i++){
@@ -114,18 +118,13 @@ int bf_gdt_destroy(struct bf_gdt *gdt)
 /**
  * add a new string to gdt's some bf
  * @param gdt: the bf_gdt to update
- * @param dp_id: the dp's content updated
+ * @param bf_id: the dp's content updated
  * @param s: the string to add
  */
-int bf_gdt_add_item(struct bf_gdt *gdt, u32 dp_id, const char *s)
+int bf_gdt_add_item(struct bf_gdt *gdt, u32 bf_id, const char *s)
 {
-    u32 i;
-
-    for(i=0; i<gdt->nbf; ++i) {
-        if(dp_id == (gdt->bf_array[i])->dp_id){
-            bf_add(gdt->bf_array[i],s);
-            break;
-        }
+    if (gdt && gdt->nbf>bf_id && gdt->bf_array) {
+        bf_add(gdt->bf_array[bf_id],s);
     }
 
     return 0;

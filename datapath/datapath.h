@@ -137,6 +137,9 @@ struct dp_upcall_info {
 	const struct sw_flow_key *key;
 	const struct nlattr *userdata;
 	u32 pid;
+#ifdef LC_ENABLE
+    u16 port_no; /*port from which the pkt comes*/
+#endif
 };
 
 /**
