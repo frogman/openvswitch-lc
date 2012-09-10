@@ -56,7 +56,7 @@ hashfunc_t hashFunctions[] = {sax_hash,sdbm_hash};
 /**
  * Create array bloom_filter.
  * @param bf_id: bf_id for the bloom_filter
- * @param len: number of the bits in the bloom_filter
+ * @param len: number of the bits in one bloom_filter
  * @param port_no: port_no associated.
  * @param nfuncs: number of the hash functions
  * @return: Pointer to the created bloom_filter. NULL if failed.

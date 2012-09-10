@@ -14,7 +14,9 @@ vswitchd_ovs_vswitchd_SOURCES = \
 	vswitchd/system-stats.c \
 	vswitchd/system-stats.h \
 	vswitchd/xenserver.c \
-	vswitchd/xenserver.h
+	vswitchd/xenserver.h \
+	vswitchd/ovs-mcast.c \
+	vswitchd/ovs-mcast.h 
 vswitchd_ovs_vswitchd_LDADD = \
 	ofproto/libofproto.a \
 	lib/libsflow.a \

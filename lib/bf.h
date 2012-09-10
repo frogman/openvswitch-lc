@@ -26,6 +26,10 @@ typedef unsigned short u16;
 typedef unsigned char u8;
 #endif
 
+#ifndef LC_BF_DFT_LEN
+#define LC_BF_DFT_LEN 1024
+#endif
+
 typedef unsigned int (*hashfunc_t)(const char *);
 
 struct bloom_filter{
