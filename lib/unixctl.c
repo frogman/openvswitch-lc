@@ -240,6 +240,9 @@ exit:
     return error;
 }
 
+/**
+ * process the command in the request.
+ */
 static void
 process_command(struct unixctl_conn *conn, struct jsonrpc_msg *request)
 {
@@ -261,7 +264,7 @@ process_command(struct unixctl_conn *conn, struct jsonrpc_msg *request)
     } else if (params->n > command->max_args) {
         error = xasprintf("\"%s\" command takes at most %d arguments",
                           request->method, command->max_args);
-    } else {
+    } else { //valid commands
         struct svec argv = SVEC_EMPTY_INITIALIZER;
         int  i;
 
@@ -290,6 +293,9 @@ process_command(struct unixctl_conn *conn, struct jsonrpc_msg *request)
     }
 }
 
+/**
+ * run the commands from the given connection.
+ */
 static int
 run_connection(struct unixctl_conn *conn)
 {
@@ -311,7 +317,7 @@ run_connection(struct unixctl_conn *conn)
         jsonrpc_recv(conn->rpc, &msg);
         if (msg) {
             if (msg->type == JSONRPC_REQUEST) {
-                process_command(conn, msg);
+                process_command(conn, msg); //run the command in the msg
             } else {
                 VLOG_WARN_RL(&rl, "%s: received unexpected %s message",
                              jsonrpc_get_name(conn->rpc),
@@ -348,6 +354,7 @@ unixctl_server_run(struct unixctl_server *server)
         return;
     }
 
+    /*get connections to server*/
     for (i = 0; i < 10; i++) {
         struct stream *stream;
         int error;

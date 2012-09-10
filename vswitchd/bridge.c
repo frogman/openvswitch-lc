@@ -2049,7 +2049,7 @@ bridge_run_fast(void)
 }
 
 /**
- * Run each ofproto->run at this bridge.
+ * Run each ofproto->run at this bridge, and check the ovsdb.
  */
 void
 bridge_run(void)

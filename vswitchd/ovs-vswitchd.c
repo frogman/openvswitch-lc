@@ -84,10 +84,10 @@ main(int argc, char *argv[])
     proctitle_init(argc, argv); //copy args from its orginal location
     set_program_name(argv[0]);
     stress_init_command(); //register stress cmds to the commands
-    remote = parse_options(argc, argv, &unixctl_path); //remote stores the db sock, unixctl stores the control server: ovsd works as a client to receive cmds from servers such as ovs-appctl
+    remote = parse_options(argc, argv, &unixctl_path); //remote stores the db sock, unixctl stores the server for ovs-app (ovsd works as a client to receive cmds from servers, eg, ovs-appctl)
     signal(SIGPIPE, SIG_IGN); //ignore the pipe read termination signal
     sighup = signal_register(SIGHUP); //register the SIGHUP signal handler
-    process_init(); //create notification pipe and register the handler for child termination signal
+    process_init(); //register the handler for child termination signal
     ovsrec_init(); //init the ovs configuration tables
 
     daemonize_start(); //daemonize the process
@@ -104,13 +104,13 @@ main(int argc, char *argv[])
 
     worker_start(); //start a worker subprocess, call worker_main (receive data and process), init a pipe: parent send data to the worker?
 
-    retval = unixctl_server_create(unixctl_path, &unixctl);//create a punixctl server (&unixctl) listing on unixctl_path (ovswitchd.pid.ctl) to get cmd from other ovsd-apps
+    retval = unixctl_server_create(unixctl_path, &unixctl);//create a punixctl server (&unixctl) listening on unixctl_path (ovswitchd.pid.ctl) to get cmd from other ovsd-apps
     if (retval) {
         exit(EXIT_FAILURE);
     }
     unixctl_command_register("exit", "", 0, 0, ovs_vswitchd_exit, &exiting);
 
-    bridge_init(remote);//init the bridge, get config from the ovsdb server, and register unix ctl cmds: qos, bridge
+    bridge_init(remote);//init the bridge db's mode, and register unix ctl cmds: qos, bridge
     free(remote);
 
     exiting = false;
@@ -128,10 +128,12 @@ main(int argc, char *argv[])
             memory_report(&usage);
             simap_destroy(&usage);
         }
+        /*process data pkts from the datapath*/
         bridge_run_fast(); //check each bridge and run it's ofproto->run with least possible latency
         bridge_run(); //main process part, handling pkts
         bridge_run_fast(); //could be run to check the bridge multi-times
-        unixctl_server_run(unixctl); //connect to ovswitchd.pid.ctl
+
+        unixctl_server_run(unixctl); //connect to ovswitchd.pid.ctl, accept cmds and update ovsdb
         netdev_run(); //perform the run() of each class in netdev_classes
 
         worker_wait(); //poll loop to wake up if there's RPC replies

@@ -201,7 +201,7 @@ main(int argc, char *argv[])
 
         if (seqno != ovsdb_idl_get_seqno(idl)) {
             seqno = ovsdb_idl_get_seqno(idl);
-            do_vsctl(args, commands, n_commands, idl);
+            do_vsctl(args, commands, n_commands, idl); //run the commands
         }
 
         if (seqno == ovsdb_idl_get_seqno(idl)) {
@@ -349,6 +349,9 @@ parse_commands(int argc, char *argv[], size_t *n_commandsp)
     return commands;
 }
 
+/**
+ * parse the command.
+ */
 static void
 parse_command(int argc, char *argv[], struct vsctl_command *command)
 {
