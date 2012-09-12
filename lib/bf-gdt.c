@@ -49,9 +49,9 @@ struct bf_gdt *bf_gdt_init(u32 gid)
         return NULL;
     }
 #ifdef __KERNEL__
-    if(!(gdt->bf_array=kmalloc(BF_GDT_MAX_FILTERS*sizeof(struct bloom_filter*),GFP_KERNEL))) 
+    if(!(gdt->bf_array=kcalloc(BF_GDT_MAX_FILTERS,sizeof(struct bloom_filter*),GFP_KERNEL))) 
 #else
-    if(!(gdt->bf_array=malloc(BF_GDT_MAX_FILTERS*sizeof(struct bloom_filter*)))) 
+    if(!(gdt->bf_array=calloc(BF_GDT_MAX_FILTERS,sizeof(struct bloom_filter*)))) 
 #endif
     {
         /*printk("Error in kmalloc gdt\n");*/

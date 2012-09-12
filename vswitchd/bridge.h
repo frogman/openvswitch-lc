@@ -16,6 +16,14 @@
 #ifndef VSWITCHD_BRIDGE_H
 #define VSWITCHD_BRIDGE_H 1
 
+#ifndef LC_ENABLE
+#define LC_ENABLE
+#endif
+
+#ifndef LC_MCAST_PORT
+#define LC_MCAST_PORT 5000
+#endif
+
 struct simap;
 
 void bridge_init(const char *remote);

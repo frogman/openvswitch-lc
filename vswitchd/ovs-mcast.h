@@ -15,16 +15,37 @@
 
 #ifndef VSWITCHD_MCAST_H
 #define VSWITCHD_MCAST_H
+#include<stdbool.h>
 
 #ifndef LC_BF_DFT_LEN
 #define LC_BF_DFT_LEN 1024
 #endif
 
-typedef unsigned int u32;
+#ifndef LC_MCAST_GROUP_IP
+#define LC_MCAST_GROUP_IP "239.0.0.1"
+#endif
+
+#ifndef LC_MCAST_GROUP_PORT
+#define LC_MCAST_GROUP_PORT 5000
+#endif
 
 struct mcast_msg {
     unsigned long ovsd_ip;
-    unsigned char bf_array[(LC_BF_DFT_LEN+sizeof(char)-1)/sizeof(char)];
+    unsigned char *bf_array;
+};
+
+struct mc_send_arg {
+    unsigned long group_ip; //multicast group
+    unsigned int port; //send at which port
+    struct mcast_msg *msg;
+    int len_msg;
+    bool *stop;
+};
+
+struct mc_recv_arg {
+    unsigned long group_ip; //multicast group
+    unsigned int port;
+    bool *stop;
 };
 
 /**
@@ -33,7 +54,7 @@ struct mcast_msg {
  * 224.0.2.0 ~ 238.255.255.255 temporary multicast for users
  * 239.*.*.* local multicast
  */
-int mc_send(char *group,u32 port,struct mcast_msg *buf, int len_buf);
-int mc_recv(char *group,u32 port);
+void mc_send(struct mc_send_arg* arg);
+void mc_recv(struct mc_recv_arg* arg);
 
 #endif

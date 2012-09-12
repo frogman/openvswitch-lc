@@ -19,6 +19,9 @@
 #include <errno.h>
 #include <inttypes.h>
 #include <stdlib.h>
+#include <signal.h>
+#include <unistd.h>
+#include <pthread.h>
 #include "bitmap.h"
 #include "bond.h"
 #include "cfm.h"
@@ -56,6 +59,11 @@
 #include "vlog.h"
 #include "sflow_api.h"
 #include "vlan-bitmap.h"
+
+#ifdef LC_ENABLE
+#include "../lib/bf-gdt.h"
+#include "ovs-mcast.h"
+#endif
 
 VLOG_DEFINE_THIS_MODULE(bridge);
 
@@ -137,6 +145,15 @@ struct bridge {
     struct ovsrec_port synth_local_port;
     struct ovsrec_interface synth_local_iface;
     struct ovsrec_interface *synth_local_ifacep;
+
+#ifdef LC_ENABLE
+    /*bf-gdt*/
+    struct bf_gdt *gdt;
+    pthread_t send_tid;
+    pthread_t recv_tid;
+    struct mc_send_arg send_arg;
+    struct mc_recv_arg recv_arg;
+#endif
 };
 
 /* All bridges, indexed by name. */
@@ -2293,9 +2310,61 @@ qos_unixctl_show(struct unixctl_conn *conn, int argc OVS_UNUSED,
     smap_destroy(&smap);
     ds_destroy(&ds);
 }
+
+/**
+ * start the mcast.
+ */
+static void
+bridge_start_mcast(struct bridge *br)
+{
+    extern pthread_mutex_t mutex;
+    pthread_mutex_init (&mutex,NULL);
+    br->send_arg.msg->bf_array = br->gdt->bf_array[0]; /*TODO: should be initialized*/
+    br->send_arg.len_msg += (LC_BF_DFT_LEN+sizeof(char)-1)/sizeof(char);
+    pthread_create(&br->send_tid,NULL,mc_send,&br->send_arg);
+    pthread_create(&br->recv_tid,NULL,mc_recv,&br->recv_arg);
+    VLOG_INFO("%s bridge_start_mcast() done.\n",br->name);
+}
+
+/**
+ * end the mcast.
+ */
+static void
+bridge_end_mcast(struct bridge *br)
+{
+    *br->send_arg.stop = true;
+    *br->recv_arg.stop = true;
+    pthread_join(br->send_tid,NULL);
+    pthread_join(br->recv_tid,NULL);
+    VLOG_INFO("%s pthread_join done\n",br->name);
+    if(br->send_arg.msg) free(br->send_arg.msg);
+    VLOG_INFO("%s free br->send_arg.msg done\n",br->name);
+    free(br->send_arg.stop);
+    free(br->recv_arg.stop);
+}
+static void
+bridge_lc_init(struct bridge *br)
+{
+    VLOG_INFO("%s bridge_lc_init(): init bf-gdt and mcast args.\n",br->name);
+    br->gdt = bf_gdt_init(LC_GROUP_DFT_ID);
+    br->send_arg.group_ip = inet_addr(LC_MCAST_GROUP_IP);
+    br->send_arg.port = LC_MCAST_GROUP_PORT;
+    br->send_arg.msg = malloc(sizeof(struct mcast_msg));
+    br->send_arg.msg->ovsd_ip = 0;
+    br->send_arg.msg->bf_array = NULL;
+    br->send_arg.stop = malloc(sizeof(bool));
+    *br->send_arg.stop = false;
+    br->send_arg.len_msg = sizeof(struct mcast_msg);
+    br->recv_arg.group_ip = inet_addr(LC_MCAST_GROUP_IP);
+    br->recv_arg.port = LC_MCAST_GROUP_PORT;
+    br->recv_arg.stop = malloc(sizeof(bool));
+    *br->recv_arg.stop = false;
+    VLOG_INFO("%s bridge_lc_init() done.\n",br->name);
+    bridge_start_mcast(br);
+}
 
 /* Bridge reconfiguration functions. */
-static void
+    static void
 bridge_create(const struct ovsrec_bridge *br_cfg)
 {
     struct bridge *br;
@@ -2312,6 +2381,10 @@ bridge_create(const struct ovsrec_bridge *br_cfg)
     memcpy(br->default_ea, &br_cfg->header_.uuid, ETH_ADDR_LEN);
     eth_addr_mark_random(br->default_ea);
 
+#ifdef LC_ENABLE
+    bridge_lc_init(br);
+#endif
+
     hmap_init(&br->ports);
     hmap_init(&br->ifaces);
     hmap_init(&br->iface_by_name);
@@ -2323,7 +2396,7 @@ bridge_create(const struct ovsrec_bridge *br_cfg)
     hmap_insert(&all_bridges, &br->node, hash_string(br->name, 0));
 }
 
-static void
+    static void
 bridge_destroy(struct bridge *br)
 {
     if (br) {
@@ -2343,10 +2416,16 @@ bridge_destroy(struct bridge *br)
             free(if_cfg);
         }
         LIST_FOR_EACH_SAFE (garbage, next_garbage, list_node,
-                            &br->ofpp_garbage) {
+                &br->ofpp_garbage) {
             list_remove(&garbage->list_node);
             free(garbage);
         }
+
+#ifdef LC_ENABLE
+        bridge_end_mcast(br);
+        bf_gdt_destroy(br->gdt);
+        VLOG_WARN("%s bridge_destroy() done.\n",br->name);
+#endif
 
         hmap_remove(&all_bridges, &br->node);
         ofproto_destroy(br->ofproto);
@@ -2361,7 +2440,7 @@ bridge_destroy(struct bridge *br)
     }
 }
 
-static struct bridge *
+    static struct bridge *
 bridge_lookup(const char *name)
 {
     struct bridge *br;

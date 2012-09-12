@@ -53,6 +53,7 @@
 #include <net/netns/generic.h>
 
 #include "checksum.h"
+#include "bf-gdt.h"
 #include "datapath.h"
 #include "flow.h"
 #include "genl_exec.h"
@@ -351,9 +352,6 @@ void ovs_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
                 upcall.key = &key;
                 upcall.userdata = NULL;
                 upcall.pid = p->upcall_pid;
-#ifdef LC_ENABLE
-                upcall.port_no = p->port_no; /*ovsd should maintain a dict to map vm ip to port_no*/
-#endif
                 ovs_dp_upcall(dp, skb, &upcall);
                 consume_skb(skb);
                 stats_counter = &stats->n_missed;

@@ -28,7 +28,9 @@ openvswitch_sources = \
 	vport-netdev.c \
 	vport-patch.c \
 	dp_dcm.c \
-	lc_group.c
+	lc_group.c \
+	bf.c \
+	bf-gdt.c
 
 openvswitch_headers = \
 	checksum.h \
@@ -45,7 +47,9 @@ openvswitch_headers = \
 	vport-internal_dev.h \
 	vport-netdev.h \
 	dp_dcm.h \
-	lc_group.h
+	lc_group.h \
+	bf.h \
+	bf-gdt.h
 
 openvswitch_extras = \
 	README \
