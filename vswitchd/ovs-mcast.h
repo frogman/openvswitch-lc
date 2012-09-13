@@ -16,6 +16,7 @@
 #ifndef VSWITCHD_MCAST_H
 #define VSWITCHD_MCAST_H
 #include<stdbool.h>
+#include"../lib/bf-gdt.h"
 
 #ifndef LC_BF_DFT_LEN
 #define LC_BF_DFT_LEN 1024
@@ -29,7 +30,9 @@
 #define LC_MCAST_GROUP_PORT 5000
 #endif
 
+
 struct mcast_msg {
+    unsigned int gid; //group id of the msg
     unsigned long ovsd_ip;
     unsigned char *bf_array;
 };
@@ -39,13 +42,15 @@ struct mc_send_arg {
     unsigned int port; //send at which port
     struct mcast_msg *msg;
     int len_msg;
-    bool *stop;
+    bool *stop; //if should stop
+    struct bf_gdt *gdt; //gdt in this group
 };
 
 struct mc_recv_arg {
     unsigned long group_ip; //multicast group
     unsigned int port;
-    bool *stop;
+    bool *stop; //if should stop
+    struct bf_gdt *gdt; //gdt in this group
 };
 
 /**

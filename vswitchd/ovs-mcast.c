@@ -41,10 +41,12 @@ void mc_send(struct mc_send_arg* arg)
     struct sockaddr_in addr;
     socklen_t len;
     int ret;
+    struct mcast_msg *msg;
 
     if (!arg) {
         return ;
     }
+    msg = arg->msg;
 
     /* open a socket. only udp support multicast */
     if ((sock_id = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
@@ -62,11 +64,11 @@ void mc_send(struct mc_send_arg* arg)
     len = sizeof(addr);
     /* it's very easy, just send the data to the address:port */
     while (!*arg->stop) {
-        //printf("Send to %s:%u with %lu:%s\n", inet_ntoa(addr.sin_addr.s_addr), ntohs(addr.sin_port),arg->msg->ovsd_ip, arg->msg->bf_array);
+        //printf("Send to %s:%u with %lu:%s\n", inet_ntoa(addr.sin_addr.s_addr), ntohs(addr.sin_port),msg->ovsd_ip, msg->bf_array);
         pthread_mutex_lock (&mutex);
-        if (arg->msg) {
-            ret = sendto(sock_id, arg->msg, arg->len_msg, 0, (struct sockaddr *)&addr, len);
-            VLOG_INFO("Send mcast msg to %s:%u with %lu:%s\n", inet_ntoa(addr.sin_addr.s_addr), ntohs(addr.sin_port),arg->msg->ovsd_ip, arg->msg->bf_array);
+        if (msg) {
+            ret = sendto(sock_id, msg, arg->len_msg, 0, (struct sockaddr *)&addr, len);
+            VLOG_INFO("Send mcast msg to %s:%u with gid=%u;%lu:%s\n", inet_ntoa(addr.sin_addr.s_addr), ntohs(addr.sin_port),msg->gid,msg->ovsd_ip, msg->bf_array);
         }
         pthread_mutex_unlock(&mutex);
         if (ret < 0) {
@@ -139,8 +141,13 @@ void mc_recv(struct mc_recv_arg* arg)
     count = 0;
     while (!*arg->stop) {
         ret = recvfrom(sock_id, msg, sizeof(struct mcast_msg), 0, (struct sockaddr *)&sender, &len);
-        VLOG_INFO("[%d] Receive mcast msg from %s:%d with %lu:%s\n", count, inet_ntoa(sender.sin_addr.s_addr), ntohs(sender.sin_port),msg->ovsd_ip,msg->bf_array);
+        VLOG_INFO("[%d] Receive mcast msg from gid=%u,%s:%d with %lu:%s\n", count, inet_ntoa(sender.sin_addr.s_addr), ntohs(sender.sin_port),msg->gid,msg->ovsd_ip,msg->bf_array);
+        if (msg->gid != arg->gdt->gid){
+            VLOG_WARN("group %u received mcast msg from other group %u\n",arg->gdt->gid,msg->gid);
+            continue;
+        }
         pthread_mutex_lock (&mutex);
+        /*TODO: do the process here.*/
         pthread_mutex_unlock (&mutex);
         if (ret < 0) {
             perror("recvfrom error");

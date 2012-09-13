@@ -2347,18 +2347,22 @@ bridge_lc_init(struct bridge *br)
 {
     VLOG_INFO("%s bridge_lc_init(): init bf-gdt and mcast args.\n",br->name);
     br->gdt = bf_gdt_init(LC_GROUP_DFT_ID);
-    br->send_arg.group_ip = inet_addr(LC_MCAST_GROUP_IP);
+    br->send_arg.group_ip = inet_addr(LC_MCAST_GROUP_IP)+br->gdt->gid;
     br->send_arg.port = LC_MCAST_GROUP_PORT;
     br->send_arg.msg = malloc(sizeof(struct mcast_msg));
+    br->send_arg.msg->gid = br->gdt->gid;
     br->send_arg.msg->ovsd_ip = 0;
     br->send_arg.msg->bf_array = NULL;
+    br->send_arg.len_msg = sizeof(struct mcast_msg);
     br->send_arg.stop = malloc(sizeof(bool));
     *br->send_arg.stop = false;
-    br->send_arg.len_msg = sizeof(struct mcast_msg);
-    br->recv_arg.group_ip = inet_addr(LC_MCAST_GROUP_IP);
+    br->send_arg.gdt = br->gdt;
+
+    br->recv_arg.group_ip = inet_addr(LC_MCAST_GROUP_IP)+br->gdt->gid;
     br->recv_arg.port = LC_MCAST_GROUP_PORT;
     br->recv_arg.stop = malloc(sizeof(bool));
     *br->recv_arg.stop = false;
+    br->recv_arg.gdt = br->gdt;
     VLOG_INFO("%s bridge_lc_init() done.\n",br->name);
     bridge_start_mcast(br);
 }
