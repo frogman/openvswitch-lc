@@ -317,7 +317,7 @@ void ovs_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
 
 	stats = per_cpu_ptr(dp->stats_percpu, smp_processor_id());
 
-	if (!OVS_CB(skb)->flow) {
+	if (!OVS_CB(skb)->flow) { /*no associated flow in the pkt*/
 		struct sw_flow_key key;
 		int key_len;
 
@@ -345,7 +345,7 @@ void ovs_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
 		}
 
 		OVS_CB(skb)->flow = flow;
-	}
+	} /*pkt should have flow now*/
 
 	stats_counter = &stats->n_hit;
 	ovs_flow_used(OVS_CB(skb)->flow, skb);

@@ -2065,7 +2065,7 @@ bridge_run(void)
 
     /* (Re)configure if necessary. */
     if (!reconfiguring) { //reconfiguring == false when inited
-        ovsdb_idl_run(idl);
+        ovsdb_idl_run(idl); //run msgs from the db server
 
         if (ovsdb_idl_is_lock_contended(idl)) {
             static struct vlog_rate_limit rl = VLOG_RATE_LIMIT_INIT(1, 1);
