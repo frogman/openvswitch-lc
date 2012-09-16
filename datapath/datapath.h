@@ -119,6 +119,9 @@ struct ovs_skb_cb {
 #ifdef NEED_VLAN_FIELD
 	u16			vlan_tci;
 #endif
+#ifdef LC_ENABLE
+	u16			encaped; /*encapsulated pkt from/to remote switch*/
+#endif
 };
 #define OVS_CB(skb) ((struct ovs_skb_cb *)(skb)->cb)
 

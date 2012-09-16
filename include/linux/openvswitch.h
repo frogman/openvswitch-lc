@@ -42,6 +42,10 @@
 
 #include <linux/types.h>
 
+#ifndef LC_ENABLE
+#define LC_ENABLE
+#endif
+
 /**
  * struct ovs_header - header for OVS Generic Netlink messages.
  * @dp_ifindex: ifindex of local port for datapath (0 to make a request not
@@ -456,6 +460,7 @@ struct ovs_action_push_vlan {
  * enum ovs_action_attr - Action types.
  *
  * @OVS_ACTION_ATTR_OUTPUT: Output packet to port.
+ * @OVS_ACTION_ATTR_REMOTE: Output packet to remote sw, should do encapsulation.
  * @OVS_ACTION_ATTR_USERSPACE: Send packet to userspace according to nested
  * %OVS_USERSPACE_ATTR_* attributes.
  * @OVS_ACTION_ATTR_SET: Replaces the contents of an existing header.  The
@@ -475,6 +480,9 @@ struct ovs_action_push_vlan {
 enum ovs_action_attr {
 	OVS_ACTION_ATTR_UNSPEC,
 	OVS_ACTION_ATTR_OUTPUT,	      /* u32 port number. */
+#ifdef LC_ENABLE
+	OVS_ACTION_ATTR_REMOTE,	      /* send pkt to remote sw. */
+#endif
 	OVS_ACTION_ATTR_USERSPACE,    /* Nested OVS_USERSPACE_ATTR_*. */
 	OVS_ACTION_ATTR_SET,          /* One nested OVS_KEY_ATTR_*. */
 	OVS_ACTION_ATTR_PUSH_VLAN,    /* struct ovs_action_push_vlan. */

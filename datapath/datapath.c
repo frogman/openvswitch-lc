@@ -314,8 +314,11 @@ void ovs_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
     char tmp_dst[11]; /*store char format of the address*/
 
 	stats = per_cpu_ptr(dp->stats_percpu, smp_processor_id());
+    if (OVS_CB(skb)->encaped) { /*remote pkt, should do decapulation.*/
+        //TODO: do decapulation.
+    }
 
-	if (!OVS_CB(skb)->flow) { //no flow associated with the pkt
+	if (!OVS_CB(skb)->flow) { //no flow associated with the pkt, normal case
 		struct sw_flow_key key;
 		int key_len;
 
@@ -327,24 +330,25 @@ void ovs_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
 		}
 
 		/* Look up flow. */
-		flow = ovs_flow_tbl_lookup(rcu_dereference(dp->table), &key, key_len);
-		if (unlikely(!flow)) {
-#ifdef LC_ENABLE
-            sprintf(tmp_dst,"%u",key.ipv4.addr.dst);
-            bf = bf_gdt_check(dp->gdt,tmp_dst);
-            if (likely(bf)){ //in bf-gdt
-                //TODO:construct the flow here.
+        flow = ovs_flow_tbl_lookup(rcu_dereference(dp->table), &key, key_len);
+        if (unlikely(!flow)) { /*not found in local fwd table*/
+#ifdef LC_ENABLE 
+            if (!OVS_CB(skb)->encaped) { /*local vm pkt*/
+                /*check the bf-gdt*/
+                sprintf(tmp_dst,"%u",key.ipv4.addr.dst);
+                bf = bf_gdt_check(dp->gdt,tmp_dst);
+            }
+            if (!OVS_CB(skb)->encaped && likely(bf)) { //in bf-gdt
                 flow = kmalloc(sizeof(struct sw_flow), GFP_ATOMIC);
                 flow->sf_acts = kmalloc(sizeof(struct sw_flow_actions)+sizeof(struct nlattr)+sizeof(u32), GFP_ATOMIC);
                 memcpy(&(flow->key),&key,sizeof(struct sw_flow_key));
-                
+
                 /*construct the action of sending to port*/
                 flow->sf_acts->actions_len = NLA_HDRLEN + sizeof(int);
                 flow->sf_acts->actions[0].nla_len = NLA_HDRLEN + sizeof(int); //len of the attr
-                flow->sf_acts->actions[0].nla_type = OVS_ACTION_ATTR_OUTPUT;
-                ((u32*)flow->sf_acts->actions)[1] = bf->port_no; //actually, here it means the port_no
-
-            } else { /* not in bf-gdt yet, then send to ovsd using upcall */
+                flow->sf_acts->actions[0].nla_type = OVS_ACTION_ATTR_REMOTE;
+                ((u32*)flow->sf_acts->actions)[1] = bf->port_no; //actually, here we need to provide enough info, e.g. the dest_ip.
+            } else { /* not in bf-gdt yet or from remote sw, then send to ovsd using upcall */
 #endif
                 struct dp_upcall_info upcall;
 
@@ -357,92 +361,92 @@ void ovs_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
                 stats_counter = &stats->n_missed;
                 goto out;
             }
-		}
 
-		OVS_CB(skb)->flow = flow;
-	}
+            OVS_CB(skb)->flow = flow;
+        } /*now each pkt has an associated flow. */
+    }
 
-	stats_counter = &stats->n_hit;
-	ovs_flow_used(OVS_CB(skb)->flow, skb);
-	ovs_execute_actions(dp, skb);
+    stats_counter = &stats->n_hit;
+    ovs_flow_used(OVS_CB(skb)->flow, skb);
+    ovs_execute_actions(dp, skb);
 
 out:
-	/* Update datapath statistics. */
-	u64_stats_update_begin(&stats->sync);
-	(*stats_counter)++;
-	u64_stats_update_end(&stats->sync);
+    /* Update datapath statistics. */
+    u64_stats_update_begin(&stats->sync);
+    (*stats_counter)++;
+    u64_stats_update_end(&stats->sync);
 #ifdef LC_ENABLE
     if (likely(bf)){ //in bf-gdt
-    if(flow->sf_acts) kfree(flow->sf_acts);
-    if(flow)  kfree(flow);
+        if(flow->sf_acts) kfree(flow->sf_acts);
+        if(flow)  kfree(flow);
     }
 #endif
 }
 
 static struct genl_family dp_packet_genl_family = {
-	.id = GENL_ID_GENERATE,
-	.hdrsize = sizeof(struct ovs_header),
-	.name = OVS_PACKET_FAMILY,
-	.version = OVS_PACKET_VERSION,
-	.maxattr = OVS_PACKET_ATTR_MAX,
-	 SET_NETNSOK
+    .id = GENL_ID_GENERATE,
+    .hdrsize = sizeof(struct ovs_header),
+    .name = OVS_PACKET_FAMILY,
+    .version = OVS_PACKET_VERSION,
+    .maxattr = OVS_PACKET_ATTR_MAX,
+    SET_NETNSOK
 };
 
 int ovs_dp_upcall(struct datapath *dp, struct sk_buff *skb,
-		  const struct dp_upcall_info *upcall_info)
+        const struct dp_upcall_info *upcall_info)
 {
-	struct dp_stats_percpu *stats;
-	int dp_ifindex;
-	int err;
+    struct dp_stats_percpu *stats;
+    int dp_ifindex;
+    int err;
 
-	if (upcall_info->pid == 0) {
-		err = -ENOTCONN;
-		goto err;
-	}
+    if (upcall_info->pid == 0) {
+        err = -ENOTCONN;
+        goto err;
+    }
 
-	dp_ifindex = get_dpifindex(dp);
-	if (!dp_ifindex) {
-		err = -ENODEV;
-		goto err;
-	}
+    dp_ifindex = get_dpifindex(dp);
+    if (!dp_ifindex) {
+        err = -ENODEV;
+        goto err;
+    }
 
-	forward_ip_summed(skb, true);
+    forward_ip_summed(skb, true);
 
-	if (!skb_is_gso(skb))
-		err = queue_userspace_packet(ovs_dp_get_net(dp), dp_ifindex, skb, upcall_info);
-	else
-		err = queue_gso_packets(ovs_dp_get_net(dp), dp_ifindex, skb, upcall_info);
-	if (err)
-		goto err;
+    if (!skb_is_gso(skb))
+        err = queue_userspace_packet(ovs_dp_get_net(dp), dp_ifindex, skb, upcall_info);
+    else
+        err = queue_gso_packets(ovs_dp_get_net(dp), dp_ifindex, skb, upcall_info);
+    if (err)
+        goto err;
 
-	return 0;
+    return 0;
 
 err:
-	stats = per_cpu_ptr(dp->stats_percpu, smp_processor_id());
+    stats = per_cpu_ptr(dp->stats_percpu, smp_processor_id());
 
-	u64_stats_update_begin(&stats->sync);
-	stats->n_lost++;
-	u64_stats_update_end(&stats->sync);
+    u64_stats_update_begin(&stats->sync);
+    stats->n_lost++;
+    u64_stats_update_end(&stats->sync);
 
-	return err;
+    return err;
 }
 
 static int queue_gso_packets(struct net *net, int dp_ifindex,
-			     struct sk_buff *skb,
-			     const struct dp_upcall_info *upcall_info)
+        struct sk_buff *skb,
+        const struct dp_upcall_info *upcall_info)
 {
-	unsigned short gso_type = skb_shinfo(skb)->gso_type;
-	struct dp_upcall_info later_info;
-	struct sw_flow_key later_key;
-	struct sk_buff *segs, *nskb;
-	int err;
+    unsigned short gso_type = skb_shinfo(skb)->gso_type;
+    struct dp_upcall_info later_info;
+    struct sw_flow_key later_key;
+    struct sk_buff *segs, *nskb;
+    int err;
 
-	segs = skb_gso_segment(skb, NETIF_F_SG | NETIF_F_HW_CSUM);
-	if (IS_ERR(segs))
-		return PTR_ERR(segs);
+    segs = skb_gso_segment(skb, NETIF_F_SG | NETIF_F_HW_CSUM);
+    if (IS_ERR(segs))
+        return PTR_ERR(segs);
 
-	/* Queue all of the segments. */
-	skb = segs;
+    /* Queue all of the segments. */
+    skb = segs;
 	do {
 		err = queue_userspace_packet(net, dp_ifindex, skb, upcall_info);
 		if (err)

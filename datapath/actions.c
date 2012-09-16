@@ -391,6 +391,12 @@ static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
 			prev_port = nla_get_u32(a);
 			break;
 
+#ifdef LC_ENABLE
+		case OVS_ACTION_ATTR_REMOTE:
+            //do sth here.
+			break;
+#endif
+
 		case OVS_ACTION_ATTR_USERSPACE:
 			output_userspace(dp, skb, a);
 			break;
