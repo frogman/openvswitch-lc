@@ -105,13 +105,14 @@ static int pop_vlan(struct sk_buff *skb)
 
 static int push_vlan(struct sk_buff *skb, const struct ovs_action_push_vlan *vlan)
 {
-	if (unlikely(vlan_tx_tag_present(skb))) {
+	if (unlikely(vlan_tx_tag_present(skb))) { /* already exist vlan tag. */
 		u16 current_tag;
 
 		/* push down current VLAN tag */
 		current_tag = vlan_tx_tag_get(skb);
 
-		if (!__vlan_put_tag(skb, current_tag))
+        /*put new vlan hdr*/
+		if (!__vlan_put_tag(skb, current_tag)) 
 			return -ENOMEM;
 
 		if (get_ip_summed(skb) == OVS_CSUM_COMPLETE)
@@ -119,6 +120,7 @@ static int push_vlan(struct sk_buff *skb, const struct ovs_action_push_vlan *vla
 					+ ETH_HLEN, VLAN_HLEN, 0));
 
 	}
+    /* Set the vlan_tci. */
 	__vlan_hwaccel_put_tag(skb, ntohs(vlan->vlan_tci) & ~VLAN_TAG_PRESENT);
 	return 0;
 }
@@ -279,6 +281,9 @@ static int do_output(struct datapath *dp, struct sk_buff *skb, int out_port)
 	return 0;
 }
 
+/**
+ * Send pkt to userspace, will be processed by ovsd.
+ */
 static int output_userspace(struct datapath *dp, struct sk_buff *skb,
 			    const struct nlattr *attr)
 {
@@ -332,92 +337,109 @@ static int sample(struct datapath *dp, struct sk_buff *skb,
 						 nla_len(acts_list), true);
 }
 
-static int execute_set_action(struct sk_buff *skb,
-				 const struct nlattr *nested_attr)
+/**
+ * Add a encapulation header.
+ */
+static int do_remote_encapulation(struct sk_buff *skb, __be32 *dst_ip)
 {
-	int err = 0;
 
-	switch (nla_type(nested_attr)) {
-	case OVS_KEY_ATTR_PRIORITY:
-		skb->priority = nla_get_u32(nested_attr);
-		break;
+    /*put new vlan hdr*/
+    if (!__do_remote_encapulation(skb, dst_ip)) 
+        return -ENOMEM;
 
-	case OVS_KEY_ATTR_TUN_ID:
-		OVS_CB(skb)->tun_id = nla_get_be64(nested_attr);
-		break;
+    if (get_ip_summed(skb) == OVS_CSUM_COMPLETE)
+        skb->csum = csum_add(skb->csum, csum_partial(skb->data
+                    + ETH_HLEN, VLAN_HLEN, 0));
 
-	case OVS_KEY_ATTR_ETHERNET:
-		err = set_eth_addr(skb, nla_data(nested_attr));
-		break;
+    return 0;
+}
 
-	case OVS_KEY_ATTR_IPV4:
-		err = set_ipv4(skb, nla_data(nested_attr));
-		break;
+static int execute_set_action(struct sk_buff *skb,
+        const struct nlattr *nested_attr)
+{
+    int err = 0;
 
-	case OVS_KEY_ATTR_TCP:
-		err = set_tcp(skb, nla_data(nested_attr));
-		break;
+    switch (nla_type(nested_attr)) {
+        case OVS_KEY_ATTR_PRIORITY:
+            skb->priority = nla_get_u32(nested_attr);
+            break;
 
-	case OVS_KEY_ATTR_UDP:
-		err = set_udp(skb, nla_data(nested_attr));
-		break;
-	}
+        case OVS_KEY_ATTR_TUN_ID:
+            OVS_CB(skb)->tun_id = nla_get_be64(nested_attr);
+            break;
 
-	return err;
+        case OVS_KEY_ATTR_ETHERNET:
+            err = set_eth_addr(skb, nla_data(nested_attr));
+            break;
+
+        case OVS_KEY_ATTR_IPV4:
+            err = set_ipv4(skb, nla_data(nested_attr));
+            break;
+
+        case OVS_KEY_ATTR_TCP:
+            err = set_tcp(skb, nla_data(nested_attr));
+            break;
+
+        case OVS_KEY_ATTR_UDP:
+            err = set_udp(skb, nla_data(nested_attr));
+            break;
+    }
+
+    return err;
 }
 
 /* Execute a list of actions against 'skb'. */
 static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
-			const struct nlattr *attr, int len, bool keep_skb)
+        const struct nlattr *attr, int len, bool keep_skb)
 {
-	/* Every output action needs a separate clone of 'skb', but the common
-	 * case is just a single output action, so that doing a clone and
-	 * then freeing the original skbuff is wasteful.  So the following code
-	 * is slightly obscure just to avoid that. */
-	int prev_port = -1;
-	const struct nlattr *a;
-	int rem;
+    /* Every output action needs a separate clone of 'skb', but the common
+     * case is just a single output action, so that doing a clone and
+     * then freeing the original skbuff is wasteful.  So the following code
+     * is slightly obscure just to avoid that. */
+    int prev_port = -1;
+    const struct nlattr *a;
+    int rem;
 
-	for (a = attr, rem = len; rem > 0; a = nla_next(a, &rem)) { /*nla_for_each_attr*/
-		int err = 0;
+    for (a = attr, rem = len; rem > 0; a = nla_next(a, &rem)) { /*nla_for_each_attr*/
+        int err = 0;
 
-		if (prev_port != -1) {
-			do_output(dp, skb_clone(skb, GFP_ATOMIC), prev_port);
-			prev_port = -1;
-		}
+        if (prev_port != -1) {
+            do_output(dp, skb_clone(skb, GFP_ATOMIC), prev_port);
+            prev_port = -1;
+        }
 
-		switch (nla_type(a)) {
-		case OVS_ACTION_ATTR_OUTPUT:
-			prev_port = nla_get_u32(a);
-			break;
+        switch (nla_type(a)) {
+            case OVS_ACTION_ATTR_OUTPUT:
+                prev_port = nla_get_u32(a);
+                break;
 
 #ifdef LC_ENABLE
-		case OVS_ACTION_ATTR_REMOTE:
-            //do sth here.
-			break;
+            case OVS_ACTION_ATTR_REMOTE:
+                //do sth here.
+                prev_port = nla_get_u32(a);
+                break;
 #endif
+            case OVS_ACTION_ATTR_USERSPACE:
+                output_userspace(dp, skb, a);
+                break;
 
-		case OVS_ACTION_ATTR_USERSPACE:
-			output_userspace(dp, skb, a);
-			break;
+            case OVS_ACTION_ATTR_PUSH_VLAN:
+                err = push_vlan(skb, nla_data(a));
+                if (unlikely(err)) /* skb already freed. */
+                    return err;
+                break;
 
-		case OVS_ACTION_ATTR_PUSH_VLAN:
-			err = push_vlan(skb, nla_data(a));
-			if (unlikely(err)) /* skb already freed. */
-				return err;
-			break;
+            case OVS_ACTION_ATTR_POP_VLAN:
+                err = pop_vlan(skb);
+                break;
 
-		case OVS_ACTION_ATTR_POP_VLAN:
-			err = pop_vlan(skb);
-			break;
+            case OVS_ACTION_ATTR_SET:
+                err = execute_set_action(skb, nla_data(a));
+                break;
 
-		case OVS_ACTION_ATTR_SET:
-			err = execute_set_action(skb, nla_data(a));
-			break;
-
-		case OVS_ACTION_ATTR_SAMPLE:
-			err = sample(dp, skb, a);
-			break;
+            case OVS_ACTION_ATTR_SAMPLE:
+                err = sample(dp, skb, a);
+                break;
 		}
 
 		if (unlikely(err)) {
@@ -465,18 +487,18 @@ int ovs_execute_actions(struct datapath *dp, struct sk_buff *skb)
 	int error;
 
 	/* Check whether we've looped too much. */
-	loop = &__get_cpu_var(loop_counters);
-	if (unlikely(++loop->count > MAX_LOOPS))
-		loop->looping = true;
-	if (unlikely(loop->looping)) {
-		error = loop_suppress(dp, acts);
-		kfree_skb(skb);
-		goto out_loop;
-	}
+    loop = &__get_cpu_var(loop_counters);
+    if (unlikely(++loop->count > MAX_LOOPS))
+        loop->looping = true;
+    if (unlikely(loop->looping)) {
+        error = loop_suppress(dp, acts);
+        kfree_skb(skb);
+        goto out_loop;
+    }
 
-	OVS_CB(skb)->tun_id = 0;
-	error = do_execute_actions(dp, skb, acts->actions,
-					 acts->actions_len, false);
+    OVS_CB(skb)->tun_id = 0;
+    error = do_execute_actions(dp, skb, acts->actions,
+            acts->actions_len, false);
 
 	/* Check whether sub-actions looped too much. */
 	if (unlikely(loop->looping))

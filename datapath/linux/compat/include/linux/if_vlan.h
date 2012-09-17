@@ -24,11 +24,12 @@ static inline struct sk_buff *__vlan_put_tag(struct sk_buff *skb, u16 vlan_tci)
 {
 	struct vlan_ethhdr *veth;
 
-	if (skb_cow_head(skb, VLAN_HLEN) < 0) {
+	if (skb_cow_head(skb, VLAN_HLEN) < 0) { //make enough room at the head
 		kfree_skb(skb);
 		return NULL;
 	}
-	veth = (struct vlan_ethhdr *)skb_push(skb, VLAN_HLEN);
+    /* Push vlan header, will decrement the 'skb->data' pointer. */
+	veth = (struct vlan_ethhdr *)skb_push(skb, VLAN_HLEN); 
 
 	/* Move the mac addresses to the beginning of the new header. */
 	memmove(skb->data, skb->data + VLAN_HLEN, 2 * ETH_ALEN);

@@ -30,7 +30,8 @@ openvswitch_sources = \
 	dp_dcm.c \
 	lc_group.c \
 	bf.c \
-	bf-gdt.c
+	bf-gdt.c \
+	remote.c
 
 openvswitch_headers = \
 	checksum.h \
@@ -49,7 +50,8 @@ openvswitch_headers = \
 	dp_dcm.h \
 	lc_group.h \
 	bf.h \
-	bf-gdt.h
+	bf-gdt.h \
+	remote.h
 
 openvswitch_extras = \
 	README \

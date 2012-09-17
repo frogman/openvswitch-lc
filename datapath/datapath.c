@@ -333,12 +333,12 @@ void ovs_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
         flow = ovs_flow_tbl_lookup(rcu_dereference(dp->table), &key, key_len);
         if (unlikely(!flow)) { /*not found in local fwd table*/
 #ifdef LC_ENABLE 
-            if (!OVS_CB(skb)->encaped) { /*local vm pkt*/
+            if (!OVS_CB(skb)->encaped) { /*for local vm pkt, check the bf-gdt*/
                 /*check the bf-gdt*/
                 sprintf(tmp_dst,"%u",key.ipv4.addr.dst);
                 bf = bf_gdt_check(dp->gdt,tmp_dst);
             }
-            if (!OVS_CB(skb)->encaped && likely(bf)) { //in bf-gdt
+            if (!OVS_CB(skb)->encaped && likely(bf)) { //for local vm pkt which is in bf-gdt
                 flow = kmalloc(sizeof(struct sw_flow), GFP_ATOMIC);
                 flow->sf_acts = kmalloc(sizeof(struct sw_flow_actions)+sizeof(struct nlattr)+sizeof(u32), GFP_ATOMIC);
                 memcpy(&(flow->key),&key,sizeof(struct sw_flow_key));
