@@ -315,6 +315,7 @@ static int netdev_send(struct vport *vport, struct sk_buff *skb)
 	skb->dev = netdev_vport->dev;
 	forward_ip_summed(skb, true);
 
+    /*vlan tag process*/
 	if (vlan_tx_tag_present(skb) && !dev_supports_vlan_tx(skb->dev)) {
 		int features;
 

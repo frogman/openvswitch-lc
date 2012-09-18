@@ -22,5 +22,9 @@
 #include <linux/if_vlan.h>
 #include <linux/skbuff.h>
 #include <linux/version.h>
+#include "datapath.h"
+
+int __remote_encapulation(struct datapath *dp, struct sk_buff *skb, int *dst_ip);
+int __remote_decapulation(struct sk_buff *skb);
 
 #endif /* remote.h */

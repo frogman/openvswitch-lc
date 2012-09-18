@@ -94,6 +94,7 @@ struct datapath {
 #endif
 #ifdef LC_ENABLE
     struct bf_gdt *gdt;
+    u32 local_ip;
 #endif
 };
 

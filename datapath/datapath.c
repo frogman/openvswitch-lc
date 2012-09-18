@@ -314,9 +314,11 @@ void ovs_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
     char tmp_dst[11]; /*store char format of the address*/
 
 	stats = per_cpu_ptr(dp->stats_percpu, smp_processor_id());
+#ifdef LC_ENABLE
     if (OVS_CB(skb)->encaped) { /*remote pkt, should do decapulation.*/
         //TODO: do decapulation.
     }
+#endif
 
 	if (!OVS_CB(skb)->flow) { //no flow associated with the pkt, normal case
 		struct sw_flow_key key;
@@ -1469,6 +1471,7 @@ static int ovs_dp_cmd_new(struct sk_buff *skb, struct genl_info *info)
 		goto err_destroy_percpu;
     }
     bf_gdt_add_filter(dp->gdt,LC_BF_DFT_PORT_NO,1024); /*empty filter*/
+    dp->local_ip = inet_addr("10.0.0.1");
 #endif
 
 	/* Set up our datapath device. */

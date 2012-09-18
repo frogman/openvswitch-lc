@@ -264,6 +264,9 @@ static int set_tcp(struct sk_buff *skb, const struct ovs_key_tcp *tcp_port_key)
 	return 0;
 }
 
+/**
+ * Send packet out.
+ */
 static int do_output(struct datapath *dp, struct sk_buff *skb, int out_port)
 {
 	struct vport *vport;
@@ -337,14 +340,15 @@ static int sample(struct datapath *dp, struct sk_buff *skb,
 						 nla_len(acts_list), true);
 }
 
+#ifdef LC_ENABLE
 /**
  * Add a encapulation header.
  */
-static int do_remote_encapulation(struct sk_buff *skb, __be32 *dst_ip)
+static int do_remote_encapulation(struct datapath *dp, struct sk_buff *skb, int *dst_ip)
 {
 
     /*put new vlan hdr*/
-    if (!__do_remote_encapulation(skb, dst_ip)) 
+    if (!__remote_encapulation(dp, skb, dst_ip)) 
         return -ENOMEM;
 
     if (get_ip_summed(skb) == OVS_CSUM_COMPLETE)
@@ -353,6 +357,7 @@ static int do_remote_encapulation(struct sk_buff *skb, __be32 *dst_ip)
 
     return 0;
 }
+#endif
 
 static int execute_set_action(struct sk_buff *skb,
         const struct nlattr *nested_attr)
@@ -415,7 +420,7 @@ static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
 
 #ifdef LC_ENABLE
             case OVS_ACTION_ATTR_REMOTE:
-                //do sth here.
+                //do_remote_encapulation(dp,skb,);
                 prev_port = nla_get_u32(a);
                 break;
 #endif
@@ -496,6 +501,9 @@ int ovs_execute_actions(struct datapath *dp, struct sk_buff *skb)
         goto out_loop;
     }
 
+#ifdef LC_ENABLE
+    OVS_CB(skb)->encaped = 0;
+#endif
     OVS_CB(skb)->tun_id = 0;
     error = do_execute_actions(dp, skb, acts->actions,
             acts->actions_len, false);
