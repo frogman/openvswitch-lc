@@ -42,7 +42,7 @@ int __remote_encapulation(struct datapath *dp, struct sk_buff *skb, int *dst_ip)
     iph->id = htonl(12345);
     iph->frag_off = 0;
     iph->ttl = 255;
-    iph->protocol = IPPROTO_UDP;
+    iph->protocol = LC_REMOTE_IP_PROTO;
     iph->saddr=dp->local_ip;
     iph->daddr=*dst_ip;
     iph->check=0; //csum here

@@ -34,6 +34,10 @@
 #include "vport.h"
 #include "vport-internal_dev.h"
 
+#ifdef LC_ENABLE
+#include <linux/ip.h>
+#endif
+
 /* List of statically compiled vport implementations.  Don't forget to also
  * add yours to the list at the bottom of vport.h. */
 static const struct vport_ops *base_vport_ops_list[] = {
@@ -437,6 +441,24 @@ int ovs_vport_get_options(const struct vport *vport, struct sk_buff *skb)
 	return 0;
 }
 
+#ifdef LC_ENABLE
+/**
+ * Get the Protocol field in the ip header.
+ */
+int ovs_vport_get_ip_proto(struct sk_buff *skb)
+{
+    if (!skb) {
+        return -1;
+    }
+    struct iphdr *ip_header;
+    ip_header = (struct iphdr *)skb_network_header(skb);
+    if (!ip_header) {
+        return -1;
+    }
+    return ip_header->protocol;
+}
+#endif
+
 /**
  *	ovs_vport_receive - pass up received packet to the datapath for processing
  *
@@ -463,6 +485,13 @@ void ovs_vport_receive(struct vport *vport, struct sk_buff *skb)
 
 	if (!(vport->ops->flags & VPORT_F_TUN_ID))
 		OVS_CB(skb)->tun_id = 0;
+
+#ifdef LC_ENABLE
+    if (ovs_vport_get_ip_proto(skb)!=LC_REMOTE_IP_PROTO)
+		OVS_CB(skb)->encaped = 0;
+    else
+		OVS_CB(skb)->encaped = 1;
+#endif
 
 	ovs_dp_process_received_packet(vport, skb);
 }

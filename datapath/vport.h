@@ -31,6 +31,11 @@
 /*We need the LC support*/
 #define LC_ENABLE
 
+#ifdef LC_ENABLE
+#include <linux/ip.h>
+#define LC_REMOTE_IP_PROTO IP_PROTO_ETHERIP //ETHERIP
+#endif
+
 struct vport;
 struct vport_parms;
 
@@ -264,5 +269,9 @@ extern const struct vport_ops ovs_internal_vport_ops;
 extern const struct vport_ops ovs_patch_vport_ops;
 extern const struct vport_ops ovs_gre_vport_ops;
 extern const struct vport_ops ovs_capwap_vport_ops;
+
+#ifdef LC_ENABLE
+int ovs_vport_get_ip_proto(struct sk_buff *skb);
+#endif
 
 #endif /* vport.h */
