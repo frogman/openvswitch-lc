@@ -865,6 +865,9 @@ dpif_linux_encode_execute(int dp_ifindex, const struct dpif_execute *d_exec,
                       d_exec->actions, d_exec->actions_len);
 }
 
+/**
+ * DPIF_OP_EXECUTE processing.
+ */
 static int
 dpif_linux_execute__(int dp_ifindex, const struct dpif_execute *execute)
 {

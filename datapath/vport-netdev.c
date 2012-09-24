@@ -187,6 +187,9 @@ static void netdev_destroy(struct vport *vport)
 	ovs_vport_free(vport);
 }
 
+/**
+ * set the mac addr of the vport.
+ */
 int ovs_netdev_set_addr(struct vport *vport, const unsigned char *addr)
 {
 	struct netdev_vport *netdev_vport = netdev_vport_priv(vport);
@@ -198,6 +201,9 @@ int ovs_netdev_set_addr(struct vport *vport, const unsigned char *addr)
 	return dev_set_mac_address(netdev_vport->dev, &sa);
 }
 
+/**
+ * get the dev name.
+ */
 const char *ovs_netdev_get_name(const struct vport *vport)
 {
 	const struct netdev_vport *netdev_vport = netdev_vport_priv(vport);
@@ -377,7 +383,7 @@ tag:
 	}
 
 	len = skb->len;
-	dev_queue_xmit(skb);
+	dev_queue_xmit(skb); //before this, all headers should be ready
 
 	return len;
 
@@ -407,7 +413,7 @@ struct vport *ovs_netdev_get_vport(struct net_device *dev)
 const struct vport_ops ovs_netdev_vport_ops = {
 	.type		= OVS_VPORT_TYPE_NETDEV,
 	.flags          = VPORT_F_REQUIRED,
-	.init		= netdev_init,
+	.init		= netdev_init, //do nothing in >=2.6.36, else let br_handle_frame_hook=netdev_frame_hook
 	.exit		= netdev_exit,
 	.create		= netdev_create,
 	.destroy	= netdev_destroy,

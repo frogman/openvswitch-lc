@@ -268,7 +268,7 @@ connmgr_run(struct connmgr *mgr,
     size_t i;
 
     if (handle_openflow && mgr->in_band) {
-        if (!in_band_run(mgr->in_band)) {
+        if (!in_band_run(mgr->in_band)) { //update the openflow table
             in_band_destroy(mgr->in_band);
             mgr->in_band = NULL;
         }

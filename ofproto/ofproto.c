@@ -1112,6 +1112,7 @@ ofproto_run(struct ofproto *p)
         NOT_REACHED();
     }
 
+    /* periodical log */
     if (time_msec() >= p->next_op_report) {//time to report ops
         long long int ago = (time_msec() - p->first_op) / 1000;
         long long int interval = (p->last_op - p->first_op) / 1000;

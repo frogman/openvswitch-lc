@@ -1014,18 +1014,15 @@ dpif_operate(struct dpif *dpif, struct dpif_op **ops, size_t n_ops)
     if (dpif->dpif_class->operate) {
         dpif->dpif_class->operate(dpif, ops, n_ops); //run the action
 
-        for (i = 0; i < n_ops; i++) {
+        for (i = 0; i < n_ops; i++) { //log info
             struct dpif_op *op = ops[i];
-
             switch (op->type) {
             case DPIF_OP_FLOW_PUT:
                 log_flow_put_message(dpif, &op->u.flow_put, op->error);
                 break;
-
             case DPIF_OP_FLOW_DEL:
                 log_flow_del_message(dpif, &op->u.flow_del, op->error);
                 break;
-
             case DPIF_OP_EXECUTE:
                 log_execute_message(dpif, &op->u.execute, op->error);
                 break;
@@ -1041,15 +1038,12 @@ dpif_operate(struct dpif *dpif, struct dpif_op **ops, size_t n_ops)
         case DPIF_OP_FLOW_PUT:
             op->error = dpif_flow_put__(dpif, &op->u.flow_put);
             break;
-
         case DPIF_OP_FLOW_DEL:
             op->error = dpif_flow_del__(dpif, &op->u.flow_del);
             break;
-
         case DPIF_OP_EXECUTE:
             op->error = dpif_execute__(dpif, &op->u.execute);
             break;
-
         default:
             NOT_REACHED();
         }

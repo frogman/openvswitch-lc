@@ -80,6 +80,7 @@ unixctl_help(struct unixctl_conn *conn, int argc OVS_UNUSED,
     }
     free(nodes);
 
+    /*reply with the results of the cmd.*/
     unixctl_command_reply(conn, ds_cstr(&ds));
     ds_destroy(&ds);
 }
@@ -279,7 +280,7 @@ process_command(struct unixctl_conn *conn, struct jsonrpc_msg *request)
         }
         svec_terminate(&argv);
 
-        if (!error) {
+        if (!error) { //run the callback function
             command->cb(conn, argv.n, (const char **) argv.names,
                         command->aux);
         }
@@ -342,7 +343,7 @@ kill_connection(struct unixctl_conn *conn)
 }
 
 /**
- * accept server
+ * accept server and run
  */
 void
 unixctl_server_run(struct unixctl_server *server)
@@ -373,8 +374,9 @@ unixctl_server_run(struct unixctl_server *server)
         }
     }
 
+    /*run connections*/
     LIST_FOR_EACH_SAFE (conn, next, node, &server->conns) {
-        int error = run_connection(conn);
+        int error = run_connection(conn); //run the conn
         if (error && error != EAGAIN) {
             kill_connection(conn);
         }

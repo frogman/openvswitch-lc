@@ -2248,11 +2248,11 @@ static int __init dp_init(void)
 	pr_info("Open vSwitch switching datapath %s, built "__DATE__" "__TIME__"\n",
 		VERSION);
 
-	err = genl_exec_init(); //register the GENL_EXEC_RUN cmd (KERNEL_VERSION<2.6.35)
+	err = genl_exec_init(); //register the GENL_EXEC_RUN cmd (KERNEL_VERSION<2.6.35), do nothing in higher version
 	if (err)
 		goto error;
 
-	err = ovs_workqueues_init(); //create a worker thread (polling to run each work)
+	err = ovs_workqueues_init(); //create a work queue (polling to run each work)
 	if (err)
 		goto error_genl_exec;
 
@@ -2264,7 +2264,8 @@ static int __init dp_init(void)
 	if (err)
 		goto error_tnl_exit;
 
-	err = ovs_vport_init(); //run init() in each ops in base_vport_ops_list
+    /* run init() in each ops in base_vport_ops_list, keep available vport types. */
+	err = ovs_vport_init();
 	if (err)
 		goto error_flow_exit;
 

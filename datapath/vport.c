@@ -39,7 +39,7 @@
 static const struct vport_ops *base_vport_ops_list[] = {
 	&ovs_netdev_vport_ops, //netdev instance
 	&ovs_internal_vport_ops, //internal, the default value for new vport
-	&ovs_patch_vport_ops,
+	&ovs_patch_vport_ops, //patch port, only connect to another dp
 	&ovs_gre_vport_ops,
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,26)
 	&ovs_capwap_vport_ops,
@@ -83,11 +83,11 @@ int ovs_vport_init(void)
 		const struct vport_ops *new_ops = base_vport_ops_list[i]; //check each vport_ops instance
 
 		if (new_ops->init)
-			err = new_ops->init(); //run each init() in ops
+			err = new_ops->init(); //test to run each init() in ops
 		else
 			err = 0;
 
-		if (!err)
+		if (!err) //only keep available ops
 			vport_ops_list[n_vport_types++] = new_ops;
 		else if (new_ops->flags & VPORT_F_REQUIRED) {
 			ovs_vport_exit();

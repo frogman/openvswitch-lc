@@ -2453,6 +2453,9 @@ ofproto_port_from_dpif_port(struct ofproto_port *ofproto_port,
     ofproto_port->ofp_port = odp_port_to_ofp_port(dpif_port->port_no);
 }
 
+/**
+ * check to see if need to send out the continulity check msg on the port.
+ */
 static void
 port_run_fast(struct ofport_dpif *ofport)
 {
@@ -2883,15 +2886,18 @@ handle_flow_miss_without_facet(struct flow_miss *miss,
 
         COVERAGE_INC(facet_suppress);
 
-        ofpbuf_use_stub(&odp_actions, op->stub, sizeof op->stub);
-
-        dpif_flow_stats_extract(&miss->flow, packet, now, &stats);
+        ofpbuf_use_stub(&odp_actions, op->stub, sizeof op->stub); //cp stub into odp_actions
+        
+        /* statistical data */
+        dpif_flow_stats_extract(&miss->flow, packet, now, &stats); 
         rule_credit_stats(rule, &stats);
 
+        /*init the ctx.*/
         action_xlate_ctx_init(&ctx, ofproto, &miss->flow, miss->initial_tci, 
                               rule, 0, packet); //init ctx
         ctx.resubmit_stats = &stats;
-        xlate_actions(&ctx, rule->up.ofpacts, rule->up.ofpacts_len, &odp_actions); //talk with controller
+        /* translate the ofp action into odp action. */
+        xlate_actions(&ctx, rule->up.ofpacts, rule->up.ofpacts_len, &odp_actions); 
 
         if (odp_actions.size) {
             struct dpif_execute *execute = &op->dpif_op.u.execute;
@@ -3005,7 +3011,7 @@ handle_flow_miss(struct ofproto_dpif *ofproto, struct flow_miss *miss,
      * flow_hash(miss->flow, 0). */
     hash = miss->hmap_node.hash;
 
-    facet = facet_lookup_valid(ofproto, &miss->flow, hash);//facet stores the resulted flow
+    facet = facet_lookup_valid(ofproto, &miss->flow, hash);//if exist matched rule in ofproto
     if (!facet) { /*no found exact match*/
         struct rule_dpif *rule = rule_dpif_lookup(ofproto, &miss->flow);
 
@@ -3140,7 +3146,7 @@ handle_miss_upcalls(struct ofproto_dpif *ofproto, struct dpif_upcall *upcalls,
             miss = existing_miss;
         }
         list_push_back(&miss->packets, &upcall->packet->list_node);
-    }
+    }//end of flow classification, to-do list is ok now.
 
     /* Process each element in the to-do list, constructing the set of
      * operations to the flow_miss_ops. */
@@ -3267,14 +3273,12 @@ handle_upcalls(struct ofproto_dpif *ofproto, unsigned int max_batch)
         case MISS_UPCALL: /*miss msg*/
             n_misses++;
             break;
-
         case SFLOW_UPCALL:
             if (ofproto->sflow) {
                 handle_sflow_upcall(ofproto, upcall);
             }
             ofpbuf_uninit(buf);
             break;
-
         case BAD_UPCALL:
             ofpbuf_uninit(buf);
             break;
@@ -5464,53 +5468,43 @@ do_xlate_actions(const struct ofpact *ofpacts, size_t ofpacts_len,
             xlate_output_action(ctx, ofpact_get_OUTPUT(a)->port,
                                 ofpact_get_OUTPUT(a)->max_len);
             break;
-
         case OFPACT_CONTROLLER:
             controller = ofpact_get_CONTROLLER(a);
             execute_controller_action(ctx, controller->max_len,
                                       controller->reason,
                                       controller->controller_id);
             break;
-
         case OFPACT_ENQUEUE:
             xlate_enqueue_action(ctx, ofpact_get_ENQUEUE(a));
             break;
-
         case OFPACT_SET_VLAN_VID:
             ctx->flow.vlan_tci &= ~htons(VLAN_VID_MASK);
             ctx->flow.vlan_tci |= (htons(ofpact_get_SET_VLAN_VID(a)->vlan_vid)
                                    | htons(VLAN_CFI));
             break;
-
         case OFPACT_SET_VLAN_PCP:
             ctx->flow.vlan_tci &= ~htons(VLAN_PCP_MASK);
             ctx->flow.vlan_tci |= htons((ofpact_get_SET_VLAN_PCP(a)->vlan_pcp
                                          << VLAN_PCP_SHIFT)
                                         | VLAN_CFI);
             break;
-
         case OFPACT_STRIP_VLAN:
             ctx->flow.vlan_tci = htons(0);
             break;
-
         case OFPACT_SET_ETH_SRC:
             memcpy(ctx->flow.dl_src, ofpact_get_SET_ETH_SRC(a)->mac,
                    ETH_ADDR_LEN);
             break;
-
         case OFPACT_SET_ETH_DST:
             memcpy(ctx->flow.dl_dst, ofpact_get_SET_ETH_DST(a)->mac,
                    ETH_ADDR_LEN);
             break;
-
         case OFPACT_SET_IPV4_SRC:
             ctx->flow.nw_src = ofpact_get_SET_IPV4_SRC(a)->ipv4;
             break;
-
         case OFPACT_SET_IPV4_DST:
             ctx->flow.nw_dst = ofpact_get_SET_IPV4_DST(a)->ipv4;
             break;
-
         case OFPACT_SET_IPV4_DSCP:
             /* OpenFlow 1.0 only supports IPv4. */
             if (ctx->flow.dl_type == htons(ETH_TYPE_IP)) {
@@ -5518,19 +5512,15 @@ do_xlate_actions(const struct ofpact *ofpacts, size_t ofpacts_len,
                 ctx->flow.nw_tos |= ofpact_get_SET_IPV4_DSCP(a)->dscp;
             }
             break;
-
         case OFPACT_SET_L4_SRC_PORT:
             ctx->flow.tp_src = htons(ofpact_get_SET_L4_SRC_PORT(a)->port);
             break;
-
         case OFPACT_SET_L4_DST_PORT:
             ctx->flow.tp_dst = htons(ofpact_get_SET_L4_DST_PORT(a)->port);
             break;
-
         case OFPACT_RESUBMIT:
             xlate_ofpact_resubmit(ctx, ofpact_get_RESUBMIT(a));
             break;
-
         case OFPACT_SET_TUNNEL:
             ctx->flow.tun_id = htonll(ofpact_get_SET_TUNNEL(a)->tun_id);
             break;
@@ -5538,57 +5528,45 @@ do_xlate_actions(const struct ofpact *ofpacts, size_t ofpacts_len,
         case OFPACT_SET_QUEUE:
             xlate_set_queue_action(ctx, ofpact_get_SET_QUEUE(a)->queue_id);
             break;
-
         case OFPACT_POP_QUEUE:
             ctx->flow.skb_priority = ctx->orig_skb_priority;
             break;
-
         case OFPACT_REG_MOVE:
             nxm_execute_reg_move(ofpact_get_REG_MOVE(a), &ctx->flow);
             break;
-
         case OFPACT_REG_LOAD:
             nxm_execute_reg_load(ofpact_get_REG_LOAD(a), &ctx->flow);
             break;
-
         case OFPACT_DEC_TTL:
             if (compose_dec_ttl(ctx, ofpact_get_DEC_TTL(a))) {
                 goto out;
             }
             break;
-
         case OFPACT_NOTE:
             /* Nothing to do. */
             break;
-
         case OFPACT_MULTIPATH:
             multipath_execute(ofpact_get_MULTIPATH(a), &ctx->flow);
             break;
-
         case OFPACT_AUTOPATH:
             xlate_autopath(ctx, ofpact_get_AUTOPATH(a));
             break;
-
         case OFPACT_BUNDLE:
             ctx->ofproto->has_bundle_action = true;
             xlate_bundle_action(ctx, ofpact_get_BUNDLE(a));
             break;
-
         case OFPACT_OUTPUT_REG:
             xlate_output_reg_action(ctx, ofpact_get_OUTPUT_REG(a));
             break;
-
         case OFPACT_LEARN:
             ctx->has_learn = true;
             if (ctx->may_learn) {
                 xlate_learn_action(ctx, ofpact_get_LEARN(a));
             }
             break;
-
         case OFPACT_EXIT:
             ctx->exit = true;
             break;
-
         case OFPACT_FIN_TIMEOUT:
             ctx->has_fin_timeout = true;
             xlate_fin_timeout(ctx, ofpact_get_FIN_TIMEOUT(a));
@@ -5671,24 +5649,20 @@ xlate_actions(struct action_xlate_ctx *ctx,
         ctx->orig_flow = ctx->flow;
     }
 
-    if (ctx->flow.nw_frag & FLOW_NW_FRAG_ANY) {
+    if (ctx->flow.nw_frag & FLOW_NW_FRAG_ANY) { //handle frag
         switch (ctx->ofproto->up.frag_handling) {
         case OFPC_FRAG_NORMAL:
             /* We must pretend that transport ports are unavailable. */
             ctx->flow.tp_src = ctx->base_flow.tp_src = htons(0);
             ctx->flow.tp_dst = ctx->base_flow.tp_dst = htons(0);
             break;
-
         case OFPC_FRAG_DROP:
             return;
-
         case OFPC_FRAG_REASM:
             NOT_REACHED();
-
         case OFPC_FRAG_NX_MATCH:
             /* Nothing to do. */
             break;
-
         case OFPC_INVALID_TTL_TO_CONTROLLER:
             NOT_REACHED();
         }
