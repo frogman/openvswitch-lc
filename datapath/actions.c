@@ -35,6 +35,7 @@
 #include "datapath.h"
 #include "vlan.h"
 #include "vport.h"
+#include "remote.h"
 
 static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
 			const struct nlattr *attr, int len, bool keep_skb);

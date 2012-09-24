@@ -25,14 +25,21 @@
 #include <linux/skbuff.h>
 #include <linux/spinlock.h>
 #include <linux/u64_stats_sync.h>
+#include <linux/ip.h>
 
 #include "vport-capwap.h"
 
 /*We need the LC support*/
+#ifndef LC_ENABLE
 #define LC_ENABLE
+#endif
 
 #ifdef LC_ENABLE
 #include <linux/ip.h>
+#ifndef IP_PROTO_ETHERIP
+#define IP_PROTO_ETHERIP 97
+#endif
+
 #define LC_REMOTE_IP_PROTO IP_PROTO_ETHERIP //ETHERIP
 #endif
 

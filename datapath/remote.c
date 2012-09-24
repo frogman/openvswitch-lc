@@ -22,6 +22,9 @@
 #include "datapath.h"
 #include "remote.h"
 
+#ifndef IP_HLEN
+#define IP_HLEN 20
+#endif
 
 int __remote_encapulation(struct datapath *dp, struct sk_buff *skb, int *dst_ip)
 {

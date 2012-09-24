@@ -310,10 +310,13 @@ void ovs_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
 	struct dp_stats_percpu *stats;
 	u64 *stats_counter;
 	int error;
-    struct bloom_filter *bf;
+#ifdef LC_ENABLE
+    struct bloom_filter *bf = NULL;
     char tmp_dst[11]; /*store char format of the address*/
+#endif
 
 	stats = per_cpu_ptr(dp->stats_percpu, smp_processor_id());
+
 #ifdef LC_ENABLE
     if (OVS_CB(skb)->encaped) { /*remote pkt, should do decapulation.*/
         //TODO: do decapulation.
@@ -393,6 +396,63 @@ static struct genl_family dp_packet_genl_family = {
     .maxattr = OVS_PACKET_ATTR_MAX,
     SET_NETNSOK
 };
+
+#ifdef LC_ENABLE
+
+#define OVS_BF_GDT_FAMILY "ovs_bf_gdt"
+#define OVS_BF_GDT_VERSION 0x1
+
+enum ovs_bf_gdt_attr {
+	OVS_BF_GDT_ATTR_UNSPEC,
+	OVS_BF_GDT_ATTR_DATA,      /* data. */
+	__OVS_BF_GDT_ATTR_MAX
+};
+
+#define OVS_BF_GDT_ATTR_MAX (__OVS_BF_GDT_ATTR_MAX - 1)
+
+static const struct nla_policy bf_gdt_policy[OVS_BF_GDT_ATTR_MAX + 1] = {
+	[OVS_BF_GDT_ATTR_DATA] = { .type = NLA_NESTED },
+};
+
+/**
+ * family for the bf-gdt management, update the gdt
+ */
+static struct genl_family dp_bf_gdt_genl_family = {
+    .id = GENL_ID_GENERATE,
+    .hdrsize = sizeof(struct ovs_header),
+    .name = OVS_BF_GDT_FAMILY,
+    .version = OVS_BF_GDT_VERSION,
+    .maxattr = OVS_BF_GDT_ATTR_MAX,
+    SET_NETNSOK
+};
+
+/**
+ * Update the local bf-gdt according to the received nl msg.
+ */
+static int ovs_bf_gdt_cmd_update(struct sk_buff *skb, struct genl_info *info)
+{
+    //TODO
+    return 0;
+}
+
+enum ovs_bf_gdt_cmd {
+	OVS_BF_GDT_CMD_UNSPEC,
+	OVS_BF_GDT_CMD_UPDATE
+};
+
+/**
+ * operation for the bf-gdt management, update the gdt
+ */
+static struct genl_ops dp_bf_gdt_genl_ops[] = {
+	{ .cmd = OVS_BF_GDT_CMD_UPDATE,
+	  .flags = GENL_ADMIN_PERM, /* Requires CAP_NET_ADMIN privilege. */
+	  .policy = bf_gdt_policy,
+	  .doit = ovs_bf_gdt_cmd_update
+	}
+};
+
+#endif
+
 
 int ovs_dp_upcall(struct datapath *dp, struct sk_buff *skb,
         const struct dp_upcall_info *upcall_info)
@@ -1471,7 +1531,7 @@ static int ovs_dp_cmd_new(struct sk_buff *skb, struct genl_info *info)
 		goto err_destroy_percpu;
     }
     bf_gdt_add_filter(dp->gdt,LC_BF_DFT_PORT_NO,1024); /*empty filter*/
-    dp->local_ip = inet_addr("10.0.0.1");
+    dp->local_ip = 0x0a000001;
 #endif
 
 	/* Set up our datapath device. */
@@ -2118,6 +2178,11 @@ static const struct genl_family_and_ops dp_genl_families[] = {
 	{ &dp_packet_genl_family,
 	  dp_packet_genl_ops, ARRAY_SIZE(dp_packet_genl_ops),
 	  NULL },
+#ifdef LC_ENABLE
+	{ &dp_bf_gdt_genl_family,
+	  dp_bf_gdt_genl_ops, ARRAY_SIZE(dp_bf_gdt_genl_ops),
+	  NULL },
+#endif
 };
 
 static void dp_unregister_genl(int n_families)
