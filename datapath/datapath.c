@@ -755,7 +755,7 @@ static void clear_stats(struct sw_flow *flow)
 
 /**
  * operations when receiving the OVS_PACKET_CMD_EXECUTE message.
- * get act from info, put into the packet from skb,  and execute the act
+ * get act from info, put into the packet from skb,  and execute the act to the packet.
  * @param skb: the message buffer which triggered the handler
  * @param info: genl_info structure
  */
@@ -783,8 +783,9 @@ static int ovs_packet_cmd_execute(struct sk_buff *skb, struct genl_info *info)
 	err = -ENOMEM;
 	if (!packet)
 		goto err;
-	skb_reserve(packet, NET_IP_ALIGN); //let the ether header aligned
+	skb_reserve(packet, NET_IP_ALIGN); //reserve the ether header
 
+    /*copy the data from info into the packet.*/
 	memcpy(__skb_put(packet, len), nla_data(a[OVS_PACKET_ATTR_PACKET]), len);
 
 	skb_reset_mac_header(packet);
@@ -821,7 +822,7 @@ static int ovs_packet_cmd_execute(struct sk_buff *skb, struct genl_info *info)
 
 	flow->hash = ovs_flow_hash(&flow->key, key_len);
 
-	acts = ovs_flow_actions_alloc(a[OVS_PACKET_ATTR_ACTIONS]); //the action
+	acts = ovs_flow_actions_alloc(a[OVS_PACKET_ATTR_ACTIONS]); //allocate the action
 	err = PTR_ERR(acts);
 	if (IS_ERR(acts))
 		goto err_flow_put;
@@ -2278,7 +2279,7 @@ static int __init dp_init(void)
 	if (err)
 		goto error_netns_exit;
 
-    /*register the important genl_families: dp_datapath,dp_vport,dp_flow,dp_packet*/
+    /*IMPORTANT: register the genl_families: dp_datapath,dp_vport,dp_flow,dp_packet*/
     /*after here, the datapath will hold to wait for the registered genl_family msg*/
 	err = dp_register_genl(); 
 	if (err < 0)
