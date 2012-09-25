@@ -1011,8 +1011,10 @@ dpif_operate(struct dpif *dpif, struct dpif_op **ops, size_t n_ops)
 {
     size_t i;
 
+    /*if exist operate(), then run it.*/
     if (dpif->dpif_class->operate) {
-        dpif->dpif_class->operate(dpif, ops, n_ops); //run the action
+        //run the operate() of real dpif_class. For Linux: dpif_linux_operate()
+        dpif->dpif_class->operate(dpif, ops, n_ops); 
 
         for (i = 0; i < n_ops; i++) { //log info
             struct dpif_op *op = ops[i];
@@ -1031,18 +1033,19 @@ dpif_operate(struct dpif *dpif, struct dpif_op **ops, size_t n_ops)
         return;
     }
 
+    /*no exist operate(), then run seperate function with the real dpif_class*/
     for (i = 0; i < n_ops; i++) {
         struct dpif_op *op = ops[i];
 
         switch (op->type) {
         case DPIF_OP_FLOW_PUT:
-            op->error = dpif_flow_put__(dpif, &op->u.flow_put);
+            op->error = dpif_flow_put__(dpif, &op->u.flow_put); //For Linux: dpif_linux_flow_put()
             break;
         case DPIF_OP_FLOW_DEL:
-            op->error = dpif_flow_del__(dpif, &op->u.flow_del);
+            op->error = dpif_flow_del__(dpif, &op->u.flow_del); //For Linux: dpif_linux_flow_del()
             break;
         case DPIF_OP_EXECUTE:
-            op->error = dpif_execute__(dpif, &op->u.execute);
+            op->error = dpif_execute__(dpif, &op->u.execute); //For Linux: dpif_linux_execute()
             break;
         default:
             NOT_REACHED();

@@ -2868,6 +2868,7 @@ flow_miss_should_make_facet(struct ofproto_dpif *ofproto,
 /* Handles 'miss', which matches 'rule', without creating a facet or subfacet
  * or creating any datapath flow.  May add an "execute" operation to 'ops' and
  * increment '*n_ops'. */
+/* translate the rule into ops.*/
 static void
 handle_flow_miss_without_facet(struct flow_miss *miss,
                                struct rule_dpif *rule,
@@ -2886,7 +2887,7 @@ handle_flow_miss_without_facet(struct flow_miss *miss,
 
         COVERAGE_INC(facet_suppress);
 
-        ofpbuf_use_stub(&odp_actions, op->stub, sizeof op->stub); //cp stub into odp_actions
+        ofpbuf_use_stub(&odp_actions, op->stub, sizeof op->stub); //init odp_actions, and cp stub into odp_actions
         
         /* statistical data */
         dpif_flow_stats_extract(&miss->flow, packet, now, &stats); 
@@ -2896,7 +2897,7 @@ handle_flow_miss_without_facet(struct flow_miss *miss,
         action_xlate_ctx_init(&ctx, ofproto, &miss->flow, miss->initial_tci, 
                               rule, 0, packet); //init ctx
         ctx.resubmit_stats = &stats;
-        /* translate the ofp action into odp action. */
+        /* translate the rule->up.ofpacts into odp_actions action. */
         xlate_actions(&ctx, rule->up.ofpacts, rule->up.ofpacts_len, &odp_actions); 
 
         if (odp_actions.size) {
@@ -2943,7 +2944,7 @@ handle_flow_miss_with_facet(struct flow_miss *miss, struct facet *facet,
         struct dpif_flow_stats stats;
         struct ofpbuf odp_actions;
 
-        handle_flow_miss_common(facet->rule, packet, &miss->flow); //check if in fail-open mod
+        handle_flow_miss_common(facet->rule, packet, &miss->flow); //check if in fail-open mod, get out that mod
 
         ofpbuf_use_stub(&odp_actions, op->stub, sizeof op->stub);
         if (!subfacet->actions || subfacet->slow) {
@@ -2956,7 +2957,7 @@ handle_flow_miss_with_facet(struct flow_miss *miss, struct facet *facet,
         if (subfacet->actions_len) { //has action
             struct dpif_execute *execute = &op->dpif_op.u.execute;
 
-            init_flow_miss_execute_op(miss, packet, op);
+            init_flow_miss_execute_op(miss, packet, op); //init op with miss and packet
             op->subfacet = subfacet;
             if (!subfacet->slow) { //fast path may be used
                 execute->actions = subfacet->actions;
@@ -2975,6 +2976,7 @@ handle_flow_miss_with_facet(struct flow_miss *miss, struct facet *facet,
     }
 
     want_path = subfacet_want_path(subfacet->slow); //slow path or fast path
+    /*check the path.*/
     if (miss->upcall_type == DPIF_UC_MISS || subfacet->path != want_path) {
         struct flow_miss_op *op = &ops[(*n_ops)++];
         struct dpif_flow_put *put = &op->dpif_op.u.flow_put;
@@ -3015,7 +3017,7 @@ handle_flow_miss(struct ofproto_dpif *ofproto, struct flow_miss *miss,
     if (!facet) { /*no found exact match*/
         struct rule_dpif *rule = rule_dpif_lookup(ofproto, &miss->flow);
 
-        if (!flow_miss_should_make_facet(ofproto, miss, hash)) {
+        if (!flow_miss_should_make_facet(ofproto, miss, hash)) { //no enough room in ofproto
             handle_flow_miss_without_facet(miss, rule, ops, n_ops);
             return;
         }
@@ -3125,16 +3127,16 @@ handle_miss_upcalls(struct ofproto_dpif *ofproto, struct dpif_upcall *upcalls,
         miss->key_fitness = ofproto_dpif_extract_flow_key(
             ofproto, upcall->key, upcall->key_len,
             &miss->flow, &miss->initial_tci, upcall->packet);
-        if (miss->key_fitness == ODP_FIT_ERROR) {/*how well the kernel key match user expectation*/
+        if (miss->key_fitness == ODP_FIT_ERROR) {/*invalid, then try next upcall*/
             continue;
         }
         flow_extract(upcall->packet, miss->flow.skb_priority,
-                     miss->flow.tun_id, miss->flow.in_port, &miss->flow);
+                     miss->flow.tun_id, miss->flow.in_port, &miss->flow); //extract upcall->packet into miss->flow.
 
-        /* Add other packets to a to-do list, classified by flow. */
+        /* Add other packets of the same flow to a to-do list, classified by flow. */
         hash = flow_hash(&miss->flow, 0);
         existing_miss = flow_miss_find(&todo, &miss->flow, hash);
-        if (!existing_miss) {
+        if (!existing_miss) { //no same flow existed yet.
             hmap_insert(&todo, &miss->hmap_node, hash);
             miss->key = upcall->key;
             miss->key_len = upcall->key_len;
