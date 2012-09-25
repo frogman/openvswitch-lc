@@ -399,17 +399,6 @@ static struct genl_family dp_packet_genl_family = {
 
 #ifdef LC_ENABLE
 
-#define OVS_BF_GDT_FAMILY "ovs_bf_gdt"
-#define OVS_BF_GDT_VERSION 0x1
-
-enum ovs_bf_gdt_attr {
-	OVS_BF_GDT_ATTR_UNSPEC,
-	OVS_BF_GDT_ATTR_DATA,      /* data. */
-	__OVS_BF_GDT_ATTR_MAX
-};
-
-#define OVS_BF_GDT_ATTR_MAX (__OVS_BF_GDT_ATTR_MAX - 1)
-
 static const struct nla_policy bf_gdt_policy[OVS_BF_GDT_ATTR_MAX + 1] = {
 	[OVS_BF_GDT_ATTR_DATA] = { .type = NLA_NESTED },
 };
@@ -434,11 +423,6 @@ static int ovs_bf_gdt_cmd_update(struct sk_buff *skb, struct genl_info *info)
     //TODO
     return 0;
 }
-
-enum ovs_bf_gdt_cmd {
-	OVS_BF_GDT_CMD_UNSPEC,
-	OVS_BF_GDT_CMD_UPDATE
-};
 
 /**
  * operation for the bf-gdt management, update the gdt

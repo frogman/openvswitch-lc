@@ -3110,7 +3110,7 @@ handle_miss_upcalls(struct ofproto_dpif *ofproto, struct dpif_upcall *upcalls,
         miss->key_fitness = ofproto_dpif_extract_flow_key(
             ofproto, upcall->key, upcall->key_len,
             &miss->flow, &miss->initial_tci, upcall->packet);
-        if (miss->key_fitness == ODP_FIT_ERROR) {
+        if (miss->key_fitness == ODP_FIT_ERROR) { //invalid, then try next upcall
             continue;
         }
         flow_extract(upcall->packet, miss->flow.skb_priority,

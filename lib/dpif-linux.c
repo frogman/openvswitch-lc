@@ -678,6 +678,9 @@ dpif_linux_flow_get(const struct dpif *dpif_,
     return error;
 }
 
+/**
+ * init the request from put.
+ */
 static void
 dpif_linux_init_flow_put(struct dpif *dpif_, const struct dpif_flow_put *put,
                          struct dpif_linux_flow *request)
@@ -924,15 +927,16 @@ dpif_linux_operate__(struct dpif *dpif_, struct dpif_op **ops, size_t n_ops)
         ofpbuf_use_stub(&aux->reply, aux->reply_stub, sizeof aux->reply_stub);
         aux->txn.reply = NULL;
 
+        /*build aux->request*/
         switch (op->type) {
         case DPIF_OP_FLOW_PUT:
             put = &op->u.flow_put;
-            dpif_linux_init_flow_put(dpif_, put, &flow);
+            dpif_linux_init_flow_put(dpif_, put, &flow); //copy data from put into flow
             if (put->stats) {
                 flow.nlmsg_flags |= NLM_F_ECHO;
                 aux->txn.reply = &aux->reply;
             }
-            dpif_linux_flow_to_ofpbuf(&flow, &aux->request);
+            dpif_linux_flow_to_ofpbuf(&flow, &aux->request); //construct request by ovs_header+flow
             break;
 
         case DPIF_OP_FLOW_DEL:
@@ -942,13 +946,13 @@ dpif_linux_operate__(struct dpif *dpif_, struct dpif_op **ops, size_t n_ops)
                 flow.nlmsg_flags |= NLM_F_ECHO;
                 aux->txn.reply = &aux->reply;
             }
-            dpif_linux_flow_to_ofpbuf(&flow, &aux->request);
+            dpif_linux_flow_to_ofpbuf(&flow, &aux->request);//construct request by ovs_header+flow
             break;
 
         case DPIF_OP_EXECUTE:
             execute = &op->u.execute;
             dpif_linux_encode_execute(dpif->dp_ifindex, execute,
-                                      &aux->request);
+                                      &aux->request);//build nlmsg from execute into request
             break;
 
         default:
@@ -959,8 +963,11 @@ dpif_linux_operate__(struct dpif *dpif_, struct dpif_op **ops, size_t n_ops)
     for (i = 0; i < n_ops; i++) {
         txnsp[i] = &auxes[i].txn;
     }
+
+    /* send request msg in txnsp, and receive possible reply into txnsp-> reply*/
     nl_sock_transact_multiple(genl_sock, txnsp, n_ops);
 
+    /*get the statistical information into op.*/
     for (i = 0; i < n_ops; i++) {
         struct op_auxdata *aux = &auxes[i];
         struct nl_transaction *txn = &auxes[i].txn;
@@ -976,14 +983,12 @@ dpif_linux_operate__(struct dpif *dpif_, struct dpif_op **ops, size_t n_ops)
             if (put->stats) {
                 if (!op->error) {
                     struct dpif_linux_flow reply;
-
                     op->error = dpif_linux_flow_from_ofpbuf(&reply,
-                                                            txn->reply);
+                                                            txn->reply); //parse txn->reply into reply as a flow
                     if (!op->error) {
                         dpif_linux_flow_get_stats(&reply, put->stats);
                     }
                 }
-
                 if (op->error) {
                     memset(put->stats, 0, sizeof *put->stats);
                 }
@@ -995,14 +1000,12 @@ dpif_linux_operate__(struct dpif *dpif_, struct dpif_op **ops, size_t n_ops)
             if (del->stats) {
                 if (!op->error) {
                     struct dpif_linux_flow reply;
-
                     op->error = dpif_linux_flow_from_ofpbuf(&reply,
-                                                            txn->reply);
+                                                            txn->reply); //parse flow from txn->reply into reply
                     if (!op->error) {
-                        dpif_linux_flow_get_stats(&reply, del->stats);
+                        dpif_linux_flow_get_stats(&reply, del->stats); //get stat info into stats
                     }
                 }
-
                 if (op->error) {
                     memset(del->stats, 0, sizeof *del->stats);
                 }

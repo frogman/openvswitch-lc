@@ -54,7 +54,6 @@
  * Attributes following the header are specific to a particular OVS Generic
  * Netlink family, but all of the OVS families use this header.
  */
-
 struct ovs_header {
 	int dp_ifindex;
 };
@@ -167,6 +166,26 @@ enum ovs_packet_attr {
 };
 
 #define OVS_PACKET_ATTR_MAX (__OVS_PACKET_ATTR_MAX - 1)
+
+#ifdef LC_ENABLE
+/* bf-gdt. */
+#define OVS_BF_GDT_FAMILY "ovs_bf_gdt"
+#define OVS_BF_GDT_VERSION 0x1
+
+enum ovs_bf_gdt_cmd {
+	OVS_BF_GDT_CMD_UNSPEC,
+	OVS_BF_GDT_CMD_UPDATE
+};
+
+enum ovs_bf_gdt_attr {
+	OVS_BF_GDT_ATTR_UNSPEC,
+	OVS_BF_GDT_ATTR_DATA,      /* data. */
+	__OVS_BF_GDT_ATTR_MAX
+};
+
+#define OVS_BF_GDT_ATTR_MAX (__OVS_BF_GDT_ATTR_MAX - 1)
+
+#endif
 
 /* Virtual ports. */
 

@@ -1007,9 +1007,9 @@ dpif_operate(struct dpif *dpif, struct dpif_op **ops, size_t n_ops)
 {
     size_t i;
 
+    /*init, preprocess and log*/
     if (dpif->dpif_class->operate) {
-        dpif->dpif_class->operate(dpif, ops, n_ops);
-
+        dpif->dpif_class->operate(dpif, ops, n_ops); //run dpif_linux_class->dpif_linux_operate()
         for (i = 0; i < n_ops; i++) {
             struct dpif_op *op = ops[i];
 
