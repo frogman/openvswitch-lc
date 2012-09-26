@@ -689,7 +689,7 @@ dpif_linux_init_flow_put(struct dpif *dpif_, const struct dpif_flow_put *put,
 
     struct dpif_linux *dpif = dpif_linux_cast(dpif_);
 
-    dpif_linux_flow_init(request);
+    dpif_linux_flow_init(request); //alloc a dpif_linux_flow
     request->cmd = (put->flags & DPIF_FP_CREATE
                     ? OVS_FLOW_CMD_NEW : OVS_FLOW_CMD_SET);
     request->dp_ifindex = dpif->dp_ifindex;
@@ -710,8 +710,9 @@ dpif_linux_flow_put(struct dpif *dpif_, const struct dpif_flow_put *put)
     struct dpif_linux_flow request, reply;
     struct ofpbuf *buf;
     int error;
-
-    dpif_linux_init_flow_put(dpif_, put, &request);
+    /* init request from put.*/
+    dpif_linux_init_flow_put(dpif_, put, &request); 
+    /* send nlmsg. */
     error = dpif_linux_flow_transact(&request,
                                      put->stats ? &reply : NULL,
                                      put->stats ? &buf : NULL);
@@ -1885,7 +1886,9 @@ dpif_linux_flow_transact(struct dpif_linux_flow *request,
     }
 
     request_buf = ofpbuf_new(1024);
-    dpif_linux_flow_to_ofpbuf(request, request_buf);
+    /*construct request_buf as ovs_header+attrs(from requst)*/
+    dpif_linux_flow_to_ofpbuf(request, request_buf); 
+
     error = nl_sock_transact(genl_sock, request_buf, bufp);
     ofpbuf_delete(request_buf);
 

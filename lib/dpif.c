@@ -1007,7 +1007,7 @@ dpif_operate(struct dpif *dpif, struct dpif_op **ops, size_t n_ops)
 {
     size_t i;
 
-    /*init, preprocess and log*/
+    /*if dpif_class provide the operate(), then run it to process and log.*/
     if (dpif->dpif_class->operate) {
         dpif->dpif_class->operate(dpif, ops, n_ops); //run dpif_linux_class->dpif_linux_operate()
         for (i = 0; i < n_ops; i++) {
@@ -1030,20 +1030,21 @@ dpif_operate(struct dpif *dpif, struct dpif_op **ops, size_t n_ops)
         return;
     }
 
+    /*if dpif_class doesn't provide the operate(), then call separate api.*/
     for (i = 0; i < n_ops; i++) {
         struct dpif_op *op = ops[i];
 
         switch (op->type) {
         case DPIF_OP_FLOW_PUT:
-            op->error = dpif_flow_put__(dpif, &op->u.flow_put);
+            op->error = dpif_flow_put__(dpif, &op->u.flow_put); //for linux: call dpif_linux_flow_put()
             break;
 
         case DPIF_OP_FLOW_DEL:
-            op->error = dpif_flow_del__(dpif, &op->u.flow_del);
+            op->error = dpif_flow_del__(dpif, &op->u.flow_del); //for linux: call dpif_linux_flow_del()
             break;
 
         case DPIF_OP_EXECUTE:
-            op->error = dpif_execute__(dpif, &op->u.execute);
+            op->error = dpif_execute__(dpif, &op->u.execute); //for linux: call dpif_linux_execute()
             break;
 
         default:
