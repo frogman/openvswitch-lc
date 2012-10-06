@@ -110,7 +110,7 @@ main(int argc, char *argv[])
     }
     unixctl_command_register("exit", "", 0, 0, ovs_vswitchd_exit, &exiting);
 
-    bridge_init(remote);//init the bridge db's mode, and register unix ctl cmds: qos, bridge
+    bridge_init(remote);//init the ovs-db's configurations, and register unix ctl cmds: qos, bridge
     free(remote);
 
     exiting = false;
