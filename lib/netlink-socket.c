@@ -433,6 +433,12 @@ nl_sock_record_errors__(struct nl_transaction **transactions, size_t n,
     }
 }
 
+/**
+ * @param sock: the socket to send through.
+ * @param transactions: msg to transfer.
+ * @param n: Number of msg.
+ * @param done: Number of msg that are successfully sent.
+ */
 static int
 nl_sock_transact_multiple__(struct nl_sock *sock,
                             struct nl_transaction **transactions, size_t n,
@@ -574,6 +580,9 @@ nl_sock_transact_multiple__(struct nl_sock *sock,
  * Bare Netlink is an unreliable transport protocol.  This function layers
  * reliable delivery and reply semantics on top of bare Netlink.  See
  * nl_sock_transact() for some caveats.
+ * @param sock: the socket to send through.
+ * @param transactions: msg to transfer.
+ * @param n: Number of msg.
  */
 void
 nl_sock_transact_multiple(struct nl_sock *sock,
@@ -616,6 +625,7 @@ nl_sock_transact_multiple(struct nl_sock *sock,
         enum { MAX_BATCH_BYTES = 4096 - 512 };
 #endif
         bytes = transactions[0]->request->size;
+        /* send up to max_batch_count number of transactions at one time.*/
         for (count = 1; count < n && count < max_batch_count; count++) {
             if (bytes + transactions[count]->request->size > MAX_BATCH_BYTES) {
                 break;

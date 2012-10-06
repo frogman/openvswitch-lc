@@ -707,8 +707,10 @@ dpif_linux_flow_put(struct dpif *dpif_, const struct dpif_flow_put *put)
     struct dpif_linux_flow request, reply;
     struct ofpbuf *buf;
     int error;
-
-    dpif_linux_init_flow_put(dpif_, put, &request);
+    
+    /* construct the request. */
+    dpif_linux_init_flow_put(dpif_, put, &request); 
+    /* send out the nlmsg by request. */
     error = dpif_linux_flow_transact(&request,
                                      put->stats ? &reply : NULL,
                                      put->stats ? &buf : NULL);
@@ -1621,6 +1623,7 @@ dpif_linux_vport_get(const char *name, struct dpif_linux_vport *reply,
 
     return dpif_linux_vport_transact(&request, reply, bufp);
 }
+
 
 /* Parses the contents of 'buf', which contains a "struct ovs_header" followed
  * by Netlink attributes, into 'dp'.  Returns 0 if successful, otherwise a
