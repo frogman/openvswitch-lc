@@ -400,7 +400,7 @@ static struct genl_family dp_packet_genl_family = {
 #ifdef LC_ENABLE
 
 static const struct nla_policy bf_gdt_policy[OVS_BF_GDT_ATTR_MAX + 1] = {
-	[OVS_BF_GDT_ATTR_DATA] = { .type = NLA_NESTED },
+	[OVS_BF_GDT_ATTR_BF] = { .type = NLA_NESTED },
 };
 
 /**
@@ -415,12 +415,37 @@ static struct genl_family dp_bf_gdt_genl_family = {
     SET_NETNSOK
 };
 
+
 /**
  * Update the local bf-gdt according to the received nl msg.
  */
-static int ovs_bf_gdt_cmd_update(struct sk_buff *skb, struct genl_info *info)
+static int ovs_bf_gdt_cmd_new_or_set(struct sk_buff *skb, struct genl_info *info)
 {
     //TODO
+	struct nlattr **a = info->attrs;
+	struct ovs_header *ovs_header = info->userhdr;
+	struct bloom_filter bf;
+	struct sw_flow *flow;
+	struct sk_buff *reply;
+	struct datapath *dp;
+	struct flow_table *table;
+	int error;
+	int bf_len;
+
+	/* Extract bf. */
+	error = -EINVAL;
+	if (!a[OVS_BF_GDT_ATTR_BF])
+		goto error;
+    memcpy(&bf, nla_data(a[OVS_BF_GDT_ATTR_BF]),sizeof bf);
+	//error = ovs_flow_from_nlattrs(&key, &key_len, a[OVS_FLOW_ATTR_KEY]);
+    printk("[DP] Received bf_gdt nlmsg from userspace: %s.\n",&bf);
+
+	dp = get_dp(sock_net(skb->sk), ovs_header->dp_ifindex);
+	error = -ENODEV;
+	if (!dp)
+		goto error;
+
+error:
     return 0;
 }
 
@@ -428,10 +453,15 @@ static int ovs_bf_gdt_cmd_update(struct sk_buff *skb, struct genl_info *info)
  * operation for the bf-gdt management, update the gdt
  */
 static struct genl_ops dp_bf_gdt_genl_ops[] = {
-	{ .cmd = OVS_BF_GDT_CMD_UPDATE,
+	{ .cmd = OVS_BF_GDT_CMD_NEW,
 	  .flags = GENL_ADMIN_PERM, /* Requires CAP_NET_ADMIN privilege. */
 	  .policy = bf_gdt_policy,
-	  .doit = ovs_bf_gdt_cmd_update
+	  .doit = ovs_bf_gdt_cmd_new_or_set
+	},
+    { .cmd = OVS_BF_GDT_CMD_SET,
+	  .flags = GENL_ADMIN_PERM, /* Requires CAP_NET_ADMIN privilege. */
+	  .policy = bf_gdt_policy,
+	  .doit = ovs_bf_gdt_cmd_new_or_set
 	}
 };
 

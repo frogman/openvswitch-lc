@@ -74,9 +74,10 @@ struct bloom_filter *bf_create(u32 bf_id, u32 len, u16 port_no, u32 nfuncs)
         /*printk("Error in kmalloc bf\i");*/
         return NULL;
     }
+/*
 #ifdef __KERNEL__
     if(!(bf->array=kcalloc((len+sizeof(char)-1)/sizeof(char), sizeof(char),GFP_KERNEL))) {
-        /*printk("Error in kcalloc bf\i");*/
+        printk("Error in kcalloc bf\i");
         kfree(bf);
 #else
     if(!(bf->array=calloc((len+sizeof(char)-1)/sizeof(char), sizeof(char)))) {
@@ -84,6 +85,8 @@ struct bloom_filter *bf_create(u32 bf_id, u32 len, u16 port_no, u32 nfuncs)
 #endif
         return NULL;
     }
+*/
+
 #ifdef __KERNEL__
     if(!(bf->funcs=(hashfunc_t*)kmalloc(nfuncs*sizeof(hashfunc_t),GFP_KERNEL))) {
         kfree(bf->array);
@@ -174,24 +177,27 @@ int bf_set_array(struct bloom_filter *bf, const u8 *array, u32 len)
 {
     if (!bf || !array)
         return -1;
+    /*
     u8 * tmp_array = NULL;
 #ifdef __KERNEL__
     if(!(tmp_array=kcalloc((len+sizeof(char)-1)/sizeof(char), sizeof(char),GFP_KERNEL))) {
         kfree(tmp_array);
-        /*printk("Error when kcalloc in bf_set_array()\n");*/
+        printk("Error when kcalloc in bf_set_array()\n");
         return -1;
     }
     kfree(bf->array);
 #else
     if(!(tmp_array=calloc((len+sizeof(char)-1)/sizeof(char), sizeof(char)))) {
         free(tmp_array);
-        /*printk("Error when kcalloc in bf_set_array()\n");*/
+        printk("Error when kcalloc in bf_set_array()\n");
         return -1;
     }
     free(bf->array);
 #endif
     memcpy(tmp_array,array,(len+sizeof(char)-1)/sizeof(char));
     bf->array = tmp_array;
+    */
+    memcpy(bf->array,array,(len+sizeof(char)-1)/sizeof(char));
     bf->len = len;
     return 0;
 }

@@ -58,6 +58,11 @@
 #include "unaligned.h"
 #include "util.h"
 #include "vlog.h"
+#include "bf.h"
+
+#ifndef LC_ENABLE
+#define LC_ENABLE
+#endif
 
 VLOG_DEFINE_THIS_MODULE(dpif_linux);
 enum { MAX_PORTS = USHRT_MAX };
@@ -210,6 +215,9 @@ static int ovs_datapath_family;
 static int ovs_vport_family;
 static int ovs_flow_family;
 static int ovs_packet_family;
+#ifdef LC_ENABLE
+static int ovs_bf_gdt_family;
+#endif
 
 /* Generic Netlink socket. */
 static struct nl_sock *genl_sock;
@@ -845,6 +853,111 @@ dpif_linux_flow_dump_done(const struct dpif *dpif OVS_UNUSED, void *state_)
     return error;
 }
 
+#ifdef LC_ENABLE
+struct dpif_linux_bf_gdt {
+    /* Generic Netlink header. */
+    uint8_t cmd;
+
+    /* struct ovs_header. */
+    unsigned int nlmsg_flags;
+    int dp_ifindex;
+
+    /* Attributes data to put.
+     */
+    const struct bloom_filter *bf;      /* one bloom_filter entry. */
+    size_t  bf_len;                     /* size of the bf. */
+};
+
+/**
+ * init the request from put.
+ */
+static void
+dpif_linux_bf_gdt_init(struct dpif_linux_bf_gdt *bf_gdt)
+{
+    memset(bf_gdt,0,sizeof *bf_gdt);
+}
+
+/* Appends to 'buf' (which must initially be empty) a "struct ovs_header"
+ * followed by Netlink attributes corresponding to 'flow'. */
+static void
+dpif_linux_bf_gdt_to_ofpbuf(const struct dpif_linux_bf_gdt *bf_gdt,
+                          struct ofpbuf *buf)
+{
+    struct ovs_header *ovs_header;
+
+    nl_msg_put_genlmsghdr(buf, 0, ovs_bf_gdt_family,
+                          NLM_F_REQUEST | bf_gdt->nlmsg_flags,
+                          bf_gdt->cmd, OVS_BF_GDT_VERSION);
+
+    ovs_header = ofpbuf_put_uninit(buf, sizeof *ovs_header);
+    ovs_header->dp_ifindex = bf_gdt->dp_ifindex;
+
+    if (bf_gdt->bf || bf_gdt->bf_len) {
+        nl_msg_put_unspec(buf, OVS_BF_GDT_ATTR_BF, bf_gdt->bf, bf_gdt->bf_len);
+    }
+
+}
+
+/**
+ * Transfer a nlmsg based on request.
+ * let reply and bufp be NULL, as no reply is necessary.
+ */
+static int
+dpif_linux_bf_gdt_transact(struct dpif_linux_bf_gdt *request,
+                         struct dpif_linux_bf_gdt *reply, struct ofpbuf **bufp)
+{
+    struct ofpbuf *request_buf;
+    int error;
+
+    request_buf = ofpbuf_new(4096);
+    /*construct request_buf as ovs_header+attrs(from requst)*/
+    dpif_linux_flow_to_ofpbuf(request, request_buf); 
+    error = nl_sock_transact(genl_sock, request_buf, bufp);
+    ofpbuf_delete(request_buf);
+
+    return error;
+}
+ 
+/**
+ * init the request from put.
+ */
+static void
+dpif_linux_init_bf_gdt_put(struct dpif *dpif_, const struct dpif_bf_gdt_put *put,
+                         struct dpif_linux_bf_gdt *request)
+{
+    static struct nlattr dummy_action;
+
+    struct dpif_linux *dpif = dpif_linux_cast(dpif_);
+
+    dpif_linux_bf_gdt_init(request); //alloc a dpif_linux_bf_gdt
+    request->cmd = (put->flags & DPIF_BP_CREATE
+                    ? OVS_BF_GDT_CMD_NEW : OVS_BF_GDT_CMD_SET);
+    request->dp_ifindex = dpif->dp_ifindex;
+    /* Attibutions. */
+    request->bf = put->bf;
+    request->bf_len = put->bf_len;
+    /*nlmsg flags*/
+    request->nlmsg_flags = put->flags & DPIF_BP_MODIFY ? 0 : NLM_F_CREATE;
+}
+
+/**
+ * update content in the bf-gdt of the datapath.
+ */
+static int
+dpif_linux_bf_gdt_put(struct dpif *dpif_, const struct dpif_bf_gdt_put *put)
+{
+    struct dpif_linux_bf_gdt request;
+    struct ofpbuf *buf;
+    int error;
+    /* init request from put.*/
+    dpif_linux_init_bf_gdt_put(dpif_, put, &request); 
+    /* send out the nlmsg. */
+    error = dpif_linux_bf_gdt_transact(&request, NULL, NULL);
+    return error;
+}
+
+#endif
+
 static void
 dpif_linux_encode_execute(int dp_ifindex, const struct dpif_execute *d_exec,
                           struct ofpbuf *buf)
@@ -1331,6 +1444,10 @@ const struct dpif_class dpif_linux_class = {
     dpif_linux_recv_purge,
 };
 
+
+/**
+ * Find the registered netlink family by datapath, and store their ids.
+ */
 static int
 dpif_linux_init(void)
 {
@@ -1353,9 +1470,18 @@ dpif_linux_init(void)
             error = nl_lookup_genl_family(OVS_FLOW_FAMILY, &ovs_flow_family);
         }
         if (!error) {
-            error = nl_lookup_genl_family(OVS_PACKET_FAMILY,
-                                          &ovs_packet_family);
+            error = nl_lookup_genl_family(OVS_PACKET_FAMILY, &ovs_packet_family);
         }
+#ifdef LC_ENABLE
+        if (!error) {
+            error = nl_lookup_genl_family(OVS_BF_GDT_FAMILY, &ovs_bf_gdt_family);
+        }
+        if (error) {
+            VLOG_ERR("Generic Netlink family '%s' does not exist. "
+                     "The Open vSwitch kernel module is probably not loaded.",
+                     OVS_BF_GDT_FAMILY);
+        }
+#endif
         if (!error) {
             error = nl_sock_create(NETLINK_GENERIC, &genl_sock);
         }

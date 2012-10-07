@@ -34,9 +34,9 @@ typedef unsigned int (*hashfunc_t)(const char *);
 
 struct bloom_filter{
     u32 bf_id; /*id*/
-    u32 len; /*length of the bit array*/
+    u32 len; /*bit length of the bit array*/
     u16 port_no; /*how to reach the switch*/
-    u8 *array; /*the bit array*/
+    u8 array[128]; /*the bit array, defaultly 1024 bit*/
     u32 nfuncs; /*number of hash functions*/
     hashfunc_t *funcs; /*hash functions array*/
 };

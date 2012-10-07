@@ -25,6 +25,7 @@
 #include "openflow/openflow.h"
 #include "netdev.h"
 #include "util.h"
+#include "bf.h"
 
 #ifdef  __cplusplus
 extern "C" {
@@ -202,6 +203,26 @@ struct dpif_flow_del {
     struct dpif_flow_stats *stats;  /* Optional flow statistics. */
 };
 
+#ifndef LC_ENABLE
+#define LC_ENABLE
+#endif
+
+#ifdef LC_ENABLE
+
+enum dpif_bf_gdt_put_flags {
+    DPIF_BP_CREATE = 1 << 0,    /* Allow creating a new bf. */
+    DPIF_BP_MODIFY = 1 << 1,    /* Allow modifying an existing bf. */
+    DPIF_BP_ZERO_STATS = 1 << 2 /* Zero the stats of an existing flow. */
+};
+
+struct dpif_bf_gdt_put {
+    /* Input. */
+    enum dpif_bf_gdt_put_flags flags; /* DPIF_BP_*. */
+    size_t bf_len;                    /*bytes of bf.*/
+    const struct bloom_filter *bf;    /* one bloom_filter entry. */
+};
+#endif
+
 struct dpif_execute {
     const struct nlattr *key;       /* Partial flow key (only for metadata). */
     size_t key_len;                 /* Length of 'key' in bytes. */
@@ -226,7 +247,7 @@ void dpif_operate(struct dpif *, struct dpif_op **ops, size_t n_ops);
 
 enum dpif_upcall_type {
     DPIF_UC_MISS,               /* Miss in flow table. */
-    DPIF_UC_ACTION,             /* OVS_ACTION_ATTR_USERSPACE action. */
+    DPIF_UC_ACTION,             /* Obf_gdtVS_ACTION_ATTR_USERSPACE action. */
     DPIF_N_UC_TYPES
 };
 
