@@ -2317,12 +2317,14 @@ qos_unixctl_show(struct unixctl_conn *conn, int argc OVS_UNUSED,
 static void
 bridge_start_mcast(struct bridge *br)
 {
+    VLOG_INFO("%s bridge_start_mcast() begin...\n",br->name);
     extern pthread_mutex_t mutex;
     pthread_mutex_init (&mutex,NULL);
-    br->send_arg.msg->bf_array = br->gdt->bf_array[0]; /*TODO: should be initialized*/
-    br->send_arg.len_msg += (LC_BF_DFT_LEN+sizeof(char)-1)/sizeof(char);
     pthread_create(&br->send_tid,NULL,mc_send,&br->send_arg);
+    VLOG_INFO("%s bridge_mc_send() done.\n",br->name);
+    sleep(1);
     pthread_create(&br->recv_tid,NULL,mc_recv,&br->recv_arg);
+    VLOG_INFO("%s bridge_mc_recv() done.\n",br->name);
     VLOG_INFO("%s bridge_start_mcast() done.\n",br->name);
 }
 
@@ -2337,11 +2339,13 @@ bridge_end_mcast(struct bridge *br)
     pthread_join(br->send_tid,NULL);
     pthread_join(br->recv_tid,NULL);
     VLOG_INFO("%s pthread_join done\n",br->name);
-    if(br->send_arg.msg) free(br->send_arg.msg);
     VLOG_INFO("%s free br->send_arg.msg done\n",br->name);
     free(br->send_arg.stop);
     free(br->recv_arg.stop);
 }
+/**
+ * Init the arguments for the mc_send and the mc_recv.
+ */
 static void
 bridge_lc_init(struct bridge *br)
 {
@@ -2349,14 +2353,9 @@ bridge_lc_init(struct bridge *br)
     br->gdt = bf_gdt_init(LC_GROUP_DFT_ID);
     br->send_arg.group_ip = inet_addr(LC_MCAST_GROUP_IP)+br->gdt->gid;
     br->send_arg.port = LC_MCAST_GROUP_PORT;
-    br->send_arg.msg = malloc(sizeof(struct mcast_msg));
-    br->send_arg.msg->gid = br->gdt->gid;
-    br->send_arg.msg->ovsd_ip = 0;
-    br->send_arg.msg->bf_array = NULL;
-    br->send_arg.len_msg = sizeof(struct mcast_msg);
+    br->send_arg.gdt = br->gdt;
     br->send_arg.stop = malloc(sizeof(bool));
     *br->send_arg.stop = false;
-    br->send_arg.gdt = br->gdt;
 
     br->recv_arg.group_ip = inet_addr(LC_MCAST_GROUP_IP)+br->gdt->gid;
     br->recv_arg.port = LC_MCAST_GROUP_PORT;
@@ -2364,7 +2363,7 @@ bridge_lc_init(struct bridge *br)
     *br->recv_arg.stop = false;
     br->recv_arg.gdt = br->gdt;
     VLOG_INFO("%s bridge_lc_init() done.\n",br->name);
-    bridge_start_mcast(br);
+    //bridge_start_mcast(br);
 }
 
 /* Bridge reconfiguration functions. */

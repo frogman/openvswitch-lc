@@ -942,6 +942,8 @@ dpif_linux_init_bf_gdt_put(struct dpif *dpif_, const struct dpif_bf_gdt_put *put
 
 /**
  * update content in the bf-gdt of the datapath.
+ * @param dpif_: the dpif to send nlmsg to.
+ * @param put: stored the information to send.
  */
 static int
 dpif_linux_bf_gdt_put(struct dpif *dpif_, const struct dpif_bf_gdt_put *put)
@@ -1442,6 +1444,9 @@ const struct dpif_class dpif_linux_class = {
     dpif_linux_recv,
     dpif_linux_recv_wait,
     dpif_linux_recv_purge,
+#ifdef LC_ENABLE
+    dpif_linux_bf_gdt_put,
+#endif
 };
 
 
@@ -1476,6 +1481,7 @@ dpif_linux_init(void)
         if (!error) {
             error = nl_lookup_genl_family(OVS_BF_GDT_FAMILY, &ovs_bf_gdt_family);
         }
+        VLOG_INFO("new register nl family, id= %d.\n",*(int*)&ovs_bf_gdt_family);
         if (error) {
             VLOG_ERR("Generic Netlink family '%s' does not exist. "
                      "The Open vSwitch kernel module is probably not loaded.",

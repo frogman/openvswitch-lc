@@ -27,6 +27,10 @@
 #include "dpif.h"
 #include "util.h"
 
+#ifndef LC_ENABLE
+#define LC_ENABLE
+#endif
+
 #ifdef  __cplusplus
 extern "C" {
 #endif
@@ -336,6 +340,10 @@ struct dpif_class {
     /* Throws away any queued upcalls that 'dpif' currently has ready to
      * return. */
     void (*recv_purge)(struct dpif *dpif);
+
+#ifdef LC_ENABLE
+    int (*bf_gdt_put)(struct dpif *dpif, const struct dpif_bf_gdt_put *put);
+#endif
 };
 
 extern const struct dpif_class dpif_linux_class;

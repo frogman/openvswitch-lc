@@ -57,6 +57,10 @@ COVERAGE_DEFINE(dpif_flow_query_list_n);
 COVERAGE_DEFINE(dpif_execute);
 COVERAGE_DEFINE(dpif_purge);
 
+#ifdef LC_ENABLE
+COVERAGE_DEFINE(dpif_bf_gdt_put);
+#endif
+
 static const struct dpif_class *base_dpif_classes[] = {
 #ifdef HAVE_NETLINK
     &dpif_linux_class,
@@ -955,6 +959,33 @@ dpif_flow_dump_done(struct dpif_flow_dump *dump)
     }
     return dump->error == EOF ? 0 : dump->error;
 }
+
+#ifdef LC_ENABLE
+static int
+dpif_bf_gdt_put__(struct dpif *dpif, const struct dpif_bf_gdt_put *put)
+{
+    int error;
+
+    COVERAGE_INC(dpif_bf_gdt_put);
+    assert(!(put->flags & ~(DPIF_BP_CREATE | DPIF_BP_MODIFY
+                            | DPIF_BP_ZERO_STATS)));
+
+    error = dpif->dpif_class->bf_gdt_put(dpif, put);
+    //log_flow_put_message(dpif, put, error);
+    return error;
+}
+
+int dpif_bf_gdt_put(struct dpif *dpif, enum dpif_bf_gdt_put_flags flags,
+                  const struct bloom_filter *bf, size_t bf_len)
+{
+    struct dpif_bf_gdt_put put;
+
+    put.flags = flags;
+    put.bf = bf;
+    put.bf_len = bf_len;
+    return dpif_bf_gdt_put__(dpif, &put);
+}
+#endif
 
 static int
 dpif_execute__(struct dpif *dpif, const struct dpif_execute *execute)

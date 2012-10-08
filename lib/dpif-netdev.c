@@ -1299,6 +1299,9 @@ const struct dpif_class dpif_netdev_class = {
     dpif_netdev_recv,
     dpif_netdev_recv_wait,
     dpif_netdev_recv_purge,
+#ifdef LC_ENABLE
+    NULL, //dpif_bf_gdt_put
+#endif
 };
 
 static void

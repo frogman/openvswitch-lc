@@ -400,7 +400,7 @@ static struct genl_family dp_packet_genl_family = {
 #ifdef LC_ENABLE
 
 static const struct nla_policy bf_gdt_policy[OVS_BF_GDT_ATTR_MAX + 1] = {
-	[OVS_BF_GDT_ATTR_BF] = { .type = NLA_NESTED },
+	//[OVS_BF_GDT_ATTR_BF] = { .type = NLA_NESTED },
 };
 
 /**
@@ -415,13 +415,13 @@ static struct genl_family dp_bf_gdt_genl_family = {
     SET_NETNSOK
 };
 
-
 /**
  * Update the local bf-gdt according to the received nl msg.
  */
 static int ovs_bf_gdt_cmd_new_or_set(struct sk_buff *skb, struct genl_info *info)
 {
     //TODO
+    printk("[DP] Received bf_gdt nlmsg from userspace.\n");
 	struct nlattr **a = info->attrs;
 	struct ovs_header *ovs_header = info->userhdr;
 	struct bloom_filter bf;
@@ -466,7 +466,6 @@ static struct genl_ops dp_bf_gdt_genl_ops[] = {
 };
 
 #endif
-
 
 int ovs_dp_upcall(struct datapath *dp, struct sk_buff *skb,
         const struct dp_upcall_info *upcall_info)

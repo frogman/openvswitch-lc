@@ -41,12 +41,12 @@ void mc_send(struct mc_send_arg* arg)
     struct sockaddr_in addr;
     socklen_t len;
     int ret;
-    struct mcast_msg *msg;
+    struct mcast_msg *msg= malloc(sizeof(struct mcast_msg));
+    struct bloom_filter *bf=NULL;
 
     if (!arg) {
         return ;
     }
-    msg = arg->msg;
 
     /* open a socket. only udp support multicast */
     if ((sock_id = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
@@ -57,27 +57,42 @@ void mc_send(struct mc_send_arg* arg)
     /* build address */
     memset((void*)&addr, 0, sizeof(addr));
     addr.sin_family = AF_INET;
-/*addr.sin_addr.s_addr = inet_addr(group_ip);*/ 
     addr.sin_addr.s_addr = arg->group_ip; 
     addr.sin_port = htons(arg->port);
-
     len = sizeof(addr);
-    /* it's very easy, just send the data to the address:port */
+
+    /* prepare message.*/
+    msg->gid = arg->gdt->gid;
+
+    /* send the data to the address:port */
     while (!*arg->stop) {
-        //printf("Send to %s:%u with %lu:%s\n", inet_ntoa(addr.sin_addr.s_addr), ntohs(addr.sin_port),msg->ovsd_ip, msg->bf_array);
+        /*
+        for(i=0;i<arg->gdt->nbf;i++) {
+            if (arg->gdt->bf_array[i]->bf_id == 0) {//TODO:cmp with local ip
+                bf = arg->gdt->bf_array[i];
+            }
+        }
+        if (i>=arg->gdt->nbf) //found no match bf
+            goto next;
+        */
+        /*TODO: del following two lines and use above codes further.*/
+        bf = malloc(sizeof(struct bloom_filter));
+        memset(bf,0,sizeof(struct bloom_filter));
+
         pthread_mutex_lock (&mutex);
-        if (msg) {
-            ret = sendto(sock_id, msg, arg->len_msg, 0, (struct sockaddr *)&addr, len);
-            VLOG_INFO("Send mcast msg to %s:%u with gid=%u;%lu:%s\n", inet_ntoa(addr.sin_addr.s_addr), ntohs(addr.sin_port),msg->gid,msg->ovsd_ip, msg->bf_array);
-        }
+        memcpy(&(msg->bf),bf,sizeof(struct bloom_filter));
         pthread_mutex_unlock(&mutex);
-        if (ret < 0) {
+        ret = sendto(sock_id,msg,sizeof(struct mcast_msg),0,(struct sockaddr *)&addr, len);
+        if (ret <0) {
             perror("sendto error");
-            return;
+        }  else {
+            VLOG_INFO("Send mcast msg to %s:%u with gid=%u\n", inet_ntoa(addr.sin_addr.s_addr), ntohs(addr.sin_port),msg->gid);
         }
-        sleep(1);
+next:
+        sleep(50);
     }
 
+    if(msg) free(msg);
     close(sock_id);
     return;
 }
@@ -93,11 +108,12 @@ void mc_recv(struct mc_recv_arg* arg)
     struct sockaddr_in addr, sender;
     struct ip_mreq ipmr;
     socklen_t len;
-    int ret;
+    int i,ret;
     int count;
     struct mcast_msg *msg = malloc(sizeof(struct mcast_msg));
 
     /* Step 1: open a socket, and bind */
+    VLOG_INFO("ovsd mc_recv step1 start...\n");
     if ((sock_id = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
         perror("socket error");
         return;
@@ -114,46 +130,46 @@ void mc_recv(struct mc_recv_arg* arg)
     }
 
     /* Step 2: fill in a struct ip_mreq */
+    VLOG_INFO("ovsd mc_recv step2 start...\n");
     memset((void*)&ipmr, 0, sizeof(ipmr));
     ipmr.imr_multiaddr.s_addr = arg->group_ip; /* multicast group ip */
     ipmr.imr_interface.s_addr = htonl(INADDR_ANY);
 
     /* Step 3: call setsockopt with IP_ADD_MEMBERSHIP to support receiving multicast */
+    VLOG_INFO("ovsd mc_recv step3 start...\n");
     if (setsockopt(sock_id, IPPROTO_IP, IP_ADD_MEMBERSHIP, &ipmr, sizeof(ipmr)) < 0) {
         perror("setsockopt:IP_ADD_MEMBERSHIP");
         /*
-        if (errno == EBADF)
-            printf("EBADF\n");
-        else if (errno == EFAULT)
-            printf("EFAULT\n");
-        else if (errno == EINVAL)
-            printf("EINVAL\n");
-        else if (errno == ENOPROTOOPT)
-            printf("ENOPROTOOPT\n");
-        else if (errno == ENOTSOCK)
-            printf("ENOTSOCK\n");
-            */
+           if (errno == EBADF)
+           printf("EBADF\n");
+           else if (errno == EFAULT)
+           printf("EFAULT\n");
+           else if (errno == EINVAL)
+           printf("EINVAL\n");
+           else if (errno == ENOPROTOOPT)
+           printf("ENOPROTOOPT\n");
+           else if (errno == ENOTSOCK)
+           printf("ENOTSOCK\n");
+           */
         return;
     }
 
     /* Step 4: call recvfrom to receive multicast packets */
     len = sizeof(sender);
     count = 0;
+    VLOG_INFO("ovsd mc_recv get ready to receiving msg...\n");
     while (!*arg->stop) {
-        ret = recvfrom(sock_id, msg, sizeof(struct mcast_msg), 0, (struct sockaddr *)&sender, &len);
-        VLOG_INFO("[%d] Receive mcast msg from gid=%u,%s:%d with %lu:%s\n", count, inet_ntoa(sender.sin_addr.s_addr), ntohs(sender.sin_port),msg->gid,msg->ovsd_ip,msg->bf_array);
+        ret = recvfrom(sock_id, msg, sizeof(struct mcast_msg),0,(struct sockaddr *)&sender,&len);
+        VLOG_INFO("[%d] Receive mcast msg from %s:%d gid=%u.\n", count, inet_ntoa(sender.sin_addr.s_addr), ntohs(sender.sin_port),msg->gid);
         if (msg->gid != arg->gdt->gid){
             VLOG_WARN("group %u received mcast msg from other group %u\n",arg->gdt->gid,msg->gid);
             continue;
         }
-        pthread_mutex_lock (&mutex);
         /*TODO: do the process here.*/
-        pthread_mutex_unlock (&mutex);
         if (ret < 0) {
             perror("recvfrom error");
-            return;
+            break;
         }
-        //printf("[%d] Receive from %s:%d with %lu:%s\n", count, inet_ntoa(sender.sin_addr.s_addr), ntohs(sender.sin_port),msg->ovsd_ip,msg->bf_array);
         count ++;
     }
 
@@ -166,6 +182,5 @@ void mc_recv(struct mc_recv_arg* arg)
     /* Step 6: close the socket */
     close(sock_id);
     if (msg) free(msg);
-
     return;
 }

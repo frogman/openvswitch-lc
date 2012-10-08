@@ -33,7 +33,7 @@ typedef unsigned char u8;
 typedef unsigned int (*hashfunc_t)(const char *);
 
 struct bloom_filter{
-    u32 bf_id; /*id*/
+    u32 bf_id; /*id, should be the id of the switch, or the ip address of the ovsd.*/
     u32 len; /*bit length of the bit array*/
     u16 port_no; /*how to reach the switch*/
     u8 array[128]; /*the bit array, defaultly 1024 bit*/

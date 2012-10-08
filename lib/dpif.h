@@ -27,6 +27,10 @@
 #include "util.h"
 #include "bf.h"
 
+#ifndef LC_ENABLE
+#define LC_ENABLE
+#endif
+
 #ifdef  __cplusplus
 extern "C" {
 #endif
@@ -203,9 +207,6 @@ struct dpif_flow_del {
     struct dpif_flow_stats *stats;  /* Optional flow statistics. */
 };
 
-#ifndef LC_ENABLE
-#define LC_ENABLE
-#endif
 
 #ifdef LC_ENABLE
 
@@ -221,6 +222,9 @@ struct dpif_bf_gdt_put {
     size_t bf_len;                    /*bytes of bf.*/
     const struct bloom_filter *bf;    /* one bloom_filter entry. */
 };
+int dpif_bf_gdt_put(struct dpif *, enum dpif_bf_gdt_put_flags,
+                  const struct bloom_filter *bf, size_t bf_len);
+
 #endif
 
 struct dpif_execute {

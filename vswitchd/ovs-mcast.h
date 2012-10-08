@@ -33,17 +33,14 @@
 
 struct mcast_msg {
     unsigned int gid; //group id of the msg
-    unsigned long ovsd_ip;
-    unsigned char *bf_array;
+    struct bloom_filter bf;
 };
 
 struct mc_send_arg {
-    unsigned long group_ip; //multicast group
-    unsigned int port; //send at which port
-    struct mcast_msg *msg;
-    int len_msg;
+    unsigned long group_ip; //multicast group ip to send, =gdt->gid+LC_MCAST_GROUP_IP
+    unsigned int port; //send to which port?
+    struct bf_gdt *gdt; //the gdt of the bridge, just send yourself bf.
     bool *stop; //if should stop
-    struct bf_gdt *gdt; //gdt in this group
 };
 
 struct mc_recv_arg {
