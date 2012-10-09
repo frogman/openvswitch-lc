@@ -911,7 +911,7 @@ dpif_linux_bf_gdt_transact(struct dpif_linux_bf_gdt *request,
 
     request_buf = ofpbuf_new(4096);
     /*construct request_buf as ovs_header+attrs(from requst)*/
-    dpif_linux_flow_to_ofpbuf(request, request_buf); 
+    dpif_linux_bf_gdt_to_ofpbuf(request, request_buf); 
     error = nl_sock_transact(genl_sock, request_buf, bufp);
     ofpbuf_delete(request_buf);
 
@@ -1957,7 +1957,8 @@ dpif_linux_flow_from_ofpbuf(struct dpif_linux_flow *flow,
     return 0;
 }
 
-/* Appends to 'buf' (which must initially be empty) a "struct ovs_header"
+/* construct a full nlmsg 'buf' (which must initially be empty) 
+ * a nlheader + genlheader + "struct ovs_header"
  * followed by Netlink attributes corresponding to 'flow'. */
 static void
 dpif_linux_flow_to_ofpbuf(const struct dpif_linux_flow *flow,
@@ -1965,13 +1966,15 @@ dpif_linux_flow_to_ofpbuf(const struct dpif_linux_flow *flow,
 {
     struct ovs_header *ovs_header;
 
+    /* add the nl header and the genl header into buf->data*/
     nl_msg_put_genlmsghdr(buf, 0, ovs_flow_family,
                           NLM_F_REQUEST | flow->nlmsg_flags,
                           flow->cmd, OVS_FLOW_VERSION);
 
-    ovs_header = ofpbuf_put_uninit(buf, sizeof *ovs_header);
+    ovs_header = ofpbuf_put_uninit(buf, sizeof *ovs_header); //append in buf->data
     ovs_header->dp_ifindex = flow->dp_ifindex;
 
+    /* add the key and the actions*/
     if (flow->key_len) {
         nl_msg_put_unspec(buf, OVS_FLOW_ATTR_KEY, flow->key, flow->key_len);
     }
@@ -2018,7 +2021,7 @@ dpif_linux_flow_transact(struct dpif_linux_flow *request,
     }
 
     request_buf = ofpbuf_new(1024);
-    /*construct request_buf as ovs_header+attrs(from requst)*/
+    /*construct request_buf->data as nlheader+genlheader+ovs_header+attrs from request.*/
     dpif_linux_flow_to_ofpbuf(request, request_buf); 
 
     error = nl_sock_transact(genl_sock, request_buf, bufp);

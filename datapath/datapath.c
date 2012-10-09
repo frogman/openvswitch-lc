@@ -400,7 +400,7 @@ static struct genl_family dp_packet_genl_family = {
 #ifdef LC_ENABLE
 
 static const struct nla_policy bf_gdt_policy[OVS_BF_GDT_ATTR_MAX + 1] = {
-	//[OVS_BF_GDT_ATTR_BF] = { .type = NLA_NESTED },
+	[OVS_BF_GDT_ATTR_BF] = { .type = NLA_NESTED },
 };
 
 /**
@@ -421,7 +421,7 @@ static struct genl_family dp_bf_gdt_genl_family = {
 static int ovs_bf_gdt_cmd_new_or_set(struct sk_buff *skb, struct genl_info *info)
 {
     //TODO
-    printk("[DP] Received bf_gdt nlmsg from userspace.\n");
+    printk("[BF_GDT] Received bf_gdt_cmd_new_or_set nlmsg from userspace.\n");
 	struct nlattr **a = info->attrs;
 	struct ovs_header *ovs_header = info->userhdr;
 	struct bloom_filter bf;
@@ -438,7 +438,7 @@ static int ovs_bf_gdt_cmd_new_or_set(struct sk_buff *skb, struct genl_info *info
 		goto error;
     memcpy(&bf, nla_data(a[OVS_BF_GDT_ATTR_BF]),sizeof bf);
 	//error = ovs_flow_from_nlattrs(&key, &key_len, a[OVS_FLOW_ATTR_KEY]);
-    printk("[DP] Received bf_gdt nlmsg from userspace: %s.\n",&bf);
+    printk("[BF_GDT] Received bf_gdt nlmsg from userspace: bf_id=%u.\n",bf.bf_id);
 
 	dp = get_dp(sock_net(skb->sk), ovs_header->dp_ifindex);
 	error = -ENODEV;
@@ -1543,7 +1543,7 @@ static int ovs_dp_cmd_new(struct sk_buff *skb, struct genl_info *info)
 		err = -ENOMEM;
 		goto err_destroy_percpu;
     }
-    bf_gdt_add_filter(dp->gdt,LC_BF_DFT_PORT_NO,1024); /*empty filter*/
+    bf_gdt_add_filter(dp->gdt,0,LC_BF_DFT_PORT_NO,1024); /*empty filter*/
     dp->local_ip = 0x0a000001;
 #endif
 

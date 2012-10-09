@@ -116,7 +116,7 @@ nl_msg_put_nlmsghdr(struct ofpbuf *msg,
     assert(msg->size == 0);
 
     nl_msg_reserve(msg, NLMSG_HDRLEN + expected_payload);
-    nlmsghdr = nl_msg_put_uninit(msg, NLMSG_HDRLEN);
+    nlmsghdr = nl_msg_put_uninit(msg, NLMSG_HDRLEN); //append NLMSG_HDRLEN to the msg'tail (at ->data segment)
     nlmsghdr->nlmsg_len = 0;
     nlmsghdr->nlmsg_type = type;
     nlmsghdr->nlmsg_flags = flags;
@@ -151,8 +151,11 @@ nl_msg_put_genlmsghdr(struct ofpbuf *msg, size_t expected_payload,
 {
     struct genlmsghdr *genlmsghdr;
 
-    nl_msg_put_nlmsghdr(msg, GENL_HDRLEN + expected_payload, family, flags);
+    /* add netlink header. */
+    nl_msg_put_nlmsghdr(msg, GENL_HDRLEN + expected_payload, family, flags); 
     assert(msg->size == NLMSG_HDRLEN);
+
+    /* add generic netlink header. */
     genlmsghdr = nl_msg_put_uninit(msg, GENL_HDRLEN);
     genlmsghdr->cmd = cmd;
     genlmsghdr->version = version;

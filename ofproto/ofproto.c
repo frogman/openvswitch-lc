@@ -1385,6 +1385,15 @@ ofproto_port_del(struct ofproto *ofproto, uint16_t ofp_port)
     return error;
 }
 
+#ifdef LC_ENABLE
+int ofproto_bf_gdt_update(struct ofproto *ofproto, struct bloom_filter *bf)
+{
+    int error;
+    error = ofproto->ofproto_class->bf_gdt_update(ofproto,bf);
+    return error;
+}
+#endif
+
 /* Adds a flow to OpenFlow flow table 0 in 'p' that matches 'cls_rule' and
  * performs the 'n_actions' actions in 'actions'.  The new flow will not
  * timeout.

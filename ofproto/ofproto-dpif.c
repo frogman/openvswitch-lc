@@ -737,6 +737,18 @@ dealloc(struct ofproto *ofproto_)
     free(ofproto);
 }
 
+#ifdef LC_ENABLE
+static int 
+bf_gdt_update(struct ofproto *ofproto_, struct bloom_filter *bf_)
+{
+    struct ofproto_dpif *ofproto = ofproto_dpif_cast(ofproto_);
+    int error;
+    error = dpif_bf_gdt_put(ofproto->dpif, DPIF_BP_CREATE, bf_, sizeof(struct bloom_filter));
+    return error;
+}
+#endif
+
+
 static int
 construct(struct ofproto *ofproto_)
 {
@@ -750,6 +762,12 @@ construct(struct ofproto *ofproto_)
         VLOG_ERR("failed to open datapath %s: %s", name, strerror(error));
         return error;
     }
+
+    /*TODO:only for test sending bf-gdt nlmsg to kernel.
+    struct bloom_filter bf;
+    bf.bf_id = 2012;
+    bf_gdt_update(ofproto_,&bf);
+    */
 
     ofproto->max_ports = dpif_get_max_ports(ofproto->dpif);
     ofproto->n_matches = 0;
@@ -4539,6 +4557,8 @@ subfacet_update_stats(struct subfacet *subfacet,
         netflow_flow_update_flags(&facet->nf_flow, stats->tcp_flags);
     }
 }
+
+
 
 /* Rules. */
 
@@ -7220,4 +7240,7 @@ const struct ofproto_class ofproto_dpif_class = {
     forward_bpdu_changed,
     set_mac_idle_time,
     set_realdev,
+#ifdef LC_ENABLE
+    bf_gdt_update,
+#endif
 };

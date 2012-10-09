@@ -452,7 +452,7 @@ nl_sock_transact_multiple__(struct nl_sock *sock,
     *done = 0;
     for (i = 0; i < n; i++) {
         struct nl_transaction *txn = transactions[i];
-        struct nlmsghdr *nlmsg = nl_msg_nlmsghdr(txn->request);
+        struct nlmsghdr *nlmsg = nl_msg_nlmsghdr(txn->request); //txn->request->data stores the nlmsg.
 
         nlmsg->nlmsg_len = txn->request->size;
         nlmsg->nlmsg_seq = base_seq + i;

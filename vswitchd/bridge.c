@@ -148,6 +148,7 @@ struct bridge {
 
 #ifdef LC_ENABLE
     /*bf-gdt*/
+    unsigned int local_id; //used for local bf, should be the ip of ovsd.
     struct bf_gdt *gdt;
     pthread_t send_tid;
     pthread_t recv_tid;
@@ -1276,6 +1277,20 @@ bridge_refresh_ofp_port(struct bridge *br)
     }
 }
 
+#ifdef LC_ENABLE
+/**
+ * update a bf content into dp.
+ */
+int bridge_update_bf_gdt(const struct bridge *br, struct bloom_filter *bf)
+{
+    if (!br)
+        return 0;
+    int error;
+    error = ofproto_bf_gdt_update(br->ofproto,bf);
+    return error;
+}
+#endif
+
 /* Opens a network device for 'iface_cfg' and configures it.  If '*ofp_portp'
  * is negative, adds the network device to br->ofproto and stores the OpenFlow
  * port number in '*ofp_portp'; otherwise leaves br->ofproto and '*ofp_portp'
@@ -2351,19 +2366,25 @@ bridge_lc_init(struct bridge *br)
 {
     VLOG_INFO("%s bridge_lc_init(): init bf-gdt and mcast args.\n",br->name);
     br->gdt = bf_gdt_init(LC_GROUP_DFT_ID);
+    br->local_id = 0;
     br->send_arg.group_ip = inet_addr(LC_MCAST_GROUP_IP)+br->gdt->gid;
     br->send_arg.port = LC_MCAST_GROUP_PORT;
     br->send_arg.gdt = br->gdt;
+    br->send_arg.local_id = 0;
     br->send_arg.stop = malloc(sizeof(bool));
     *br->send_arg.stop = false;
+
+    /*TODO:test here*/
+    bf_gdt_add_filter(br->gdt,br->local_id,0,LC_BF_DFT_LEN);
 
     br->recv_arg.group_ip = inet_addr(LC_MCAST_GROUP_IP)+br->gdt->gid;
     br->recv_arg.port = LC_MCAST_GROUP_PORT;
     br->recv_arg.stop = malloc(sizeof(bool));
     *br->recv_arg.stop = false;
     br->recv_arg.gdt = br->gdt;
+    br->recv_arg.br = br;
     VLOG_INFO("%s bridge_lc_init() done.\n",br->name);
-    //bridge_start_mcast(br);
+    bridge_start_mcast(br);
 }
 
 /* Bridge reconfiguration functions. */

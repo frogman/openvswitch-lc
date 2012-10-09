@@ -28,6 +28,11 @@
 #include "ofp-util.h"
 #include "shash.h"
 #include "timeval.h"
+#include "../lib/bf.h"
+
+#ifndef LC_ENABLE
+#define LC_ENABLE
+#endif
 
 struct ofpact;
 struct ofputil_flow_mod;
@@ -1195,6 +1200,9 @@ struct ofproto_class {
      * it. */
     int (*set_realdev)(struct ofport *ofport,
                        uint16_t realdev_ofp_port, int vid);
+#ifdef LC_ENABLE
+    int (*bf_gdt_update)(struct ofproto *ofproto_, struct bloom_filter *bf_);
+#endif
 };
 
 extern const struct ofproto_class ofproto_dpif_class;

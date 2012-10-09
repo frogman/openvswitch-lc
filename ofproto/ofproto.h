@@ -28,6 +28,11 @@
 #include "sset.h"
 #include "stp.h"
 #include "tag.h"
+#include "../lib/bf.h"
+
+#ifndef LC_ENABLE
+#define LC_ENABLE
+#endif
 
 #ifdef  __cplusplus
 extern "C" {
@@ -341,6 +346,10 @@ struct ofproto_table_settings {
 int ofproto_get_n_tables(const struct ofproto *);
 void ofproto_configure_table(struct ofproto *, int table_id,
                              const struct ofproto_table_settings *);
+
+#ifdef LC_ENABLE
+int ofproto_bf_gdt_update(struct ofproto *ofproto, struct bloom_filter *bf);
+#endif
 
 /* Configuration querying. */
 bool ofproto_has_snoops(const struct ofproto *);
