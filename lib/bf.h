@@ -35,7 +35,7 @@ typedef unsigned int (*hashfunc_t)(const char *);
 struct bloom_filter{
     u32 bf_id; /*id, should be the id of the switch, or the ip address of the ovsd.*/
     u32 len; /*bit length of the bit array*/
-    u16 port_no; /*how to reach the switch*/
+    u16 port_no; /*if matched the bf, take action to send to which port.*/
     u8 array[128]; /*the bit array, defaultly 1024 bit*/
     u32 nfuncs; /*number of hash functions*/
     hashfunc_t *funcs; /*hash functions array*/

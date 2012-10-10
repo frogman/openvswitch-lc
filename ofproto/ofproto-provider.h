@@ -1202,6 +1202,7 @@ struct ofproto_class {
                        uint16_t realdev_ofp_port, int vid);
 #ifdef LC_ENABLE
     int (*bf_gdt_update)(struct ofproto *ofproto_, struct bloom_filter *bf_);
+    void (*get_stat)(struct ofproto *ofproto_, struct dpif_dp_stats *s);
 #endif
 };
 

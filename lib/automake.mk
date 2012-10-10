@@ -18,6 +18,7 @@ lib_libopenvswitch_a_SOURCES = \
 	lib/bf.h \
 	lib/bf-gdt.c \
 	lib/bf-gdt.h \
+	lib/stat.h \
 	lib/bitmap.c \
 	lib/bitmap.h \
 	lib/bond.c \

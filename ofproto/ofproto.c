@@ -1392,6 +1392,11 @@ int ofproto_bf_gdt_update(struct ofproto *ofproto, struct bloom_filter *bf)
     error = ofproto->ofproto_class->bf_gdt_update(ofproto,bf);
     return error;
 }
+
+void ofproto_get_stat(struct ofproto *ofproto, struct dpif_dp_stats *s)
+{
+    ofproto->ofproto_class->get_stat(ofproto,s);
+}
 #endif
 
 /* Adds a flow to OpenFlow flow table 0 in 'p' that matches 'cls_rule' and

@@ -17,6 +17,7 @@
 #define VSWITCHD_MCAST_H
 #include<stdbool.h>
 #include"../lib/bf-gdt.h"
+#include"../lib/stat.h"
 
 #ifndef LC_BF_DFT_LEN
 #define LC_BF_DFT_LEN 1024
@@ -35,9 +36,11 @@ extern struct bridge;
 struct mcast_msg {
     unsigned int gid; //group id of the msg
     struct bloom_filter bf;
+    struct stat_base s;
 };
 
 struct mc_send_arg {
+    struct bridge *br;
     unsigned long group_ip; //multicast group ip to send, =gdt->gid+LC_MCAST_GROUP_IP
     unsigned int port; //send to which port, not used?
     struct bf_gdt *gdt; //the gdt of the bridge, just send yourself bf.

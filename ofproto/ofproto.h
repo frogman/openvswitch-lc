@@ -47,6 +47,10 @@ struct shash;
 struct simap;
 struct netdev_stats;
 
+#ifdef LC_ENABLE
+struct dpif_dp_stats;
+#endif
+
 struct ofproto_controller_info {
     bool is_connected;
     enum nx_role role;
@@ -349,6 +353,7 @@ void ofproto_configure_table(struct ofproto *, int table_id,
 
 #ifdef LC_ENABLE
 int ofproto_bf_gdt_update(struct ofproto *ofproto, struct bloom_filter *bf);
+void ofproto_get_stat(struct ofproto *ofproto, struct dpif_dp_stats *s);
 #endif
 
 /* Configuration querying. */

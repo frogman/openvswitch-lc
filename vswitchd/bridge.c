@@ -148,7 +148,7 @@ struct bridge {
 
 #ifdef LC_ENABLE
     /*bf-gdt*/
-    unsigned int local_id; //used for local bf, should be the ip of ovsd.
+    unsigned int local_id; //used for local bf, should be the ip of dp bonding network interface.
     struct bf_gdt *gdt;
     pthread_t send_tid;
     pthread_t recv_tid;
@@ -1289,6 +1289,12 @@ int bridge_update_bf_gdt(const struct bridge *br, struct bloom_filter *bf)
     error = ofproto_bf_gdt_update(br->ofproto,bf);
     return error;
 }
+void bridge_get_stat(const struct bridge *br, struct dpif_dp_stats *s)
+{
+    if (!br)
+        return;
+    ofproto_get_stat(br->ofproto, s);
+}
 #endif
 
 /* Opens a network device for 'iface_cfg' and configures it.  If '*ofp_portp'
@@ -2373,6 +2379,7 @@ bridge_lc_init(struct bridge *br)
     br->send_arg.local_id = 0;
     br->send_arg.stop = malloc(sizeof(bool));
     *br->send_arg.stop = false;
+    br->send_arg.br = br;
 
     /*TODO:test here*/
     bf_gdt_add_filter(br->gdt,br->local_id,0,LC_BF_DFT_LEN);

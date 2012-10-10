@@ -66,6 +66,15 @@ void mc_send(struct mc_send_arg* arg)
     /* prepare message.*/
     msg->gid = arg->gdt->gid;
 
+    struct dpif_dp_stats *s = malloc(32);
+
+    bridge_get_stat(arg->br,s);
+    VLOG_INFO("Get stat from dp.");
+    msg->s.num = 1;
+    msg->s.entry[0].src_sw_id = arg->br->local_id;
+    msg->s.entry[0].dst_sw_id = arg->br->local_id; //TODO
+    msg->s.entry[0].bytes = s->n_hit + s->n_missed;
+
     /* send the data to the address:port */
     while (!*arg->stop) {
         bf = bf_gdt_find_filter(arg->gdt,arg->local_id);
@@ -127,18 +136,6 @@ void mc_recv(struct mc_recv_arg* arg)
     /* Step 3: call setsockopt with IP_ADD_MEMBERSHIP to support receiving multicast */
     if (setsockopt(sock_id, IPPROTO_IP, IP_ADD_MEMBERSHIP, &ipmr, sizeof(ipmr)) < 0) {
         perror("setsockopt:IP_ADD_MEMBERSHIP");
-        /*
-           if (errno == EBADF)
-           printf("EBADF\n");
-           else if (errno == EFAULT)
-           printf("EFAULT\n");
-           else if (errno == EINVAL)
-           printf("EINVAL\n");
-           else if (errno == ENOPROTOOPT)
-           printf("ENOPROTOOPT\n");
-           else if (errno == ENOTSOCK)
-           printf("ENOTSOCK\n");
-           */
         return;
     }
 

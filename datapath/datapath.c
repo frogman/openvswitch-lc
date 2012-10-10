@@ -62,6 +62,10 @@
 #include "vport-internal_dev.h"
 #include "dp_dcm.h"
 
+#ifdef LC_ENABLE
+#define LC_DP_LOCAL_IP 0x0a010064; //10.1.0.100
+#endif
+
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,18) || \
     LINUX_VERSION_CODE >= KERNEL_VERSION(3,6,0)
 #error Kernels before 2.6.18 or after 3.5 are not supported by this version of Open vSwitch.
@@ -348,7 +352,7 @@ void ovs_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
                 flow->sf_acts = kmalloc(sizeof(struct sw_flow_actions)+sizeof(struct nlattr)+sizeof(u32), GFP_ATOMIC);
                 memcpy(&(flow->key),&key,sizeof(struct sw_flow_key));
 
-                /*construct the action of sending to port*/
+                /*TODO: construct the action of sending to port*/
                 flow->sf_acts->actions_len = NLA_HDRLEN + sizeof(int);
                 flow->sf_acts->actions[0].nla_len = NLA_HDRLEN + sizeof(int); //len of the attr
                 flow->sf_acts->actions[0].nla_type = OVS_ACTION_ATTR_REMOTE;
@@ -416,7 +420,7 @@ static struct genl_family dp_bf_gdt_genl_family = {
 };
 
 /**
- * Update the local bf-gdt according to the received nl msg.
+ * Update the local bf-gdt according to the received nlmsg from ovsd.
  */
 static int ovs_bf_gdt_cmd_new_or_set(struct sk_buff *skb, struct genl_info *info)
 {
@@ -425,25 +429,21 @@ static int ovs_bf_gdt_cmd_new_or_set(struct sk_buff *skb, struct genl_info *info
 	struct nlattr **a = info->attrs;
 	struct ovs_header *ovs_header = info->userhdr;
 	struct bloom_filter bf;
-	struct sw_flow *flow;
-	struct sk_buff *reply;
 	struct datapath *dp;
-	struct flow_table *table;
-	int error;
+	int ret;
 	int bf_len;
 
 	/* Extract bf. */
-	error = -EINVAL;
 	if (!a[OVS_BF_GDT_ATTR_BF])
 		goto error;
     memcpy(&bf, nla_data(a[OVS_BF_GDT_ATTR_BF]),sizeof bf);
-	//error = ovs_flow_from_nlattrs(&key, &key_len, a[OVS_FLOW_ATTR_KEY]);
-    printk("[BF_GDT] Received bf_gdt nlmsg from userspace: bf_id=%u.\n",bf.bf_id);
+    printk("[DP] ovs_bf_gdt_cmd_new_or_set(): Received bf_gdt nlmsg from userspace: bf_id=%u.\n",bf.bf_id);
 
 	dp = get_dp(sock_net(skb->sk), ovs_header->dp_ifindex);
-	error = -ENODEV;
 	if (!dp)
 		goto error;
+    ret = bf_gdt_update_filter(dp->gdt, &bf);
+    return ret;
 
 error:
     return 0;
@@ -1544,7 +1544,7 @@ static int ovs_dp_cmd_new(struct sk_buff *skb, struct genl_info *info)
 		goto err_destroy_percpu;
     }
     bf_gdt_add_filter(dp->gdt,0,LC_BF_DFT_PORT_NO,1024); /*empty filter*/
-    dp->local_ip = 0x0a000001;
+    dp->local_ip = LC_DP_LOCAL_IP; //ip of network interface bonding on dp.
 #endif
 
 	/* Set up our datapath device. */

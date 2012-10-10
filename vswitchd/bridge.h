@@ -25,8 +25,12 @@
 #endif
 
 struct simap;
-struct bloom_filter;
+
+#ifdef LC_ENABLE
 struct bridge;
+struct bloom_filter;
+struct dpif_dp_stats;
+#endif
 
 void bridge_init(const char *remote);
 void bridge_exit(void);
@@ -38,6 +42,7 @@ void bridge_wait(void);
 void bridge_get_memory_usage(struct simap *usage);
 #ifdef LC_ENABLE
 int bridge_update_bf_gdt(const struct bridge *br, struct bloom_filter *bf);
+void bridge_get_stat(const struct bridge *br, struct dpif_dp_stats *s);
 #endif
 
 #endif /* bridge.h */

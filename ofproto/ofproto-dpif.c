@@ -1185,6 +1185,15 @@ get_tables(struct ofproto *ofproto_, struct ofp10_table_stats *ots)
                        htonll(s.n_hit + ofproto->n_matches));
 }
 
+#ifdef LC_ENABLE
+static void
+get_stat(struct ofproto *ofproto_, struct dpif_dp_stats *s)
+{
+    struct ofproto_dpif *ofproto = ofproto_dpif_cast(ofproto_);
+    dpif_get_dp_stats(ofproto->dpif, s);
+}
+#endif
+
 static struct ofport *
 port_alloc(void)
 {
@@ -7242,5 +7251,6 @@ const struct ofproto_class ofproto_dpif_class = {
     set_realdev,
 #ifdef LC_ENABLE
     bf_gdt_update,
+    get_stat,
 #endif
 };

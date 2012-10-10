@@ -32,7 +32,7 @@
 #define GETBIT(array, n) (array[n/sizeof(char)] & (1<<(n%sizeof(char))))
 
 /**
- * Init an empty bf_gdt
+ * Init an empty bf_gdt with no bf yet.
  * @param gid: the group id
  * @return: Pointer to the created bf_gdt. NULL if failed.
  */
