@@ -26,6 +26,7 @@
 
 VLOG_DEFINE_THIS_MODULE(vswitchd);
 
+struct dpif_dp_stats;
 pthread_mutex_t mutex;
 //extern static int bridge_update_bf_gdt(const struct bridge *br, struct bloom_filter *bf);
 
@@ -66,14 +67,13 @@ void mc_send(struct mc_send_arg* arg)
     /* prepare message.*/
     msg->gid = arg->gdt->gid;
 
-    struct dpif_dp_stats *s = malloc(32);
-
-    bridge_get_stat(arg->br,s);
+    struct stat_base s;
+    bridge_get_stat(arg->br,&s);
     VLOG_INFO("Get stat from dp.");
     msg->s.num = 1;
-    msg->s.entry[0].src_sw_id = arg->br->local_id;
-    msg->s.entry[0].dst_sw_id = arg->br->local_id; //TODO
-    msg->s.entry[0].bytes = s->n_hit + s->n_missed;
+    msg->s.entry[0].src_sw_id = arg->local_id;
+    msg->s.entry[0].dst_sw_id = arg->local_id; //TODO
+    msg->s.entry[0].bytes = s.entry[0].bytes;
 
     /* send the data to the address:port */
     while (!*arg->stop) {
@@ -86,7 +86,7 @@ void mc_send(struct mc_send_arg* arg)
             if (ret <0) {
                 perror("sendto error");
             }  else {
-                VLOG_INFO("Send mcast msg to %s:%u with gid=%u,bf_id=%u\n", inet_ntoa(addr.sin_addr.s_addr), ntohs(addr.sin_port),msg->gid,msg->bf.bf_id);
+                VLOG_INFO("Send mcast msg to %s:%u with gid=%u,bf_id=%u,local_id=%u\n", inet_ntoa(addr.sin_addr.s_addr), ntohs(addr.sin_port),msg->gid,msg->bf.bf_id,msg->s.entry[0].src_sw_id);
             }
         }
         sleep(5);
@@ -148,7 +148,7 @@ void mc_recv(struct mc_recv_arg* arg)
             perror("recvfrom error");
             continue;
         }
-        VLOG_INFO("[%d] Receive mcast msg from %s:%d gid=%u.\n", count, inet_ntoa(sender.sin_addr.s_addr), ntohs(sender.sin_port),msg->gid);
+        VLOG_INFO("[%d] Receive mcast msg from %s:%d gid=%u, bf_id=%u, local_id=%u.\n", count, inet_ntoa(sender.sin_addr.s_addr), ntohs(sender.sin_port),msg->gid,msg->bf.bf_id,msg->s.entry[0].src_sw_id);
         if (msg->gid != arg->gdt->gid){
             VLOG_WARN("group %u received mcast msg from other group %u\n",arg->gdt->gid,msg->gid);
             continue;
@@ -164,6 +164,9 @@ void mc_recv(struct mc_recv_arg* arg)
             VLOG_INFO("no new bf content, should ignore.");
         }
         count ++;
+        if(arg->is_DDCM){
+            continue; //TODO: update stat here.
+        }
     }
 
     /* Step 5: call setsockopt with IP_DROP_MEMBERSHIP to drop from multicast */

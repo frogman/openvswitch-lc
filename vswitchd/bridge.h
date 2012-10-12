@@ -20,16 +20,18 @@
 #define LC_ENABLE
 #endif
 
+struct simap;
+
+#ifdef LC_ENABLE
 #ifndef LC_MCAST_PORT
 #define LC_MCAST_PORT 5000
 #endif
 
-struct simap;
+#define LC_DP_NI_NAME "eth1"
 
-#ifdef LC_ENABLE
 struct bridge;
 struct bloom_filter;
-struct dpif_dp_stats;
+struct stat_base;
 #endif
 
 void bridge_init(const char *remote);
@@ -42,7 +44,7 @@ void bridge_wait(void);
 void bridge_get_memory_usage(struct simap *usage);
 #ifdef LC_ENABLE
 int bridge_update_bf_gdt(const struct bridge *br, struct bloom_filter *bf);
-void bridge_get_stat(const struct bridge *br, struct dpif_dp_stats *s);
+void bridge_get_stat(const struct bridge *br, struct stat_base *s);
 #endif
 
 #endif /* bridge.h */

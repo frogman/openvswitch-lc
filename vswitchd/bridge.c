@@ -62,7 +62,17 @@
 
 #ifdef LC_ENABLE
 #include "../lib/bf-gdt.h"
+#include "../lib/stat.h"
 #include "ovs-mcast.h"
+
+#include <linux/sockios.h>
+#include <stdio.h>
+#include <sys/types.h>
+#include <net/if.h>
+#include <netinet/in.h>
+#include <sys/socket.h>
+#include <sys/ioctl.h>
+#include <arpa/inet.h>
 #endif
 
 VLOG_DEFINE_THIS_MODULE(bridge);
@@ -150,6 +160,7 @@ struct bridge {
     /*bf-gdt*/
     unsigned int local_id; //used for local bf, should be the ip of dp bonding network interface.
     struct bf_gdt *gdt;
+    uint8_t is_DDCM; //1 if DDCM
     pthread_t send_tid;
     pthread_t recv_tid;
     struct mc_send_arg send_arg;
@@ -1289,7 +1300,11 @@ int bridge_update_bf_gdt(const struct bridge *br, struct bloom_filter *bf)
     error = ofproto_bf_gdt_update(br->ofproto,bf);
     return error;
 }
-void bridge_get_stat(const struct bridge *br, struct dpif_dp_stats *s)
+
+/**
+ * get stat data and store into s.
+ */
+void bridge_get_stat(const struct bridge *br, struct stat_base *s)
 {
     if (!br)
         return;
@@ -2364,6 +2379,34 @@ bridge_end_mcast(struct bridge *br)
     free(br->send_arg.stop);
     free(br->recv_arg.stop);
 }
+
+/**
+ * get the ip of its datapth.
+ */
+static unsigned int get_local_ip(char *eth)
+{
+    int sock_fd;
+    struct  sockaddr_in my_addr;
+    struct ifreq ifr;
+
+    /* Get socket file descriptor */
+    if ((sock_fd = socket(PF_INET, SOCK_DGRAM, 0)) == -1) {
+        perror("socket");
+        return -1;
+    }
+
+    /* Get IP Address */
+    strncpy(ifr.ifr_name, eth, IF_NAMESIZE);
+    ifr.ifr_name[IFNAMSIZ-1]='\0';
+
+    if (ioctl(sock_fd, SIOCGIFADDR, &ifr) < 0) {
+        printf(":No Such Device %s\n",eth);
+        return -1;
+    }
+    close(sock_fd);
+    return ntohl(((struct sockaddr_in*)&ifr.ifr_addr)->sin_addr.s_addr);
+}
+
 /**
  * Init the arguments for the mc_send and the mc_recv.
  */
@@ -2372,7 +2415,7 @@ bridge_lc_init(struct bridge *br)
 {
     VLOG_INFO("%s bridge_lc_init(): init bf-gdt and mcast args.\n",br->name);
     br->gdt = bf_gdt_init(LC_GROUP_DFT_ID);
-    br->local_id = 0;
+    br->local_id = get_local_ip(LC_DP_NI_NAME);
     br->send_arg.group_ip = inet_addr(LC_MCAST_GROUP_IP)+br->gdt->gid;
     br->send_arg.port = LC_MCAST_GROUP_PORT;
     br->send_arg.gdt = br->gdt;
@@ -2380,6 +2423,7 @@ bridge_lc_init(struct bridge *br)
     br->send_arg.stop = malloc(sizeof(bool));
     *br->send_arg.stop = false;
     br->send_arg.br = br;
+    br->send_arg.local_id = br->local_id;
 
     /*TODO:test here*/
     bf_gdt_add_filter(br->gdt,br->local_id,0,LC_BF_DFT_LEN);

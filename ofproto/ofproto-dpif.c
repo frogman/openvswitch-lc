@@ -55,6 +55,10 @@
 #include "vlan-bitmap.h"
 #include "vlog.h"
 
+#ifdef LC_ENABLE
+#include "../lib/stat.h"
+#endif
+
 VLOG_DEFINE_THIS_MODULE(ofproto_dpif);
 
 COVERAGE_DEFINE(ofproto_dpif_expired);
@@ -1187,10 +1191,13 @@ get_tables(struct ofproto *ofproto_, struct ofp10_table_stats *ots)
 
 #ifdef LC_ENABLE
 static void
-get_stat(struct ofproto *ofproto_, struct dpif_dp_stats *s)
+get_stat(struct ofproto *ofproto_, struct stat_base *s)
 {
+    struct dpif_dp_stats dp_s;
     struct ofproto_dpif *ofproto = ofproto_dpif_cast(ofproto_);
-    dpif_get_dp_stats(ofproto->dpif, s);
+    dpif_get_dp_stats(ofproto->dpif, &dp_s);
+    s->num = 1;
+    s->entry[0].bytes = dp_s.n_hit + dp_s.n_missed;
 }
 #endif
 

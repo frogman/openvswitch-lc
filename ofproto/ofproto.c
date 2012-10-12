@@ -1393,7 +1393,7 @@ int ofproto_bf_gdt_update(struct ofproto *ofproto, struct bloom_filter *bf)
     return error;
 }
 
-void ofproto_get_stat(struct ofproto *ofproto, struct dpif_dp_stats *s)
+void ofproto_get_stat(struct ofproto *ofproto, struct stat_base *s)
 {
     ofproto->ofproto_class->get_stat(ofproto,s);
 }

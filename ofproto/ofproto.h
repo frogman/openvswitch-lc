@@ -29,6 +29,7 @@
 #include "stp.h"
 #include "tag.h"
 #include "../lib/bf.h"
+#include "../lib/stat.h"
 
 #ifndef LC_ENABLE
 #define LC_ENABLE
@@ -353,7 +354,7 @@ void ofproto_configure_table(struct ofproto *, int table_id,
 
 #ifdef LC_ENABLE
 int ofproto_bf_gdt_update(struct ofproto *ofproto, struct bloom_filter *bf);
-void ofproto_get_stat(struct ofproto *ofproto, struct dpif_dp_stats *s);
+void ofproto_get_stat(struct ofproto *ofproto, struct stat_base *s);
 #endif
 
 /* Configuration querying. */

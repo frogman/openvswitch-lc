@@ -31,7 +31,7 @@
 #define LC_MCAST_GROUP_PORT 5000
 #endif
 
-extern struct bridge;
+struct bridge;
 
 struct mcast_msg {
     unsigned int gid; //group id of the msg
@@ -45,14 +45,15 @@ struct mc_send_arg {
     unsigned int port; //send to which port, not used?
     struct bf_gdt *gdt; //the gdt of the bridge, just send yourself bf.
     bool *stop; //if should stop
-    unsigned int local_id; //the id of local sw, should be the ip of ovsd.
+    unsigned int local_id; //the id of local sw, should be the ip of dp.
 };
 
 struct mc_recv_arg {
     struct bridge *br;
-    unsigned long group_ip; //multicast group
-    unsigned int port;
+    unsigned long group_ip; //multicast group ip
+    unsigned int port; //multicast group port
     struct bf_gdt *gdt; //gdt in this group
+    unsigned char is_DDCM;
     bool *stop; //if should stop
 };
 
