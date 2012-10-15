@@ -81,12 +81,17 @@ main(int argc, char *argv[])
     bool exiting;
     int retval;
 
-    proctitle_init(argc, argv); //copy args from its orginal location
+    proctitle_init(argc, argv); //copy argvs from its orginal location
     set_program_name(argv[0]);
-    stress_init_command(); //register stress cmds to the commands
-    remote = parse_options(argc, argv, &unixctl_path); //remote stores the db sock, unixctl stores the server for ovs-app (ovsd works as a client to receive cmds from servers, eg, ovs-appctl)
+    stress_init_command(); //register stress/* cmds to the commands (struct unixctl_command)
+    /**
+     * remote stores the ovsdb sock
+     * unixctl stores the control socket for ovs-app 
+     * ovsd works as a client to receive cmds from servers, eg, ovs-appctl
+     */
+    remote = parse_options(argc, argv, &unixctl_path); 
     signal(SIGPIPE, SIG_IGN); //ignore the pipe read termination signal
-    sighup = signal_register(SIGHUP); //register the SIGHUP signal handler
+    sighup = signal_register(SIGHUP); //register the SIGHUP signal handler, ignore terminal close.
     process_init(); //register the handler for child termination signal
     ovsrec_init(); //init the ovs configuration tables
 
@@ -169,10 +174,10 @@ parse_options(int argc, char *argv[], char **unixctl_pathp)
         DAEMON_OPTION_ENUMS
     };
     static struct option long_options[] = {
-        {"help",        no_argument, NULL, 'h'},
-        {"version",     no_argument, NULL, 'V'},
-        {"mlockall",    no_argument, NULL, OPT_MLOCKALL},
-        {"unixctl",     required_argument, NULL, OPT_UNIXCTL},
+        {"help",        no_argument, NULL, 'h'}, //--help
+        {"version",     no_argument, NULL, 'V'}, //--version
+        {"mlockall",    no_argument, NULL, OPT_MLOCKALL}, 
+        {"unixctl",     required_argument, NULL, OPT_UNIXCTL}, //--unixctl 
         DAEMON_LONG_OPTIONS,
         VLOG_LONG_OPTIONS,
         LEAK_CHECKER_LONG_OPTIONS,
@@ -185,9 +190,10 @@ parse_options(int argc, char *argv[], char **unixctl_pathp)
     };
     char *short_options = long_options_to_short_options(long_options);
 
-    for (;;) {
+    for (;;) { //process all the long options
         int c;
 
+        /*gets the corresponding short options.*/
         c = getopt_long(argc, argv, short_options, long_options, NULL);
         if (c == -1) {
             break;
@@ -209,7 +215,7 @@ parse_options(int argc, char *argv[], char **unixctl_pathp)
             *unixctl_pathp = optarg; //override default control socket name
             break;
 
-        VLOG_OPTION_HANDLERS
+        VLOG_OPTION_HANDLERS //log
         DAEMON_OPTION_HANDLERS //detach, pid, chdir, etc.
         LEAK_CHECKER_OPTION_HANDLERS
         STREAM_SSL_OPTION_HANDLERS
@@ -242,6 +248,7 @@ parse_options(int argc, char *argv[], char **unixctl_pathp)
     argc -= optind;
     argv += optind;
 
+    /*get the ovsdb socket.*/
     switch (argc) {
     case 0:
         return xasprintf("unix:%s/db.sock", ovs_rundir());

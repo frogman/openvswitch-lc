@@ -116,7 +116,7 @@ proctitle_init(int argc, char **argv)
     }
 
     /* Specialized version of first loop iteration below. */
-    argv_start = argv[0];
+    argv_start = argv[0]; //pointer to the original argv[]
     argv_size = strlen(argv[0]) + 1;
     argv[0] = xstrdup(argv[0]);
 

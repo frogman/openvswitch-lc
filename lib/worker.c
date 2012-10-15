@@ -96,15 +96,14 @@ worker_start(void)
     xset_nonblocking(work_fds[0]);
     xset_nonblocking(work_fds[1]);
 
-    if (!fork_and_clean_up()) {
-        /* In child (worker) process. */
+    if (!fork_and_clean_up()) /* In child (worker) process, utilize fds[1]. */
         daemonize_post_detach();
         close(work_fds[0]);
         worker_main(work_fds[1]); //receive data from work_fds[1]
         NOT_REACHED(); //abort()
     }
 
-    /* In parent (main) process. */
+    /* In parent (main) process, utilize fds[0]. */
     close(work_fds[1]);
     client_sock = work_fds[0];
     rxbuf_init(&client_rx);
