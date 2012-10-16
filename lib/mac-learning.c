@@ -311,12 +311,12 @@ void
 mac_learning_run(struct mac_learning *ml, struct tag_set *set)
 {
     struct mac_entry *e;
-    while (get_lru(ml, &e) && time_now() >= e->expires) {
+    while (get_lru(ml, &e) && time_now() >= e->expires) {//check the least-recent-used entry if expired
         COVERAGE_INC(mac_learning_expired);
         if (set) {
             tag_set_add(set, e->tag);
         }
-        mac_learning_expire(ml, e);
+        mac_learning_expire(ml, e); //let the entry expire
     }
 }
 

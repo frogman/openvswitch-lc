@@ -2032,7 +2032,9 @@ refresh_instant_stats(void)
     }
 }
 
-/* Performs periodic activity required by bridges that needs to be done with
+/* 
+ * Call ofproto_class->run_fast()
+ * Performs periodic activity required by bridges that needs to be done with
  * the least possible latency.
  *
  * It makes sense to call this function a couple of times per poll loop, to
