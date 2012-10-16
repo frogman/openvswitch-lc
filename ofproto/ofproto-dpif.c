@@ -57,6 +57,7 @@
 
 #ifdef LC_ENABLE
 #include "../lib/stat.h"
+extern int bridge_update_local_bf(const struct bridge *br, char *src_mac);
 #endif
 
 VLOG_DEFINE_THIS_MODULE(ofproto_dpif);
@@ -3153,13 +3154,18 @@ handle_miss_upcalls(struct ofproto_dpif *ofproto, struct dpif_upcall *upcalls,
         /* Add other packets to a to-do list. */
         hash = flow_hash(&miss->flow, 0);
         existing_miss = flow_miss_find(&todo, &miss->flow, hash);
-        if (!existing_miss) {
+        if (!existing_miss) { //for new miss flow
             hmap_insert(&todo, &miss->hmap_node, hash);
             miss->key = upcall->key;
             miss->key_len = upcall->key_len;
             miss->upcall_type = upcall->type;
             list_init(&miss->packets);
-
+#ifdef LC_ENABLE
+            char src_mac[7];
+            src_mac[6] = '\0';
+            memcpy(src_mac,miss->flow.dl_src,6);
+            bridge_update_local_bf(ofproto->up.br, src_mac);
+#endif
             n_misses++;
         } else {
             miss = existing_miss;
@@ -3286,8 +3292,7 @@ handle_upcalls(struct ofproto_dpif *ofproto, unsigned int max_batch)
         }
 
         switch (classify_upcall(upcall)) {
-        case MISS_UPCALL:
-            /* Handle it later. */
+        case MISS_UPCALL: /* Handle it later. */
             n_misses++;
             break;
 

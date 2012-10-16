@@ -624,7 +624,7 @@ bridge_update_ofprotos(void)
         struct bridge *br2;
         int error;
 
-        if (br->ofproto) {
+        if (br->ofproto) { //already existed.
             continue;
         }
 
@@ -649,7 +649,12 @@ bridge_update_ofprotos(void)
             }
         }
 
+        /*create new ofproto.*/
+#ifdef LC_ENABLE
+        error = ofproto_create_lc(br->name, br->type, &br->ofproto,br);
+#else
         error = ofproto_create(br->name, br->type, &br->ofproto);
+#endif
         if (error) {
             VLOG_ERR("failed to create bridge %s: %s", br->name,
                      strerror(error));
@@ -1292,7 +1297,7 @@ bridge_refresh_ofp_port(struct bridge *br)
 /**
  * update a bf content into dp.
  */
-int bridge_update_bf_gdt(const struct bridge *br, struct bloom_filter *bf)
+int bridge_update_bf_gdt_to_dp(const struct bridge *br, struct bloom_filter *bf)
 {
     if (!br)
         return 0;
@@ -1309,6 +1314,18 @@ void bridge_get_stat(const struct bridge *br, struct stat_base *s)
     if (!br)
         return;
     ofproto_get_stat(br->ofproto, s);
+}
+/**
+ * add a new local host's src_mac into local bf.
+ */
+int bridge_update_local_bf(const struct bridge *br, char *src_mac)
+{
+    if (!br || !br->gdt || !src_mac)
+        return 0;
+    struct bloom_filter*bf = bf_gdt_find_filter(br->gdt,br->local_id);
+    if (!bf)
+        return 0;
+    return bf_add(bf,src_mac);
 }
 #endif
 

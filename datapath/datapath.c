@@ -316,7 +316,7 @@ void ovs_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
 	int error;
 #ifdef LC_ENABLE
     struct bloom_filter *bf = NULL;
-    char tmp_dst[11]; /*store char format of the address*/
+    char tmp_dst[7]; /*store char format of the address*/
 #endif
 
 	stats = per_cpu_ptr(dp->stats_percpu, smp_processor_id());
@@ -344,7 +344,8 @@ void ovs_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
 #ifdef LC_ENABLE 
             if (!OVS_CB(skb)->encaped) { /*for local vm pkt, check the bf-gdt*/
                 /*check the bf-gdt*/
-                sprintf(tmp_dst,"%u",key.ipv4.addr.dst);
+                sprintf(tmp_dst,"%x",key.ipv4.addr.dst);
+                tmp_dst[6] = '\0';
                 bf = bf_gdt_check(dp->gdt,tmp_dst);
             }
             if (!OVS_CB(skb)->encaped && likely(bf)) { //for local vm pkt which is in bf-gdt

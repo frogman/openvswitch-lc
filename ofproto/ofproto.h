@@ -156,6 +156,10 @@ void ofproto_parse_name(const char *name, char **dp_name, char **dp_type);
 
 int ofproto_create(const char *datapath, const char *datapath_type,
                    struct ofproto **ofprotop);
+#ifdef LC_ENABLE
+int ofproto_create_lc(const char *datapath, const char *datapath_type,
+                   struct ofproto **ofprotop, void *br);
+#endif
 void ofproto_destroy(struct ofproto *);
 int ofproto_delete(const char *name, const char *type);
 

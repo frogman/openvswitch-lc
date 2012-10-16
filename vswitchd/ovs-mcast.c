@@ -159,7 +159,7 @@ void mc_recv(struct mc_recv_arg* arg)
         pthread_mutex_unlock (&mutex);
         if(ret > 0) {//sth changed in gdt with msg
             VLOG_INFO("received new bf content from the mcast msg, should update the bf_gdt on dp.");
-            bridge_update_bf_gdt(arg->br, &msg->bf);
+            bridge_update_bf_gdt_to_dp(arg->br, &msg->bf);
         } else {
             VLOG_INFO("no new bf content, should ignore.");
         }

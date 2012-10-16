@@ -340,7 +340,18 @@ ofproto_enumerate_names(const char *type, struct sset *names)
 {
     const struct ofproto_class *class = ofproto_class_find__(type);
     return class ? class->enumerate_names(type, names) : EAFNOSUPPORT;
- }
+}
+
+#ifdef LC_ENABLE
+int
+ofproto_create_lc(const char *datapath_name, const char *datapath_type,
+               struct ofproto **ofprotop, void *br)
+{
+    ofproto_create(datapath_name, datapath_type, ofprotop);
+    (*ofprotop)->br = br;
+    return 0;
+}
+#endif
 
 int
 ofproto_create(const char *datapath_name, const char *datapath_type,
@@ -404,6 +415,9 @@ ofproto_create(const char *datapath_name, const char *datapath_type,
     ofproto->vlan_bitmap = NULL;
     ofproto->vlans_changed = false;
     ofproto->min_mtu = INT_MAX;
+#ifdef LC_ENABLE
+    ofproto->br = NULL;
+#endif
 
     error = ofproto->ofproto_class->construct(ofproto);
     if (error) {

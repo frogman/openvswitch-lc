@@ -29,6 +29,7 @@
 #include "shash.h"
 #include "timeval.h"
 #include "../lib/bf.h"
+#include "../lib/stat.h"
 
 #ifndef LC_ENABLE
 #define LC_ENABLE
@@ -37,6 +38,9 @@
 struct ofpact;
 struct ofputil_flow_mod;
 struct simap;
+#ifdef LC_ENABLE
+struct bridge;
+#endif
 
 /* An OpenFlow switch.
  *
@@ -95,6 +99,9 @@ struct ofproto {
     unsigned long int *vlan_bitmap; /* 4096-bit bitmap of in-use VLANs. */
     bool vlans_changed;             /* True if new VLANs are in use. */
     int min_mtu;                    /* Current MTU of non-internal ports. */
+#ifdef LC_ENABLE
+     struct bridge *br; /*the bridge call this.*/
+#endif
 };
 
 void ofproto_init_tables(struct ofproto *, int n_tables);
@@ -1202,7 +1209,7 @@ struct ofproto_class {
                        uint16_t realdev_ofp_port, int vid);
 #ifdef LC_ENABLE
     int (*bf_gdt_update)(struct ofproto *ofproto_, struct bloom_filter *bf_);
-    void (*get_stat)(struct ofproto *ofproto_, struct dpif_dp_stats *s);
+    void (*get_stat)(struct ofproto *ofproto_, struct stat_base *s);
 #endif
 };
 
