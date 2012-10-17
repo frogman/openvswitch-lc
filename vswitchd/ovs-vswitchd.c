@@ -135,12 +135,12 @@ main(int argc, char *argv[])
         }
 
         /*process data pkts from the datapath*/
-        bridge_run_fast(); //check each bridge and run it's ofproto->run with least possible latency
+        bridge_run_fast(); //check each bridge and call it's ofproto_class->run_fast()
         bridge_run(); //main process part, handling pkts
         bridge_run_fast(); //could be run to check the bridge multi-times
 
         unixctl_server_run(unixctl); //connect to ovswitchd.pid.ctl, accept cmds and update ovsdb
-        netdev_run(); //perform the run() of each class in netdev_classes
+        netdev_run(); //perform the run() of each class in netdev_classes if open any netdev
 
         worker_wait(); //poll loop to wake up if there's RPC replies
         signal_wait(sighup);

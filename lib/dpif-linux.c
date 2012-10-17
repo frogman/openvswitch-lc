@@ -359,6 +359,7 @@ dpif_linux_run(struct dpif *dpif_)
         scale_sketches(dpif_);
     }
 
+    /*process the netlink notifier.*/
     if (nln) {
         nln_run(nln);
     }

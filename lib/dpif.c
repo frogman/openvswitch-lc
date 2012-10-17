@@ -338,7 +338,7 @@ dpif_close(struct dpif *dpif)
     }
 }
 
-/* Performs periodic work needed by 'dpif'. */
+/* Performs periodic work needed by 'dpif', mainly to process the netlink notifier. */
 void
 dpif_run(struct dpif *dpif)
 {

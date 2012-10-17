@@ -936,7 +936,7 @@ run_fast(struct ofproto *ofproto_)
     struct ofport_dpif *ofport;
     unsigned int work;
 
-    /* check to send CCM */
+    /* check to send CCM, see IEEE 802.1ag. */
     HMAP_FOR_EACH (ofport, up.hmap_node, &ofproto->up.ports) { 
         port_run_fast(ofport);
     }
@@ -972,8 +972,10 @@ run(struct ofproto *ofproto_)
     if (!clogged) {
         complete_operations(ofproto);
     }
+    /*mainly process the registered netlink notifier.*/
     dpif_run(ofproto->dpif);
 
+    /*call fast processing.*/
     error = run_fast(ofproto_);
     if (error) {
         return error;
@@ -984,6 +986,7 @@ run(struct ofproto *ofproto_)
         timer_set_duration(&ofproto->next_expiration, delay);
     }
 
+    /*possible netflow, sflow support.*/
     if (ofproto->netflow) {
         if (netflow_run(ofproto->netflow)) {
             send_netflow_active_timeouts(ofproto);
@@ -993,6 +996,7 @@ run(struct ofproto *ofproto_)
         dpif_sflow_run(ofproto->sflow);
     }
 
+    /*check to send the CCM, process Link Aggregation Control Protocol, bonding.*/
     HMAP_FOR_EACH (ofport, up.hmap_node, &ofproto->up.ports) {
         port_run(ofport);
     }
@@ -1000,7 +1004,10 @@ run(struct ofproto *ofproto_)
         bundle_run(bundle);
     }
 
+    /*STP support if ofproto->stp.*/
     stp_run(ofproto);
+
+    /*check and remove the expired entry.*/
     mac_learning_run(ofproto->ml, &ofproto->revalidate_set);
 
     /* Now revalidate if there's anything to do. */
@@ -2134,10 +2141,10 @@ bundle_send_learning_packets(struct ofbundle *bundle)
 static void
 bundle_run(struct ofbundle *bundle)
 {
-    if (bundle->lacp) {
-        lacp_run(bundle->lacp, send_pdu_cb);
+    if (bundle->lacp) {//link aggregation control protocol
+        lacp_run(bundle->lacp, send_pdu_cb); 
     }
-    if (bundle->bond) {
+    if (bundle->bond) {//bonding
         struct ofport_dpif *port;
 
         LIST_FOR_EACH (port, bundle_node, &bundle->ports) {
@@ -2454,7 +2461,7 @@ ofproto_port_from_dpif_port(struct ofproto_port *ofproto_port,
 }
 
 /**
- * check to see if need to send out the continulity check msg on the port.
+ * check to see if need to send out the Continulity Check Msg on the port.
  */
 static void
 port_run_fast(struct ofport_dpif *ofport)
