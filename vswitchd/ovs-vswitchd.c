@@ -133,6 +133,7 @@ main(int argc, char *argv[])
             memory_report(&usage);
             simap_destroy(&usage);
         }
+
         /*process data pkts from the datapath*/
         bridge_run_fast(); //check each bridge and run it's ofproto->run with least possible latency
         bridge_run(); //main process part, handling pkts

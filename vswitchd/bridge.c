@@ -353,7 +353,7 @@ bridge_init(const char *remote)
                              bridge_unixctl_reconnect, NULL);
     lacp_init();//register the lacp show cmd
     bond_init();//register the bond list,show,migrt cmd
-    cfm_init();//register the cfm show,set-fault cmd
+    cfm_init();//register the cfm/show, cfm/set-fault cmd
     stp_init();//register the stp/tcn cmd
 }
 
