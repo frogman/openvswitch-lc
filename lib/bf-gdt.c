@@ -129,7 +129,17 @@ struct bloom_filter *bf_gdt_find_filter(struct bf_gdt *gdt, u32 bf_id)
 }
 
 /**
- * Update a new bloom_filter into the given gdt
+ * get the remote port.
+ * @return: return the corresponding dp domain remote port.
+ */
+unsigned int get_remote_port()
+{
+    //TODO:
+    return 0;
+}
+
+/**
+ * Update a remote bloom_filter into the given gdt
  * @param gdt: the gdt to update
  * @param bf: the new bloom_filter
  * @return: >0 if anything changed
@@ -140,15 +150,17 @@ int bf_gdt_update_filter(struct bf_gdt *gdt, struct bloom_filter *bf)
         return NULL;
     }
     int ret = -1;
-    struct bloom_filter *local_bf = bf_gdt_find_filter(gdt,bf->bf_id);
-    if(local_bf) {//find matched.
-        if(memcmp(local_bf,bf,sizeof(struct bloom_filter))==0) {//equal
+    struct bloom_filter *matched_bf = bf_gdt_find_filter(gdt,bf->bf_id);
+    unsigned int port_no = get_remote_port();
+    bf->port_no = port_no;
+    if(matched_bf) {//find matched.
+        if(memcmp(matched_bf,bf,sizeof(struct bloom_filter))==0) {//equal, no change
             ret = -1;
-        }else{
-            memcpy(local_bf,bf,sizeof(struct bloom_filter));
+        }else{// some content changed
+            memcpy(matched_bf,bf,sizeof(struct bloom_filter));
             ret = 1;
         }
-    } else {
+    } else { //no match, then insert
         bf_gdt_insert_filter(gdt,bf);
         ret = 2;
     }
@@ -190,8 +202,8 @@ int bf_gdt_destroy(struct bf_gdt *gdt)
  */
 int bf_gdt_add_item(struct bf_gdt *gdt, u32 bf_id, const char *s)
 {
-    if (gdt && gdt->nbf>bf_id && gdt->bf_array) {
-        bf_add(gdt->bf_array[bf_id],s);
+    if (gdt && gdt->bf_array) {
+        return bf_add(gdt->bf_array[bf_id],s);
     }
 
     return 0;

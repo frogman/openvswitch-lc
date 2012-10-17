@@ -23,11 +23,12 @@
 struct simap;
 
 #ifdef LC_ENABLE
+
 #ifndef LC_MCAST_PORT
 #define LC_MCAST_PORT 5000
 #endif
 
-#define LC_DP_NI_NAME "eth1"
+#define LC_DP_NI_NAME "eth0"
 
 struct bridge;
 struct bloom_filter;

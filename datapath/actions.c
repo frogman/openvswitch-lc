@@ -345,7 +345,7 @@ static int sample(struct datapath *dp, struct sk_buff *skb,
 /**
  * Add a encapulation header.
  */
-static int do_remote_encapulation(struct datapath *dp, struct sk_buff *skb, int *dst_ip)
+static int do_remote_encapulation(struct datapath *dp, struct sk_buff *skb, unsigned int *dst_ip)
 {
 
     /*put new vlan hdr*/
@@ -405,6 +405,7 @@ static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
     int prev_port = -1;
     const struct nlattr *a;
     int rem;
+    unsigned int remote_ip;
 
     for (a = attr, rem = len; rem > 0; a = nla_next(a, &rem)) { /*nla_for_each_attr*/
         int err = 0;
@@ -421,8 +422,9 @@ static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
 
 #ifdef LC_ENABLE
             case OVS_ACTION_ATTR_REMOTE:
-                //do_remote_encapulation(dp,skb,);
-                prev_port = nla_get_u32(a);
+                prev_port = *((unsigned int *)nla_data(a)); //port_no
+                remote_ip = *(((unsigned int *)nla_data(a)+1)); //remote ip
+                do_remote_encapulation(dp,skb,remote_ip);
                 break;
 #endif
             case OVS_ACTION_ATTR_USERSPACE:

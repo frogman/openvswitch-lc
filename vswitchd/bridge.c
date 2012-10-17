@@ -1311,7 +1311,7 @@ int bridge_update_bf_gdt_to_dp(const struct bridge *br, struct bloom_filter *bf)
  */
 void bridge_get_stat(const struct bridge *br, struct stat_base *s)
 {
-    if (!br)
+    if (!br || !br->ofproto)
         return;
     ofproto_get_stat(br->ofproto, s);
 }
@@ -1322,10 +1322,17 @@ int bridge_update_local_bf(const struct bridge *br, char *src_mac)
 {
     if (!br || !br->gdt || !src_mac)
         return 0;
-    struct bloom_filter*bf = bf_gdt_find_filter(br->gdt,br->local_id);
-    if (!bf)
-        return 0;
-    return bf_add(bf,src_mac);
+
+    struct bloom_filter*bf = bf_gdt_find_filter(br->gdt,br->local_id); //local bf not existed yet.
+
+    if (!bf) {/*no local bf existed.*/
+        bf = bf_gdt_add_filter(br->gdt, br->local_id, 0, 1024);
+    }
+
+    if (!bf) {/*create failed.*/
+        return NULL;
+    }
+    return bf_gdt_add_item(br->gdt,bf->bf_id,src_mac);
 }
 #endif
 
@@ -2398,12 +2405,14 @@ bridge_end_mcast(struct bridge *br)
 }
 
 /**
- * get the ip of its datapth.
+ * get the ip of its datapath.
  */
 static unsigned int get_local_ip(char *eth)
 {
+    if (!eth)
+        return -1;
+
     int sock_fd;
-    struct  sockaddr_in my_addr;
     struct ifreq ifr;
 
     /* Get socket file descriptor */
@@ -2433,6 +2442,7 @@ bridge_lc_init(struct bridge *br)
     VLOG_INFO("%s bridge_lc_init(): init bf-gdt and mcast args.\n",br->name);
     br->gdt = bf_gdt_init(LC_GROUP_DFT_ID);
     br->local_id = get_local_ip(LC_DP_NI_NAME);
+    VLOG_INFO("%s bridge_lc_init(): get local ip =0x%x.\n",br->name,br->local_id);
     br->send_arg.group_ip = inet_addr(LC_MCAST_GROUP_IP)+br->gdt->gid;
     br->send_arg.port = LC_MCAST_GROUP_PORT;
     br->send_arg.gdt = br->gdt;

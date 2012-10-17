@@ -14,6 +14,9 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
  * 02110-1301, USA
+ *
+ * TODO: the timeout scheme for bf entries. This could be implemented
+ * with countable-bloom_filter data structure.
  */
 
 #ifndef BF_GDT_H

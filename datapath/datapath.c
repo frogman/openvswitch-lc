@@ -340,24 +340,25 @@ void ovs_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
 
 		/* Look up flow. */
         flow = ovs_flow_tbl_lookup(rcu_dereference(dp->table), &key, key_len);
-        if (unlikely(!flow)) { /*not found in local fwd table*/
+        if (unlikely(!flow)) { /*not found in local fwd table, means to remote*/
 #ifdef LC_ENABLE 
-            if (!OVS_CB(skb)->encaped) { /*for local vm pkt, check the bf-gdt*/
+            if (!OVS_CB(skb)->encaped) { /*local vm pkt to remote, first check the bf-gdt*/
                 /*check the bf-gdt*/
                 sprintf(tmp_dst,"%x",key.ipv4.addr.dst);
                 tmp_dst[6] = '\0';
                 bf = bf_gdt_check(dp->gdt,tmp_dst);
             }
-            if (!OVS_CB(skb)->encaped && likely(bf)) { //for local vm pkt which is in bf-gdt
+            if (!OVS_CB(skb)->encaped && likely(bf)) { //local vm pkt to remote and is in local bf-gdt
                 flow = kmalloc(sizeof(struct sw_flow), GFP_ATOMIC);
                 flow->sf_acts = kmalloc(sizeof(struct sw_flow_actions)+sizeof(struct nlattr)+sizeof(u32), GFP_ATOMIC);
                 memcpy(&(flow->key),&key,sizeof(struct sw_flow_key));
 
-                /*TODO: construct the action of sending to port*/
-                flow->sf_acts->actions_len = NLA_HDRLEN + sizeof(int);
-                flow->sf_acts->actions[0].nla_len = NLA_HDRLEN + sizeof(int); //len of the attr
-                flow->sf_acts->actions[0].nla_type = OVS_ACTION_ATTR_REMOTE;
-                ((u32*)flow->sf_acts->actions)[1] = bf->port_no; //actually, here we need to provide enough info, e.g. the dest_ip.
+                /*TODO: construct the action of sending to remote port*/
+                flow->sf_acts->actions_len = NLA_HDRLEN + 2*sizeof(int);
+                flow->sf_acts->actions[0].nla_len = NLA_HDRLEN + 2*sizeof(int); //len of the attr
+                flow->sf_acts->actions[0].nla_type = OVS_ACTION_ATTR_REMOTE; //send to remote sw
+                ((u32*)flow->sf_acts->actions)[1] = bf->port_no; //send through this port, actually, we only have one phy port connected.
+                ((u32*)flow->sf_acts->actions)[2] = bf->bf_id; //remote sw ip is stored in bf->bf_id;
             } else { /* not in bf-gdt yet or from remote sw, then send to ovsd using upcall */
 #endif
                 struct dp_upcall_info upcall;
@@ -378,6 +379,8 @@ void ovs_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
 
     stats_counter = &stats->n_hit;
     ovs_flow_used(OVS_CB(skb)->flow, skb);
+
+    /*run corresponding actions.*/
     ovs_execute_actions(dp, skb);
 
 out:
