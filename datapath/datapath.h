@@ -200,4 +200,7 @@ struct sk_buff *ovs_vport_cmd_build_info(struct vport *, u32 pid, u32 seq,
 					 u8 cmd);
 
 int ovs_execute_actions(struct datapath *dp, struct sk_buff *skb);
+#ifdef LC_ENABLE
+int ovs_execute_decapulation(struct sk_buff *skb);
+#endif
 #endif /* datapath.h */

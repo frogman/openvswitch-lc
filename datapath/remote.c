@@ -26,7 +26,10 @@
 #define IP_HLEN 20
 #endif
 
-int __remote_encapulation(struct datapath *dp, struct sk_buff *skb, int *dst_ip)
+/**
+ * add new mac header and ip header.
+ */
+int __remote_encapulation(struct datapath *dp, struct sk_buff *skb, int dst_ip)
 {
     struct ether_header *eth;
     struct iphdr *iph;
@@ -42,12 +45,12 @@ int __remote_encapulation(struct datapath *dp, struct sk_buff *skb, int *dst_ip)
     iph->version=4;
     iph->tos=0;
     iph->tot_len = sizeof(struct iphdr)+skb->len;
-    iph->id = htonl(12345);
+    iph->id = htonl(0);
     iph->frag_off = 0;
     iph->ttl = 255;
     iph->protocol = LC_REMOTE_IP_PROTO;
     iph->saddr=dp->local_ip;
-    iph->daddr=*dst_ip;
+    iph->daddr=dst_ip;
     iph->check=0; //csum here
 
     /*add new ethernet header*/
@@ -60,7 +63,13 @@ int __remote_encapulation(struct datapath *dp, struct sk_buff *skb, int *dst_ip)
     //csum?
     return 0;
 }
+
+/**
+ * decapulate the mac header and ip header.
+ */
 int __remote_decapulation(struct sk_buff *skb)
 {
+    struct ether_header *eth = (struct ether_header *)skb_pull(skb,ETH_HLEN);
+    struct iphdr *iph = (struct iphdr *)skb_pull(skb,IP_HLEN);
     return 0;
 }

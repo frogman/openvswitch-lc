@@ -296,6 +296,9 @@ static bool dev_supports_vlan_tx(struct net_device *dev)
 #endif
 }
 
+/**
+ * call dev_queue_xmit() to send packet out.
+ */
 static int netdev_send(struct vport *vport, struct sk_buff *skb)
 {
 	struct netdev_vport *netdev_vport = netdev_vport_priv(vport);

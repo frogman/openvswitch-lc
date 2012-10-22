@@ -134,7 +134,7 @@ struct bloom_filter *bf_gdt_find_filter(struct bf_gdt *gdt, u32 bf_id)
  */
 unsigned int get_remote_port()
 {
-    //TODO:
+    //actually, there should be only one port (port 0) for remote networks.
     return 0;
 }
 

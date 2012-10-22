@@ -322,8 +322,8 @@ void ovs_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
 	stats = per_cpu_ptr(dp->stats_percpu, smp_processor_id());
 
 #ifdef LC_ENABLE
-    if (OVS_CB(skb)->encaped) { /*remote pkt, should do decapulation.*/
-        //TODO: do decapulation.
+    if (OVS_CB(skb)->encaped) { /*remote pkt, do decapulation first.*/
+        ovs_execute_decapulation(skb);
     }
 #endif
 
@@ -338,8 +338,9 @@ void ovs_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
 			return;
 		}
 
-		/* Look up flow. */
+		/* Look up in local table. */
         flow = ovs_flow_tbl_lookup(rcu_dereference(dp->table), &key, key_len);
+
         if (unlikely(!flow)) { /*not found in local fwd table, means to remote*/
 #ifdef LC_ENABLE 
             if (!OVS_CB(skb)->encaped) { /*local vm pkt to remote, first check the bf-gdt*/
@@ -356,13 +357,12 @@ void ovs_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
                 /*TODO: construct the action of sending to remote port*/
                 flow->sf_acts->actions_len = NLA_HDRLEN + 2*sizeof(int);
                 flow->sf_acts->actions[0].nla_len = NLA_HDRLEN + 2*sizeof(int); //len of the attr
-                flow->sf_acts->actions[0].nla_type = OVS_ACTION_ATTR_REMOTE; //send to remote sw
+                flow->sf_acts->actions[0].nla_type = OVS_ACTION_ATTR_REMOTE; //encapulate and send to remote sw
                 ((u32*)flow->sf_acts->actions)[1] = bf->port_no; //send through this port, actually, we only have one phy port connected.
-                ((u32*)flow->sf_acts->actions)[2] = bf->bf_id; //remote sw ip is stored in bf->bf_id;
-            } else { /* not in bf-gdt yet or from remote sw, then send to ovsd using upcall */
+                ((u32*)flow->sf_acts->actions)[2] = bf->bf_id; //remote sw's ip is stored in bf->bf_id;
+            } else { /* Not in local table. Not in bf-gdt yet or from remote sw, then send to ovsd using upcall */
 #endif
                 struct dp_upcall_info upcall;
-
                 upcall.cmd = OVS_PACKET_CMD_MISS;
                 upcall.key = &key;
                 upcall.userdata = NULL;

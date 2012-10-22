@@ -266,7 +266,10 @@ static int set_tcp(struct sk_buff *skb, const struct ovs_key_tcp *tcp_port_key)
 }
 
 /**
- * Send packet out.
+ * Send packet out through given port.
+ * @param dp: datapath to send out.
+ * @param skb: packet to send out.
+ * @param out_port: port to send out through.
  */
 static int do_output(struct datapath *dp, struct sk_buff *skb, int out_port)
 {
@@ -345,18 +348,36 @@ static int sample(struct datapath *dp, struct sk_buff *skb,
 /**
  * Add a encapulation header.
  */
-static int do_remote_encapulation(struct datapath *dp, struct sk_buff *skb, unsigned int *dst_ip)
+static int do_remote_encapulation(struct datapath *dp, struct sk_buff *skb, unsigned int dst_ip)
 {
 
     /*put new vlan hdr*/
     if (!__remote_encapulation(dp, skb, dst_ip)) 
         return -ENOMEM;
 
+    /*TODO: should make sure to calculate right sum here.*/
     if (get_ip_summed(skb) == OVS_CSUM_COMPLETE)
         skb->csum = csum_add(skb->csum, csum_partial(skb->data
                     + ETH_HLEN, VLAN_HLEN, 0));
 
     return 0;
+}
+
+static int do_remote_decapulation(struct sk_buff *skb)
+{
+    if (!__remote_decapulation(skb)) 
+        return -ENOMEM;
+    /*TODO: should calculate right sum here.*/
+    if (get_ip_summed(skb) == OVS_CSUM_COMPLETE)
+        skb->csum = csum_add(skb->csum, csum_partial(skb->data
+                    + ETH_HLEN, VLAN_HLEN, 0));
+
+    return 0;
+}
+
+int ovs_execute_decapulation(struct sk_buff *skb)
+{
+    return do_remote_decapulation(skb);
 }
 #endif
 
@@ -416,7 +437,7 @@ static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
         }
 
         switch (nla_type(a)) {
-            case OVS_ACTION_ATTR_OUTPUT:
+            case OVS_ACTION_ATTR_OUTPUT: //send output through port
                 prev_port = nla_get_u32(a);
                 break;
 
@@ -424,7 +445,7 @@ static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
             case OVS_ACTION_ATTR_REMOTE:
                 prev_port = *((unsigned int *)nla_data(a)); //port_no
                 remote_ip = *(((unsigned int *)nla_data(a)+1)); //remote ip
-                do_remote_encapulation(dp,skb,remote_ip);
+                do_remote_encapulation(dp,skb,remote_ip); //encapulate with new l2 and l3 header
                 break;
 #endif
             case OVS_ACTION_ATTR_USERSPACE:
@@ -457,9 +478,7 @@ static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
 	}
 
 	if (prev_port != -1) {
-		if (keep_skb)
-			skb = skb_clone(skb, GFP_ATOMIC);
-
+		if (keep_skb) skb = skb_clone(skb, GFP_ATOMIC);
 		do_output(dp, skb, prev_port);
 	} else if (!keep_skb)
 		consume_skb(skb);
@@ -508,6 +527,7 @@ int ovs_execute_actions(struct datapath *dp, struct sk_buff *skb)
     OVS_CB(skb)->encaped = 0;
 #endif
     OVS_CB(skb)->tun_id = 0;
+
     error = do_execute_actions(dp, skb, acts->actions,
             acts->actions_len, false);
 
