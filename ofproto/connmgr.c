@@ -268,7 +268,7 @@ connmgr_run(struct connmgr *mgr,
     size_t i;
 
     if (handle_openflow && mgr->in_band) {
-        if (!in_band_run(mgr->in_band)) { //update the openflow table
+        if (!in_band_run(mgr->in_band)) { //update the openflow table, test to check there's no ib. 
             in_band_destroy(mgr->in_band);
             mgr->in_band = NULL;
         }
@@ -1156,6 +1156,9 @@ ofconn_may_recv(const struct ofconn *ofconn)
     return (!ofconn->blocked || ofconn->retry) && count < OFCONN_REPLY_MAX;
 }
 
+/**
+ * Handle openflow protocols.
+ */
 static void
 ofconn_run(struct ofconn *ofconn,
            bool (*handle_openflow)(struct ofconn *, struct ofpbuf *ofp_msg))
@@ -1167,7 +1170,7 @@ ofconn_run(struct ofconn *ofconn,
         pinsched_run(ofconn->schedulers[i], do_send_packet_in, ofconn);
     }
 
-    rconn_run(ofconn->rconn);
+    rconn_run(ofconn->rconn); //connect the controller
 
     if (handle_openflow) {
         /* Limit the number of iterations to avoid starving other tasks. */
@@ -1176,7 +1179,7 @@ ofconn_run(struct ofconn *ofconn,
 
             of_msg = (ofconn->blocked
                       ? ofconn->blocked
-                      : rconn_recv(ofconn->rconn));
+                      : rconn_recv(ofconn->rconn)); //receive msg from controller
             if (!of_msg) {
                 break;
             }
@@ -1184,7 +1187,7 @@ ofconn_run(struct ofconn *ofconn,
                 fail_open_maybe_recover(mgr->fail_open);
             }
 
-            if (handle_openflow(ofconn, of_msg)) {
+            if (handle_openflow(ofconn, of_msg)) { //handle of msg from controller.
                 ofpbuf_delete(of_msg);
                 ofconn->blocked = NULL;
             } else {

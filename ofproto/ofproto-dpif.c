@@ -2823,7 +2823,9 @@ init_flow_miss_execute_op(struct flow_miss *miss, struct ofpbuf *packet,
 }
 
 /* Helper for handle_flow_miss_without_facet() and
- * handle_flow_miss_with_facet(). */
+ * handle_flow_miss_with_facet().
+ * if in fail mod, send miss msg to the controller.
+ */
 static void
 handle_flow_miss_common(struct rule_dpif *rule,
                         struct ofpbuf *packet, const struct flow *flow)
@@ -2951,7 +2953,7 @@ handle_flow_miss_with_facet(struct flow_miss *miss, struct facet *facet,
         struct dpif_flow_stats stats;
         struct ofpbuf odp_actions;
 
-        handle_flow_miss_common(facet->rule, packet, &miss->flow); //check if in fail-open mod, get out that mod
+        handle_flow_miss_common(facet->rule, packet, &miss->flow); //send miss to controller.
 
         ofpbuf_use_stub(&odp_actions, op->stub, sizeof op->stub);
         if (!subfacet->actions || subfacet->slow) {

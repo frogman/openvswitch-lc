@@ -69,6 +69,9 @@ new_tcp_stream(const char *name, int fd, int connect_status,
     return retval;
 }
 
+/**
+ * Create a new tcp connection.
+ */
 static int
 tcp_open(const char *name, char *suffix, struct stream **streamp, uint8_t dscp)
 {

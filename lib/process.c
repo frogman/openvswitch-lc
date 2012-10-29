@@ -65,7 +65,7 @@ static void sigchld_handler(int signr OVS_UNUSED);
 static bool is_member(int x, const int *array, size_t);
 
 /* Initializes the process subsystem (if it is not already initialized).  Calls
- * exit() if initialization fails, including setup fds, and prepare for the SIGCHLD signal
+ * exit() if initialization fails, including setup fds, and prepare for the SIGCHLD signal.
  *
  * Calling this function is optional; it will be called automatically by
  * process_start() if necessary.  Calling it explicitly allows the client to

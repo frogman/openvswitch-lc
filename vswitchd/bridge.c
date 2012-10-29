@@ -111,7 +111,7 @@ struct port {
 };
 
 struct bridge {
-    struct hmap_node node;      /* In 'all_bridges'. */
+    struct hmap_node node;      /* The hmap member in 'all_bridges'. */
     char *name;                 /* User-specified arbitrary name. */
     char *type;                 /* Datapath type. */
     uint8_t ea[ETH_ADDR_LEN];   /* Bridge Ethernet Address. */
@@ -344,7 +344,7 @@ bridge_init(const char *remote)
     /* SSL configuration. */
     ovsdb_idl_omit(idl, &ovsrec_ssl_col_external_ids);
 
-    /* Register unixctl commands. */
+    /* Register unixctl commands, for ovs-appctl. */
     unixctl_command_register("qos/show", "interface", 1, 1,
                              qos_unixctl_show, NULL);
     unixctl_command_register("bridge/dump-flows", "bridge", 1, 1,
@@ -517,6 +517,9 @@ bridge_reconfigure_ofp(void)
     return true;
 }
 
+/**
+ * config: mirror, flow-eviction, bpdu, mac_idle, controller, netflow, sflow, stp, tables.
+ */
 static bool
 bridge_reconfigure_continue(const struct ovsrec_open_vswitch *ovs_cfg)
 {
@@ -533,6 +536,7 @@ bridge_reconfigure_continue(const struct ovsrec_open_vswitch *ovs_cfg)
     sflow_bridge_number = 0;
     collect_in_band_managers(ovs_cfg, &managers, &n_managers);
     HMAP_FOR_EACH (br, node, &all_bridges) {
+        //all_bridges is a hmap, bridge->node is the member in all_bridges. Try each bridge here.
         struct port *port;
 
         /* We need the datapath ID early to allow LACP ports to use it as the
@@ -550,11 +554,11 @@ bridge_reconfigure_continue(const struct ovsrec_open_vswitch *ovs_cfg)
                 iface_set_mac(iface);
             }
         }
-        bridge_configure_mirrors(br);
-        bridge_configure_flow_eviction_threshold(br);
-        bridge_configure_forward_bpdu(br);
-        bridge_configure_mac_idle_time(br);
-        bridge_configure_remotes(br, managers, n_managers);
+        bridge_configure_mirrors(br);                       //port mirroring
+        bridge_configure_flow_eviction_threshold(br);       //flow eviction threshold
+        bridge_configure_forward_bpdu(br);                  //whether to fwd bpdu for STP
+        bridge_configure_mac_idle_time(br);                 //mac aging time
+        bridge_configure_remotes(br, managers, n_managers); //config controller
         bridge_configure_netflow(br);
         bridge_configure_sflow(br, &sflow_bridge_number);
         bridge_configure_stp(br);
@@ -2099,7 +2103,6 @@ bridge_run(void)
      * initiate SSL connections and thus requires SSL to be configured. */
     if (cfg && cfg->ssl) {
         const struct ovsrec_ssl *ssl = cfg->ssl;
-
         stream_ssl_set_key_and_cert(ssl->private_key, ssl->certificate);
         stream_ssl_set_ca_cert_file(ssl->ca_cert, ssl->bootstrap_ca_cert);
     }
@@ -2130,12 +2133,12 @@ bridge_run(void)
         }
     }
 
-    if (reconfiguring) {
-        if (cfg) {
+    if (reconfiguring) { //if need reconfiguring
+        if (cfg) {//already has configure in br.
             if (!reconf_txn) {
                 reconf_txn = ovsdb_idl_txn_create(idl);
             }
-            if (bridge_reconfigure_continue(cfg)) {
+            if (bridge_reconfigure_continue(cfg)) {//lots of configuration, including controller
                 ovsrec_open_vswitch_set_cur_cfg(cfg, cfg->next_cfg);
             }
         } else {
@@ -2656,6 +2659,9 @@ equal_pathnames(const char *a, const char *b)
     return false;
 }
 
+/**
+ * configure the controller.
+ */
 static void
 bridge_configure_remotes(struct bridge *br,
                          const struct sockaddr_in *managers, size_t n_managers)
@@ -2686,7 +2692,7 @@ bridge_configure_remotes(struct bridge *br,
         ofproto_set_extra_in_band_remotes(br->ofproto, managers, n_managers);
     }
 
-    n_controllers = bridge_get_controllers(br, &controllers);
+    n_controllers = bridge_get_controllers(br, &controllers); //get controllers from br->cfg
 
     ocs = xmalloc((n_controllers + 1) * sizeof *ocs);
     n_ocs = 0;
@@ -2696,7 +2702,7 @@ bridge_configure_remotes(struct bridge *br,
         struct ovsrec_controller *c = controllers[i];
 
         if (!strncmp(c->target, "punix:", 6)
-            || !strncmp(c->target, "unix:", 5)) {
+            || !strncmp(c->target, "unix:", 5)) {//if punix or unix
             static struct vlog_rate_limit rl = VLOG_RATE_LIMIT_INIT(1, 5);
             char *whitelist;
 
@@ -2728,6 +2734,7 @@ bridge_configure_remotes(struct bridge *br,
         n_ocs++;
     }
 
+    /*Set the controller.*/
     ofproto_set_controllers(br->ofproto, ocs, n_ocs);
     free(ocs[0].target); /* From bridge_ofproto_controller_for_mgmt(). */
     free(ocs);
@@ -3381,6 +3388,9 @@ mirror_find_by_uuid(struct bridge *br, const struct uuid *uuid)
     return NULL;
 }
 
+/**
+ * Configure port mirroring.
+ */
 static void
 bridge_configure_mirrors(struct bridge *br)
 {

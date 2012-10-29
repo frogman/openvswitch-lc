@@ -486,8 +486,8 @@ netdev_linux_init(void)
 static void
 netdev_linux_run(void)
 {
-    rtnetlink_link_run();
-    netdev_linux_miimon_run();
+    rtnetlink_link_run(); //run all notifiers
+    netdev_linux_miimon_run(); //get mii information
 }
 
 static void

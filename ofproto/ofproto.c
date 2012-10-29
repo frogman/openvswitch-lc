@@ -1054,7 +1054,7 @@ ofproto_run(struct ofproto *p)
     struct ofport *ofport;
     int error;
 
-    error = p->ofproto_class->run(p); //should call connmgr_send_packet_in() to connect the controller
+    error = p->ofproto_class->run(p); //call fast process and other runs
     if (error && error != EAGAIN) {
         VLOG_ERR_RL(&rl, "%s: run failed (%s)", p->name, strerror(error));
     }
@@ -1086,6 +1086,7 @@ ofproto_run(struct ofproto *p)
     }
     sset_destroy(&changed_netdevs);
 
+    /*process openflow msgs.*/
     switch (p->state) {
     case S_OPENFLOW: //of commands, run its parser
         connmgr_run(p->connmgr, handle_openflow);
@@ -2188,6 +2189,9 @@ handle_port_mod(struct ofconn *ofconn, const struct ofp_header *oh)
     return 0;
 }
 
+/**
+ * description info, including Manufacturer, Hardware, etc..
+ */
 static enum ofperr
 handle_desc_stats_request(struct ofconn *ofconn,
                           const struct ofp_header *request)
@@ -3718,13 +3722,13 @@ handle_openflow__(struct ofconn *ofconn, const struct ofpbuf *msg)
         return error;
     }
 
-    switch (type) {
+    switch (type) { //msg are sent from controller to switch
         /* OpenFlow requests. */
     case OFPTYPE_ECHO_REQUEST:
         return handle_echo_request(ofconn, oh);
 
-    case OFPTYPE_FEATURES_REQUEST:
-        return handle_features_request(ofconn, oh);
+    case OFPTYPE_FEATURES_REQUEST: //controller requests features
+        return handle_features_request(ofconn, oh); 
 
     case OFPTYPE_GET_CONFIG_REQUEST:
         return handle_get_config_request(ofconn, oh);
@@ -3733,7 +3737,7 @@ handle_openflow__(struct ofconn *ofconn, const struct ofpbuf *msg)
         return handle_set_config(ofconn, oh);
 
     case OFPTYPE_PACKET_OUT:
-        return handle_packet_out(ofconn, oh);
+        return handle_packet_out(ofconn, oh); //controller sends pkt out via switch
 
     case OFPTYPE_PORT_MOD:
         return handle_port_mod(ofconn, oh);
@@ -3775,10 +3779,10 @@ handle_openflow__(struct ofconn *ofconn, const struct ofpbuf *msg)
         return handle_nxt_set_async_config(ofconn, oh);
 
         /* Statistics requests. */
-    case OFPTYPE_DESC_STATS_REQUEST:
+    case OFPTYPE_DESC_STATS_REQUEST: //description
         return handle_desc_stats_request(ofconn, oh);
 
-    case OFPTYPE_FLOW_STATS_REQUEST:
+    case OFPTYPE_FLOW_STATS_REQUEST: //stat of each flow
         return handle_flow_stats_request(ofconn, oh);
 
     case OFPTYPE_AGGREGATE_STATS_REQUEST:
@@ -3787,7 +3791,7 @@ handle_openflow__(struct ofconn *ofconn, const struct ofpbuf *msg)
     case OFPTYPE_TABLE_STATS_REQUEST:
         return handle_table_stats_request(ofconn, oh);
 
-    case OFPTYPE_PORT_STATS_REQUEST:
+    case OFPTYPE_PORT_STATS_REQUEST: //stat on each port.
         return handle_port_stats_request(ofconn, oh);
 
     case OFPTYPE_QUEUE_STATS_REQUEST:
