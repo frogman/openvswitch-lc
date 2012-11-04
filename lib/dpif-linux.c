@@ -960,6 +960,9 @@ dpif_linux_bf_gdt_put(struct dpif *dpif_, const struct dpif_bf_gdt_put *put)
 
 #endif
 
+/**
+ * encode the OVS_PACKET_CMD_EXECUTE nlmsg.
+ */
 static void
 dpif_linux_encode_execute(int dp_ifindex, const struct dpif_execute *d_exec,
                           struct ofpbuf *buf)
@@ -999,6 +1002,9 @@ dpif_linux_execute__(int dp_ifindex, const struct dpif_execute *execute)
     return error;
 }
 
+/**
+ * encode OVS_PACKET_EXECUTE nlmsg and send out.
+ */
 static int
 dpif_linux_execute(struct dpif *dpif_, const struct dpif_execute *execute)
 {

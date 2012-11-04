@@ -75,6 +75,9 @@ odp_action_len(uint16_t type)
     case OVS_ACTION_ATTR_POP_VLAN: return 0;
     case OVS_ACTION_ATTR_SET: return -2;
     case OVS_ACTION_ATTR_SAMPLE: return -2;
+#ifdef LC_ENABLE
+    case OVS_ACTION_ATTR_REMOTE: return 2*sizeof(uint32_t);
+#endif
 
     case OVS_ACTION_ATTR_UNSPEC:
     case __OVS_ACTION_ATTR_MAX:
@@ -314,6 +317,13 @@ format_odp_action(struct ds *ds, const struct nlattr *a)
     case OVS_ACTION_ATTR_SAMPLE:
         format_odp_sample_action(ds, a);
         break;
+#ifdef LC_ENABLE
+    case OVS_ACTION_ATTR_REMOTE:
+        ds_put_cstr(ds, "remote(");
+        ds_put_format(ds, "%"PRIu16, nl_attr_get_u32(((int*) a)+1));
+        ds_put_char(ds, ')');
+        break;
+#endif
     case OVS_ACTION_ATTR_UNSPEC:
     case __OVS_ACTION_ATTR_MAX:
     default:

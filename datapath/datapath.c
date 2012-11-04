@@ -349,7 +349,7 @@ void ovs_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
                 tmp_dst[6] = '\0';
                 bf = bf_gdt_check(dp->gdt,tmp_dst);
             }
-            if (!OVS_CB(skb)->encaped && likely(bf)) { //local vm pkt to remote and is in local bf-gdt
+            if (!OVS_CB(skb)->encaped && likely(bf)) { //local vm pkt to remote sw and is in local bf-gdt
                 flow = kmalloc(sizeof(struct sw_flow), GFP_ATOMIC);
                 flow->sf_acts = kmalloc(sizeof(struct sw_flow_actions)+sizeof(struct nlattr)+sizeof(u32), GFP_ATOMIC);
                 memcpy(&(flow->key),&key,sizeof(struct sw_flow_key));

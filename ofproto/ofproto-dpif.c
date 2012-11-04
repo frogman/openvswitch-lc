@@ -5462,6 +5462,9 @@ may_receive(const struct ofport_dpif *port, struct action_xlate_ctx *ctx)
     return true;
 }
 
+/**
+ * Translate the elements of ofpacts into ctx.
+ */
 static void
 do_xlate_actions(const struct ofpact *ofpacts, size_t ofpacts_len,
                  struct action_xlate_ctx *ctx)

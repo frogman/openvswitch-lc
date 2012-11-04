@@ -501,7 +501,7 @@ enum ovs_action_attr {
 	OVS_ACTION_ATTR_UNSPEC,
 	OVS_ACTION_ATTR_OUTPUT,	      /* u32 port number. */
 #ifdef LC_ENABLE
-	OVS_ACTION_ATTR_REMOTE,	      /* send pkt to remote sw. */
+	OVS_ACTION_ATTR_REMOTE,	      /* encapulate and send pkt to remote sw. */
 #endif
 	OVS_ACTION_ATTR_USERSPACE,    /* Nested OVS_USERSPACE_ATTR_*. */
 	OVS_ACTION_ATTR_SET,          /* One nested OVS_KEY_ATTR_*. */
