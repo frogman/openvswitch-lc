@@ -42,6 +42,10 @@
 #include "ofp-errors.h"
 #include "util.h"
 
+#ifndef LC_ENABLE
+#define LC_ENABLE
+#endif
+
 struct list;
 
 /* Raw identifiers for OpenFlow messages.
@@ -170,6 +174,9 @@ enum ofpraw {
     OFPRAW_OFPT10_BARRIER_REPLY,
     /* OFPT 1.1 (21): void. */
     OFPRAW_OFPT11_BARRIER_REPLY,
+
+    /* OFPT 1.0 (20): struct ofp_packet_remote, uint8_t[]. */
+    OFPRAW_OFPT10_PACKET_REMOTE,
 
 /* Standard statistics. */
 
@@ -386,6 +393,7 @@ enum ofptype {
     OFPTYPE_PORT_DESC_STATS_REQUEST, /* OFPRAW_OFPST_PORT_DESC_REQUEST. */
     OFPTYPE_PORT_DESC_STATS_REPLY,   /* OFPRAW_OFPST_PORT_DESC_REPLY. */
 
+
     /* Nicira extensions. */
     OFPTYPE_ROLE_REQUEST,         /* OFPRAW_NXT_ROLE_REQUEST. */
     OFPTYPE_ROLE_REPLY,           /* OFPRAW_NXT_ROLE_REPLY. */
@@ -402,6 +410,8 @@ enum ofptype {
     OFPTYPE_FLOW_MONITOR_CANCEL,        /* OFPRAW_NXT_FLOW_MONITOR_CANCEL. */
     OFPTYPE_FLOW_MONITOR_PAUSED,        /* OFPRAW_NXT_FLOW_MONITOR_PAUSED. */
     OFPTYPE_FLOW_MONITOR_RESUMED,       /* OFPRAW_NXT_FLOW_MONITOR_RESUMED. */
+
+    OFPTYPE_PACKET_REMOTE,       /* OFPRAW_OFPT10_PACKET_REMOTE. */
 };
 
 /* Decoding messages into OFPTYPE_* values. */

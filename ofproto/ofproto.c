@@ -60,6 +60,9 @@ COVERAGE_DEFINE(ofproto_error);
 COVERAGE_DEFINE(ofproto_flush);
 COVERAGE_DEFINE(ofproto_no_packet_in);
 COVERAGE_DEFINE(ofproto_packet_out);
+#ifdef LC_ENABLE
+COVERAGE_DEFINE(ofproto_packet_remote);
+#endif
 COVERAGE_DEFINE(ofproto_queue_req);
 COVERAGE_DEFINE(ofproto_recv_openflow);
 COVERAGE_DEFINE(ofproto_reinit_ports);
@@ -2127,7 +2130,7 @@ handle_packet_out(struct ofconn *ofconn, const struct ofp_header *oh)
 
     /* Decode message. */
     ofpbuf_use_stub(&ofpacts, ofpacts_stub, sizeof ofpacts_stub);
-    error = ofputil_decode_packet_out(&po, oh, &ofpacts);
+    error = ofputil_decode_packet_out(&po, oh, &ofpacts); //decode oh into po and ofpacts
     if (error) {
         goto exit_free_ofpacts;
     }
@@ -2144,7 +2147,7 @@ handle_packet_out(struct ofconn *ofconn, const struct ofp_header *oh)
     }
 
     /* Send out packet. */
-    flow_extract(payload, 0, 0, po.in_port, &flow);
+    flow_extract(payload, 0, 0, po.in_port, &flow); //init the flow
     error = p->ofproto_class->packet_out(p, payload, &flow,
                                          po.ofpacts, po.ofpacts_len);
     ofpbuf_delete(payload);
@@ -2154,6 +2157,57 @@ exit_free_ofpacts:
 exit:
     return error;
 }
+
+#ifdef LC_ENABLE
+static enum ofperr
+handle_packet_remote(struct ofconn *ofconn, const struct ofp_header *oh)
+{
+    struct ofproto *p = ofconn_get_ofproto(ofconn);
+    struct ofputil_packet_remote pr;
+    struct ofpbuf *payload;
+    uint64_t ofpacts_stub[1024 / 8];
+    struct ofpbuf ofpacts;
+    struct flow flow;
+    enum ofperr error;
+
+    COVERAGE_INC(ofproto_packet_remote);
+
+    error = reject_slave_controller(ofconn);
+    if (error) {
+        goto exit;
+    }
+
+    /* Decode message. */
+    ofpbuf_use_stub(&ofpacts, ofpacts_stub, sizeof ofpacts_stub);
+    error = ofputil_decode_packet_remote(&pr, oh, &ofpacts); //decode oh into pr and ofpacts
+    if (error) {
+        goto exit_free_ofpacts;
+    }
+
+    /* Get payload. */
+    if (pr.buffer_id != UINT32_MAX) {
+        error = ofconn_pktbuf_retrieve(ofconn, pr.buffer_id, &payload, NULL);
+        if (error || !payload) {
+            goto exit_free_ofpacts;
+        }
+    } else {
+        payload = xmalloc(sizeof *payload);
+        ofpbuf_use_const(payload, pr.packet, pr.packet_len);
+    }
+
+    /* Send out packet. */
+    flow_extract(payload, 0, 0, pr.in_port, &flow); //init the flow
+    error = p->ofproto_class->packet_out(p, payload, &flow,
+                                         pr.ofpacts, pr.ofpacts_len);
+    ofpbuf_delete(payload);
+
+exit_free_ofpacts:
+    ofpbuf_uninit(&ofpacts);
+exit:
+    return error;
+}
+
+#endif
 
 static void
 update_port_config(struct ofport *port,
@@ -3737,6 +3791,11 @@ handle_openflow__(struct ofconn *ofconn, const struct ofpbuf *msg)
     }
 
     switch (type) {
+#ifdef LC_ENABLE
+        /* LC remote action. */
+    case OFPTYPE_PACKET_REMOTE:
+        return handle_packet_remote(ofconn, oh);
+#endif
         /* OpenFlow requests. */
     case OFPTYPE_ECHO_REQUEST:
         return handle_echo_request(ofconn, oh);

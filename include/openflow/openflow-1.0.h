@@ -21,6 +21,10 @@
 
 #include "openflow/openflow-common.h"
 
+#ifndef LC_ENABLE
+#define LC_ENABLE
+#endif
+
 /* Port numbering.  Physical ports are numbered starting from 1. */
 enum ofp_port {
     /* Maximum number of physical switch ports. */
@@ -270,6 +274,21 @@ struct ofp_packet_out {
      */
 };
 OFP_ASSERT(sizeof(struct ofp_packet_out) == 8);
+
+#ifdef LC_ENABLE
+struct ofp_packet_remote {
+    ovs_be32 buffer_id;           /* ID assigned by datapath or UINT32_MAX. */
+    ovs_be16 in_port;             /* Packet's input port (OFPP_NONE if none). */
+    ovs_be16 actions_len;         /* Size of action array in bytes. */
+    /* Followed by:
+     *   - Exactly 'actions_len' bytes (possibly 0 bytes, and always a multiple
+     *     of 8) containing actions.
+     *   - If 'buffer_id' == UINT32_MAX, packet data to fill out the remainder
+     *     of the message length.
+     */
+};
+OFP_ASSERT(sizeof(struct ofp_packet_remote) == 8);
+#endif
 
 /* Flow wildcards. */
 enum ofp_flow_wildcards {

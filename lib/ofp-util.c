@@ -2321,6 +2321,86 @@ ofputil_decode_packet_out(struct ofputil_packet_out *po,
 
     return 0;
 }
+
+#ifdef LC_ENABLE
+/* Converts an OFPT_PACKET_REMOTE in 'opo' into an abstract ofputil_packet_remote in
+ * 'po'.
+ *
+ * Uses 'ofpacts' to store the abstract OFPACT_* version of the packet out
+ * message's actions.  The caller must initialize 'ofpacts' and retains
+ * ownership of it.  'po->ofpacts' will point into the 'ofpacts' buffer.
+ *
+ * Returns 0 if successful, otherwise an OFPERR_* value. */
+enum ofperr
+ofputil_decode_packet_remote(struct ofputil_packet_remote *pr,
+                          const struct ofp_header *oh,
+                          struct ofpbuf *ofpacts)
+{
+    enum ofperr bad_in_port_err;
+    enum ofpraw raw;
+    struct ofpbuf b;
+
+    ofpbuf_use_const(&b, oh, ntohs(oh->length));
+    raw = ofpraw_pull_assert(&b);
+
+    if (raw == OFPRAW_OFPT11_PACKET_OUT) {
+        //TODO: maybe we should also support 1.1, the following codes
+        //are only from the ofputil_decode_packet_out function, need modification.
+        enum ofperr error;
+        const struct ofp11_packet_out *opo = ofpbuf_pull(&b, sizeof *opo);
+
+        pr->buffer_id = ntohl(opo->buffer_id);
+        error = ofputil_port_from_ofp11(opo->in_port, &pr->in_port);
+        if (error) {
+            return error;
+        }
+
+        error = ofpacts_pull_openflow11_actions(&b, ntohs(opo->actions_len),
+                                                ofpacts);
+        if (error) {
+            return error;
+        }
+
+        bad_in_port_err = OFPERR_OFPBMC_BAD_VALUE;
+    } else if (raw == OFPRAW_OFPT10_PACKET_OUT) {
+        enum ofperr error;
+        const struct ofp_packet_remote *opr = ofpbuf_pull(&b, sizeof *opr);
+
+        pr->buffer_id = ntohl(opr->buffer_id);
+        pr->in_port = ntohs(opr->in_port);
+
+        error = ofpacts_pull_openflow10(&b, ntohs(opr->actions_len), ofpacts);
+        if (error) {
+            return error;
+        }
+
+        bad_in_port_err = OFPERR_NXBRC_BAD_IN_PORT;
+    } else {
+        NOT_REACHED();
+    }
+
+    if (pr->in_port >= OFPP_MAX && pr->in_port != OFPP_LOCAL
+        && pr->in_port != OFPP_NONE && pr->in_port != OFPP_CONTROLLER) {
+        VLOG_WARN_RL(&bad_ofmsg_rl, "packet-remote has bad input port %#"PRIx16,
+                     pr->in_port);
+        return bad_in_port_err;
+    }
+
+    pr->ofpacts = ofpacts->data;
+    pr->ofpacts_len = ofpacts->size;
+
+    if (pr->buffer_id == UINT32_MAX) {
+        pr->packet = b.data;
+        pr->packet_len = b.size;
+    } else {
+        pr->packet = NULL;
+        pr->packet_len = 0;
+    }
+
+    return 0;
+}
+
+#endif
 
 /* ofputil_phy_port */
 

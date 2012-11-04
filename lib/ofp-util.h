@@ -28,6 +28,10 @@
 #include "openflow/nicira-ext.h"
 #include "openvswitch/types.h"
 
+#ifndef LC_ENABLE
+#define LC_ENABLE
+#endif
+
 struct cls_rule;
 struct ofpbuf;
 
@@ -298,11 +302,29 @@ struct ofputil_packet_out {
     size_t ofpacts_len;         /* Size of ofpacts in bytes. */
 };
 
+#ifdef LC_ENABLE
+struct ofputil_packet_remote {
+    const void *packet;         /* Packet data, if buffer_id == UINT32_MAX. */
+    size_t packet_len;          /* Length of packet data in bytes. */
+    uint32_t buffer_id;         /* Buffer id or UINT32_MAX if no buffer. */
+    uint16_t in_port;           /* Packet's input port. */
+    struct ofpact *ofpacts;     /* Actions. */
+    size_t ofpacts_len;         /* Size of ofpacts in bytes. */
+};
+
+#endif
+
 enum ofperr ofputil_decode_packet_out(struct ofputil_packet_out *,
                                       const struct ofp_header *,
                                       struct ofpbuf *ofpacts);
 struct ofpbuf *ofputil_encode_packet_out(const struct ofputil_packet_out *,
                                          enum ofputil_protocol protocol);
+
+#ifdef LC_ENABLE
+enum ofperr
+ofputil_decode_packet_remote(struct ofputil_packet_remote *pr,
+                          const struct ofp_header *oh, struct ofpbuf *ofpacts);
+#endif
 
 enum ofputil_port_config {
     /* OpenFlow 1.0 and 1.1 share these values for these port config bits. */
