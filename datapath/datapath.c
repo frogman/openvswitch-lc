@@ -454,6 +454,125 @@ error:
 }
 
 /**
+ * TODO: get bf_gdt according to the bf_id.
+ */
+static int ovs_bf_gdt_cmd_get(struct sk_buff *skb, struct genl_info *info)
+{
+    return 0;
+	struct nlattr **a = info->attrs;
+	struct ovs_header *ovs_header = info->userhdr;
+	unsigned int bf_id;
+	struct sk_buff *reply;
+	struct datapath *dp;
+	int err;
+    struct bf_gdt *gdt;
+	int bf_id_len;
+
+	if (!a[OVS_BF_GDT_ATTR_KEY])
+		return -EINVAL;
+	err = ovs_flow_from_nlattrs(&bf_id, &bf_id_len, a[OVS_BF_GDT_ATTR_KEY]);
+    bf_id_len= 4;
+    bf_id = nla_get_u32(a[OVS_BF_GDT_ATTR_KEY]);
+	if (err)
+		return err;
+
+	dp = get_dp(sock_net(skb->sk), ovs_header->dp_ifindex);
+	if (!dp)
+		return -ENODEV;
+
+	gdt = genl_dereference(dp->gdt);
+	
+	//reply = ovs_flow_cmd_build_info(flow, dp, info->snd_pid, info->snd_seq, OVS_BF_GDT_CMD_NEW);
+	if (IS_ERR(reply))
+		return PTR_ERR(reply);
+
+	return genlmsg_reply(reply, info);
+}
+
+static int flush_bf_gdt(struct datapath *dp)
+{
+	struct bf_gdt *old_table;
+	struct bf_gdt *new_table;
+
+	old_table = genl_dereference(dp->gdt);
+    /*
+	new_table = ovs_flow_tbl_alloc(TBL_MIN_BUCKETS);
+	if (!new_table)
+		return -ENOMEM;
+
+	rcu_assign_pointer(dp->table, new_table);
+    */
+
+	bf_gdt_destroy(old_table);
+	return 0;
+}
+
+/**
+ * TODO: del bf_gdt according to the bf_id.
+ */
+static int ovs_bf_gdt_cmd_del(struct sk_buff *skb, struct genl_info *info)
+{
+    return 0;
+	struct nlattr **a = info->attrs;
+	struct ovs_header *ovs_header = info->userhdr;
+	struct sw_flow_key key;
+	struct sk_buff *reply;
+	struct sw_flow *flow;
+	struct datapath *dp;
+	struct flow_table *table;
+	int err;
+	int key_len;
+
+	dp = get_dp(sock_net(skb->sk), ovs_header->dp_ifindex);
+	if (!dp)
+		return -ENODEV;
+
+	if (!a[OVS_BF_GDT_ATTR_KEY])
+		return flush_bf_gdt(dp);
+
+    return 0;
+}
+
+/**
+ * TODO: dump bf_gdt.
+ */
+static int ovs_bf_gdt_cmd_dump(struct sk_buff *skb, struct netlink_callback *cb)
+{
+	struct ovs_header *ovs_header = genlmsg_data(nlmsg_data(cb->nlh));
+	struct datapath *dp;
+	struct bf_gdt *gdt;
+
+	dp = get_dp(sock_net(skb->sk), ovs_header->dp_ifindex);
+	if (!dp)
+		return -ENODEV;
+
+	gdt = genl_dereference(dp->gdt);
+
+	for (;;) {
+		struct bloom_filter *bf;
+		u32 bucket=1, obj=0;
+
+		bucket = cb->args[0];
+		obj = cb->args[1];
+		bf = gdt->bf_array[obj];
+		if (!bf)
+			break;
+
+        /*
+		if (ovs_flow_cmd_fill_info(flow, dp, skb,
+					   NETLINK_CB(cb->skb).pid,
+					   cb->nlh->nlmsg_seq, NLM_F_MULTI,
+					   OVS_BF_GDT_CMD_NEW) < 0)
+                       */
+			break;
+
+		cb->args[0] = bucket;
+		cb->args[1] = obj;
+	}
+	return skb->len;
+}
+
+/**
  * operation for the bf-gdt management, update the gdt
  */
 static struct genl_ops dp_bf_gdt_genl_ops[] = {
@@ -461,6 +580,17 @@ static struct genl_ops dp_bf_gdt_genl_ops[] = {
 	  .flags = GENL_ADMIN_PERM, /* Requires CAP_NET_ADMIN privilege. */
 	  .policy = bf_gdt_policy,
 	  .doit = ovs_bf_gdt_cmd_new_or_set
+	},
+    { .cmd = OVS_BF_GDT_CMD_DEL,
+	  .flags = GENL_ADMIN_PERM, /* Requires CAP_NET_ADMIN privilege. */
+	  .policy = bf_gdt_policy,
+	  .doit = ovs_bf_gdt_cmd_del
+	},
+    { .cmd = OVS_BF_GDT_CMD_GET,
+	  .flags = 0,		    /* OK for unprivileged users. */
+	  .policy = bf_gdt_policy,
+	  .doit = ovs_bf_gdt_cmd_get,
+	  .dumpit = ovs_bf_gdt_cmd_dump
 	},
     { .cmd = OVS_BF_GDT_CMD_SET,
 	  .flags = GENL_ADMIN_PERM, /* Requires CAP_NET_ADMIN privilege. */

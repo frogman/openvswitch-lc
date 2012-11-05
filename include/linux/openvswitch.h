@@ -175,11 +175,14 @@ enum ovs_packet_attr {
 enum ovs_bf_gdt_cmd {
 	OVS_BF_GDT_CMD_UNSPEC,
 	OVS_BF_GDT_CMD_NEW,
+	OVS_BF_GDT_CMD_DEL,
+	OVS_BF_GDT_CMD_GET,
 	OVS_BF_GDT_CMD_SET
 };
 
 enum ovs_bf_gdt_attr {
 	OVS_BF_GDT_ATTR_UNSPEC,
+	OVS_BF_GDT_ATTR_KEY,       /* Sequence of OVS_KEY_ATTR_* attributes. */
 	OVS_BF_GDT_ATTR_BF,      /* nested bf structure. */
 	__OVS_BF_GDT_ATTR_MAX
 };
