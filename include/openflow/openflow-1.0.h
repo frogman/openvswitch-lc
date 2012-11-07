@@ -199,6 +199,7 @@ enum ofp10_action_type {
     OFPAT10_SET_TP_SRC,         /* TCP/UDP source port. */
     OFPAT10_SET_TP_DST,         /* TCP/UDP destination port. */
     OFPAT10_ENQUEUE,            /* Output to queue. */
+    OFPAT10_REMOTE=12,             /* Remote to switch port. */
     OFPAT10_VENDOR = 0xffff
 };
 
@@ -213,6 +214,19 @@ struct ofp10_action_output {
     ovs_be16 max_len;               /* Max length to send to controller. */
 };
 OFP_ASSERT(sizeof(struct ofp10_action_output) == 8);
+
+#ifdef LC_ENABLE
+struct ofp10_action_remote {
+    ovs_be16 type;                  /* OFPAT10_OUTPUT. */
+    ovs_be16 len;                   /* Length is 8. */
+    ovs_be16 port;                  /* Output port. */
+    ovs_be32 ip;                  /* Remote ip. */
+    ovs_be16 max_len;               /* Max length to send to controller. */
+};
+OFP_ASSERT(sizeof(struct ofp10_action_remote) == 8+4);
+
+
+#endif
 
 /* Action header for OFPAT10_VENDOR. The rest of the body is vendor-defined. */
 struct ofp_action_vendor_header {

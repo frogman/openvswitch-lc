@@ -1208,6 +1208,10 @@ struct ofproto_class {
     int (*set_realdev)(struct ofport *ofport,
                        uint16_t realdev_ofp_port, int vid);
 #ifdef LC_ENABLE
+    enum ofperr (*packet_remote)(struct ofproto *ofproto, struct ofpbuf *packet,
+                              const struct flow *flow,
+                              const struct ofpact *ofpacts,
+                              size_t ofpacts_len);
     int (*bf_gdt_update)(struct ofproto *ofproto_, struct bloom_filter *bf_);
     void (*get_stat)(struct ofproto *ofproto_, struct stat_base *s);
 #endif

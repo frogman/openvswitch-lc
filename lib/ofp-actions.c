@@ -29,6 +29,10 @@
 #include "ofpbuf.h"
 #include "vlog.h"
 
+#ifndef LC_ENABLE
+#define LC_ENABLE
+#endif
+
 VLOG_DEFINE_THIS_MODULE(ofp_actions);
 
 static struct vlog_rate_limit rl = VLOG_RATE_LIMIT_INIT(1, 5);
@@ -47,6 +51,22 @@ output_from_openflow10(const struct ofp10_action_output *oao,
 
     return ofputil_check_output_port(output->port, OFPP_MAX);
 }
+
+#ifdef LC_ENABLE
+static enum ofperr
+remote_from_openflow10(const struct ofp10_action_remote *oar,
+                       struct ofpbuf *out)
+{
+    struct ofpact_remote *remote;
+
+    remote = ofpact_put_OUTPUT(out);
+    remote->port = ntohs(oar->port);
+    remote->ip = ntohs(oar->ip);
+    remote->max_len = ntohs(oar->max_len);
+
+    return ofputil_check_output_port(remote->port, OFPP_MAX);
+}
+#endif
 
 static enum ofperr
 enqueue_from_openflow10(const struct ofp_action_enqueue *oae,
@@ -459,6 +479,11 @@ ofpact_from_openflow10(const union ofp_action *a, struct ofpbuf *out)
         error = enqueue_from_openflow10((const struct ofp_action_enqueue *) a,
                                         out);
         break;
+
+#ifdef LC_ENABLE
+    case OFPUTIL_OFPAT10_REMOTE:
+        return output_from_openflow10(&a->output10, out);
+#endif
 
 #define NXAST_ACTION(ENUM, STRUCT, EXTENSIBLE, NAME) case OFPUTIL_##ENUM:
 #include "ofp-util.def"
@@ -980,6 +1005,10 @@ ofpact_check__(const struct ofpact *a, const struct flow *flow, int max_ports)
     case OFPACT_OUTPUT:
         return ofputil_check_output_port(ofpact_get_OUTPUT(a)->port,
                                          max_ports);
+#ifdef LC_ENABLE
+    case OFPACT_REMOTE:
+        return 0;
+#endif
 
     case OFPACT_CONTROLLER:
         return 0;
@@ -1835,6 +1864,11 @@ ofpacts_format(const struct ofpact *ofpacts, size_t ofpacts_len,
 
 /* Internal use by helpers. */
 
+/**
+ * put an ofpact into ofpacts with given type.
+ * @return The added action header.
+ * Basic template to generate functions like ofpact_put_OUTPUT.
+ */
 void *
 ofpact_put(struct ofpbuf *ofpacts, enum ofpact_type type, size_t len)
 {

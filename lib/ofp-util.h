@@ -407,6 +407,7 @@ enum ofputil_action_bitmap {
     OFPUTIL_A_SET_TP_SRC     = 1 << 10,
     OFPUTIL_A_SET_TP_DST     = 1 << 11,
     OFPUTIL_A_ENQUEUE        = 1 << 12,
+    OFPUTIL_A_REMOTE        = 1 << 27,
     OFPUTIL_A_COPY_TTL_OUT   = 1 << 13,
     OFPUTIL_A_COPY_TTL_IN    = 1 << 14,
     OFPUTIL_A_SET_MPLS_LABEL = 1 << 15,

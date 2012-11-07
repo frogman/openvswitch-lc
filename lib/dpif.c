@@ -994,6 +994,7 @@ dpif_execute__(struct dpif *dpif, const struct dpif_execute *execute)
 
     COVERAGE_INC(dpif_execute);
     if (execute->actions_len > 0) {
+        /*call dpif_linux_execute() to send nlmsg to the datapath.*/
         error = dpif->dpif_class->execute(dpif, execute);
     } else {
         error = 0;

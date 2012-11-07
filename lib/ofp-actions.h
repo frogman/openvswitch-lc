@@ -25,6 +25,10 @@
 #include "openflow/nicira-ext.h"
 #include "openvswitch/types.h"
 
+#ifndef LC_ENABLE
+#define LC_ENABLE
+#endif
+
 /* List of OVS abstracted actions.
  *
  * This macro is used directly only internally by this header, but the list is
@@ -55,6 +59,9 @@
     DEFINE_OFPACT(ENQUEUE,         ofpact_enqueue,       ofpact)    \
     DEFINE_OFPACT(OUTPUT_REG,      ofpact_output_reg,    ofpact)    \
     DEFINE_OFPACT(BUNDLE,          ofpact_bundle,        slaves)    \
+#ifdef LC_ENABLE
+    DEFINE_OFPACT(REMOTE,          ofpact_remote,        ofpact)    \
+#endif
                                                                     \
     /* Header changes. */                                           \
     DEFINE_OFPACT(SET_VLAN_VID,    ofpact_vlan_vid,      ofpact)    \
@@ -163,6 +170,19 @@ struct ofpact_output {
     uint16_t port;              /* Output port. */
     uint16_t max_len;           /* Max send len, for port OFPP_CONTROLLER. */
 };
+
+#ifdef LC_ENABLE
+/* OFPACT_REMOTE.
+ *
+ * Used for OFPAT10_REMOTE. */
+struct ofpact_remote {
+    struct ofpact ofpact;
+    uint16_t port;              /* Output port. */
+    uint32_t ip;              /* Remote ip. */
+    uint16_t max_len;           /* Max send len, for port OFPP_CONTROLLER. */
+};
+
+#endif
 
 /* OFPACT_CONTROLLER.
  *

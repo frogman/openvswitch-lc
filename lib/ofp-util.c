@@ -43,6 +43,10 @@
 #include "type-props.h"
 #include "vlog.h"
 
+#ifndef LC_ENABLE
+#define LC_ENABLE
+#endif
+
 VLOG_DEFINE_THIS_MODULE(ofp_util);
 
 /* Rate limit for OpenFlow message parse errors.  These always indicate a bug
@@ -2324,11 +2328,11 @@ ofputil_decode_packet_out(struct ofputil_packet_out *po,
 
 #ifdef LC_ENABLE
 /* Converts an OFPT_PACKET_REMOTE in 'opo' into an abstract ofputil_packet_remote in
- * 'po'.
+ * 'pr'.
  *
- * Uses 'ofpacts' to store the abstract OFPACT_* version of the packet out
+ * Uses 'ofpacts' to store the abstract OFPACT_* version of the packet remote
  * message's actions.  The caller must initialize 'ofpacts' and retains
- * ownership of it.  'po->ofpacts' will point into the 'ofpacts' buffer.
+ * ownership of it.  'pr->ofpacts' will point into the 'ofpacts' buffer.
  *
  * Returns 0 if successful, otherwise an OFPERR_* value. */
 enum ofperr
@@ -2343,26 +2347,10 @@ ofputil_decode_packet_remote(struct ofputil_packet_remote *pr,
     ofpbuf_use_const(&b, oh, ntohs(oh->length));
     raw = ofpraw_pull_assert(&b);
 
-    if (raw == OFPRAW_OFPT11_PACKET_OUT) {
-        //TODO: maybe we should also support 1.1, the following codes
-        //are only from the ofputil_decode_packet_out function, need modification.
-        enum ofperr error;
-        const struct ofp11_packet_out *opo = ofpbuf_pull(&b, sizeof *opo);
-
-        pr->buffer_id = ntohl(opo->buffer_id);
-        error = ofputil_port_from_ofp11(opo->in_port, &pr->in_port);
-        if (error) {
-            return error;
-        }
-
-        error = ofpacts_pull_openflow11_actions(&b, ntohs(opo->actions_len),
-                                                ofpacts);
-        if (error) {
-            return error;
-        }
-
-        bad_in_port_err = OFPERR_OFPBMC_BAD_VALUE;
-    } else if (raw == OFPRAW_OFPT10_PACKET_OUT) {
+    if (raw == OFPRAW_OFPT11_PACKET_REMOTE) {
+        //TODO: maybe we should also support 1.1 in future.
+        return -1;
+    } else if (raw == OFPRAW_OFPT10_PACKET_REMOTE) {
         enum ofperr error;
         const struct ofp_packet_remote *opr = ofpbuf_pull(&b, sizeof *opr);
 

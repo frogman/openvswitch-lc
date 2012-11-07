@@ -509,7 +509,7 @@ enum ovs_action_attr {
 	OVS_ACTION_ATTR_POP_VLAN,     /* No argument. */
 	OVS_ACTION_ATTR_SAMPLE,       /* Nested OVS_SAMPLE_ATTR_*. */
 #ifdef LC_ENABLE
-	OVS_ACTION_ATTR_REMOTE,	      /* encapulate and send pkt to remote sw. */
+	OVS_ACTION_ATTR_REMOTE=12,	      /* encapulate and send pkt to remote sw. */
 #endif
 	__OVS_ACTION_ATTR_MAX
 };

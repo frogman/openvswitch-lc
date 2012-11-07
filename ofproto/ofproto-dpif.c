@@ -6500,6 +6500,55 @@ packet_out(struct ofproto *ofproto_, struct ofpbuf *packet,
     }
     return error;
 }
+
+#ifdef LC_ENABLE
+/**
+ * send OVS_ACTION_ATTR_REMOTE cmd to datapath.
+ */
+static enum ofperr
+packet_remote(struct ofproto *ofproto_, struct ofpbuf *packet,
+           const struct flow *flow,
+           const struct ofpact *ofpacts, size_t ofpacts_len)
+{
+    struct ofproto_dpif *ofproto = ofproto_dpif_cast(ofproto_);
+    enum ofperr error;
+
+    if (flow->in_port >= ofproto->max_ports && flow->in_port < OFPP_MAX) {
+        return OFPERR_NXBRC_BAD_IN_PORT;
+    }
+
+    error = ofpacts_check(ofpacts, ofpacts_len, flow, ofproto->max_ports);
+    if (!error) {
+        struct odputil_keybuf keybuf;
+        struct dpif_flow_stats stats;
+
+        struct ofpbuf key;
+
+        struct action_xlate_ctx ctx;
+        uint64_t odp_actions_stub[1024 / 8];
+        struct ofpbuf odp_actions;
+
+        ofpbuf_use_stack(&key, &keybuf, sizeof keybuf);
+        odp_flow_key_from_flow(&key, flow);
+
+        dpif_flow_stats_extract(flow, packet, time_msec(), &stats);
+
+        action_xlate_ctx_init(&ctx, ofproto, flow, flow->vlan_tci, NULL,
+                              packet_get_tcp_flags(packet, flow), packet);
+        ctx.resubmit_stats = &stats;
+
+        ofpbuf_use_stub(&odp_actions,
+                        odp_actions_stub, sizeof odp_actions_stub);
+        xlate_actions(&ctx, ofpacts, ofpacts_len, &odp_actions);
+        dpif_execute(ofproto->dpif, key.data, key.size,
+                     odp_actions.data, odp_actions.size, packet);
+        ofpbuf_uninit(&odp_actions);
+    }
+    return error;
+}
+
+#endif
+
 
 /* NetFlow. */
 
@@ -7265,6 +7314,7 @@ const struct ofproto_class ofproto_dpif_class = {
     set_mac_idle_time,
     set_realdev,
 #ifdef LC_ENABLE
+    packet_remote,
     bf_gdt_update,
     get_stat,
 #endif
