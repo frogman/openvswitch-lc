@@ -1086,6 +1086,19 @@ dp_netdev_output_port(struct dp_netdev *dp, struct ofpbuf *packet,
     }
 }
 
+#ifdef LC_ENABLE
+//TODO: handle remote cmd?
+static void
+dp_netdev_remote_port(struct dp_netdev *dp, struct ofpbuf *packet,
+                      uint16_t out_port)
+{
+    struct dp_netdev_port *p = dp->ports[out_port];
+    if (p) {
+        netdev_send(p->netdev, packet);
+    }
+}
+#endif
+
 static int
 dp_netdev_output_userspace(struct dp_netdev *dp, const struct ofpbuf *packet,
                          int queue_no, const struct flow *flow, uint64_t arg)
@@ -1236,6 +1249,12 @@ dp_netdev_execute_actions(struct dp_netdev *dp,
         case OVS_ACTION_ATTR_OUTPUT:
             dp_netdev_output_port(dp, packet, nl_attr_get_u32(a));
             break;
+
+#ifdef LC_ENABLE
+        case OVS_ACTION_ATTR_REMOTE:
+            dp_netdev_remote_port(dp, packet, nl_attr_get_u32(a));
+            break;
+#endif
 
         case OVS_ACTION_ATTR_USERSPACE:
             dp_netdev_action_userspace(dp, packet, key, a);
