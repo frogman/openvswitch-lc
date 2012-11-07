@@ -2347,10 +2347,13 @@ ofputil_decode_packet_remote(struct ofputil_packet_remote *pr,
     ofpbuf_use_const(&b, oh, ntohs(oh->length));
     raw = ofpraw_pull_assert(&b);
 
+    /*
     if (raw == OFPRAW_OFPT11_PACKET_REMOTE) {
         //TODO: maybe we should also support 1.1 in future.
         return -1;
-    } else if (raw == OFPRAW_OFPT10_PACKET_REMOTE) {
+    } else 
+    */
+    if (raw == OFPRAW_OFPT10_PACKET_REMOTE) {
         enum ofperr error;
         const struct ofp_packet_remote *opr = ofpbuf_pull(&b, sizeof *opr);
 

@@ -57,11 +57,9 @@
     DEFINE_OFPACT(OUTPUT,          ofpact_output,        ofpact)    \
     DEFINE_OFPACT(CONTROLLER,      ofpact_controller,    ofpact)    \
     DEFINE_OFPACT(ENQUEUE,         ofpact_enqueue,       ofpact)    \
+    DEFINE_OFPACT(REMOTE,          ofpact_remote,        ofpact)    \
     DEFINE_OFPACT(OUTPUT_REG,      ofpact_output_reg,    ofpact)    \
     DEFINE_OFPACT(BUNDLE,          ofpact_bundle,        slaves)    \
-#ifdef LC_ENABLE
-    DEFINE_OFPACT(REMOTE,          ofpact_remote,        ofpact)    \
-#endif
                                                                     \
     /* Header changes. */                                           \
     DEFINE_OFPACT(SET_VLAN_VID,    ofpact_vlan_vid,      ofpact)    \
