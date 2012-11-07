@@ -163,12 +163,12 @@ enum ofpraw {
 
     /* OFPT 1.0 (18): void. */
     OFPRAW_OFPT10_BARRIER_REQUEST,
-    /* OFPT 1.1 (20): void. */
+    /* OFPT 1.1+ (20): void. */
     OFPRAW_OFPT11_BARRIER_REQUEST,
 
     /* OFPT 1.0 (19): void. */
     OFPRAW_OFPT10_BARRIER_REPLY,
-    /* OFPT 1.1 (21): void. */
+    /* OFPT 1.1+ (21): void. */
     OFPRAW_OFPT11_BARRIER_REPLY,
 
 /* Standard statistics. */
@@ -194,11 +194,13 @@ enum ofpraw {
     OFPRAW_NXST_FLOW_REPLY,
 
     /* OFPST 1.0 (2): struct ofp10_flow_stats_request. */
-    OFPRAW_OFPST_AGGREGATE_REQUEST,
+    OFPRAW_OFPST10_AGGREGATE_REQUEST,
+    /* OFPST 1.1+ (2): struct ofp11_flow_stats_request, uint8_t[8][]. */
+    OFPRAW_OFPST11_AGGREGATE_REQUEST,
     /* NXST 1.0 (1): struct nx_flow_stats_request, uint8_t[8][]. */
     OFPRAW_NXST_AGGREGATE_REQUEST,
 
-    /* OFPST 1.0 (2): struct ofp_aggregate_stats_reply. */
+    /* OFPST 1.0+ (2): struct ofp_aggregate_stats_reply. */
     OFPRAW_OFPST_AGGREGATE_REPLY,
     /* NXST 1.0 (1): struct ofp_aggregate_stats_reply. */
     OFPRAW_NXST_AGGREGATE_REPLY,
@@ -214,22 +216,32 @@ enum ofpraw {
     OFPRAW_OFPST12_TABLE_REPLY,
 
     /* OFPST 1.0 (4): struct ofp10_port_stats_request. */
-    OFPRAW_OFPST_PORT_REQUEST,
+    OFPRAW_OFPST10_PORT_REQUEST,
+    /* OFPST 1.1+ (4): struct ofp11_port_stats_request. */
+    OFPRAW_OFPST11_PORT_REQUEST,
 
     /* OFPST 1.0 (4): struct ofp10_port_stats[]. */
-    OFPRAW_OFPST_PORT_REPLY,
+    OFPRAW_OFPST10_PORT_REPLY,
+    /* OFPST 1.1+ (4): struct ofp11_port_stats[]. */
+    OFPRAW_OFPST11_PORT_REPLY,
 
     /* OFPST 1.0 (5): struct ofp10_queue_stats_request. */
-    OFPRAW_OFPST_QUEUE_REQUEST,
+    OFPRAW_OFPST10_QUEUE_REQUEST,
+    /* OFPST 1.1+ (5): struct ofp11_queue_stats_request. */
+    OFPRAW_OFPST11_QUEUE_REQUEST,
 
     /* OFPST 1.0 (5): struct ofp10_queue_stats[]. */
-    OFPRAW_OFPST_QUEUE_REPLY,
+    OFPRAW_OFPST10_QUEUE_REPLY,
+    /* OFPST 1.1+ (5): struct ofp11_queue_stats[]. */
+    OFPRAW_OFPST11_QUEUE_REPLY,
 
-    /* OFPST 1.0 (13): void. */
+    /* OFPST 1.0+ (13): void. */
     OFPRAW_OFPST_PORT_DESC_REQUEST,
 
     /* OFPST 1.0 (13): struct ofp10_phy_port[]. */
-    OFPRAW_OFPST_PORT_DESC_REPLY,
+    OFPRAW_OFPST10_PORT_DESC_REPLY,
+    /* OFPST 1.1+ (13): struct ofp11_port[]. */
+    OFPRAW_OFPST11_PORT_DESC_REPLY,
 
 /* Nicira extension messages.
  *
@@ -371,7 +383,8 @@ enum ofptype {
     OFPTYPE_FLOW_STATS_REPLY,        /* OFPRAW_OFPST10_FLOW_REPLY.
                                       * OFPRAW_OFPST11_FLOW_REPLY.
                                       * OFPRAW_NXST_FLOW_REPLY. */
-    OFPTYPE_AGGREGATE_STATS_REQUEST, /* OFPRAW_OFPST_AGGREGATE_REQUEST.
+    OFPTYPE_AGGREGATE_STATS_REQUEST, /* OFPRAW_OFPST10_AGGREGATE_REQUEST.
+                                      * OFPRAW_OFPST11_AGGREGATE_REQUEST.
                                       * OFPRAW_NXST_AGGREGATE_REQUEST. */
     OFPTYPE_AGGREGATE_STATS_REPLY,   /* OFPRAW_OFPST_AGGREGATE_REPLY.
                                       * OFPRAW_NXST_AGGREGATE_REPLY. */
@@ -379,12 +392,18 @@ enum ofptype {
     OFPTYPE_TABLE_STATS_REPLY,       /* OFPRAW_OFPST10_TABLE_REPLY.
                                       * OFPRAW_OFPST11_TABLE_REPLY.
                                       * OFPRAW_OFPST12_TABLE_REPLY. */
-    OFPTYPE_PORT_STATS_REQUEST,      /* OFPRAW_OFPST_PORT_REQUEST. */
-    OFPTYPE_PORT_STATS_REPLY,        /* OFPRAW_OFPST_PORT_REPLY. */
-    OFPTYPE_QUEUE_STATS_REQUEST,     /* OFPRAW_OFPST_QUEUE_REQUEST. */
-    OFPTYPE_QUEUE_STATS_REPLY,       /* OFPRAW_OFPST_QUEUE_REPLY. */
+    OFPTYPE_PORT_STATS_REQUEST,      /* OFPRAW_OFPST10_PORT_REQUEST.
+                                      * OFPRAW_OFPST11_PORT_REQUEST. */
+    OFPTYPE_PORT_STATS_REPLY,        /* OFPRAW_OFPST10_PORT_REPLY.
+                                      * OFPRAW_OFPST11_PORT_REPLY. */
+    OFPTYPE_QUEUE_STATS_REQUEST,     /* OFPRAW_OFPST10_QUEUE_REQUEST.
+                                      * OFPRAW_OFPST11_QUEUE_REQUEST. */
+    OFPTYPE_QUEUE_STATS_REPLY,       /* OFPRAW_OFPST10_QUEUE_REPLY.
+                                      * OFPRAW_OFPST11_QUEUE_REPLY. */
     OFPTYPE_PORT_DESC_STATS_REQUEST, /* OFPRAW_OFPST_PORT_DESC_REQUEST. */
-    OFPTYPE_PORT_DESC_STATS_REPLY,   /* OFPRAW_OFPST_PORT_DESC_REPLY. */
+
+    OFPTYPE_PORT_DESC_STATS_REPLY,   /* OFPRAW_OFPST10_PORT_DESC_REPLY.
+                                      * OFPRAW_OFPST11_PORT_DESC_REPLY. */
 
     /* Nicira extensions. */
     OFPTYPE_ROLE_REQUEST,         /* OFPRAW_NXT_ROLE_REQUEST. */

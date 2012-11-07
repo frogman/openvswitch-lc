@@ -106,7 +106,12 @@ enum oxm12_ofb_match_fields {
     OFPXMT12_OFB_IPV6_ND_TLL,    /* Target link-layer for ND. */
     OFPXMT12_OFB_MPLS_LABEL,     /* MPLS label. */
     OFPXMT12_OFB_MPLS_TC,        /* MPLS TC. */
+
+    /* End Marker */
+    OFPXMT12_OFB_MAX,
 };
+
+#define OFPXMT12_MASK ((1ULL << OFPXMT12_OFB_MAX) - 1)
 
 /* OXM implementation makes use of NXM as they are the same format
  * with different field definitions
@@ -185,23 +190,7 @@ struct ofp12_oxm_experimenter_header {
 OFP_ASSERT(sizeof(struct ofp12_oxm_experimenter_header) == 8);
 
 enum ofp12_action_type {
-    OFPAT12_OUTPUT       = 0,  /* Output to switch port. */
-    OFPAT12_COPY_TTL_OUT = 11, /* Copy TTL "outwards" -- from next-to-outermost
-                                  to outermost */
-    OFPAT12_COPY_TTL_IN,       /* Copy TTL "inwards" -- from outermost to
-                                  next-to-outermost */
-    OFPAT12_SET_MPLS_TTL = 15, /* MPLS TTL */
-    OFPAT12_DEC_MPLS_TTL,      /* Decrement MPLS TTL */
-    OFPAT12_PUSH_VLAN,         /* Push a new VLAN tag */
-    OFPAT12_POP_VLAN,          /* Pop the outer VLAN tag */
-    OFPAT12_PUSH_MPLS,         /* Push a new MPLS tag */
-    OFPAT12_POP_MPLS,          /* Pop the outer MPLS tag */
-    OFPAT12_SET_QUEUE,         /* Set queue id when outputting to a port */
-    OFPAT12_GROUP,             /* Apply group. */
-    OFPAT12_SET_NW_TTL,        /* IP TTL. */
-    OFPAT12_DEC_NW_TTL,        /* Decrement IP TTL. */
-    OFPAT12_SET_FIELD,         /* Set a header field using OXM TLV format. */
-    OFPAT12_EXPERIMENTER = 0xffff
+    OFPAT12_SET_FIELD = 25,     /* Set a header field using OXM TLV format. */
 };
 
 enum ofp12_controller_max_len {
@@ -216,12 +205,11 @@ enum ofp12_controller_max_len {
 struct ofp12_action_set_field {
     ovs_be16 type;                  /* OFPAT12_SET_FIELD. */
     ovs_be16 len;                   /* Length is padded to 64 bits. */
+    ovs_be32 dst;                   /* OXM TLV header */
     /* Followed by:
-     * - Exactly oxm_len bytes containing a single OXM TLV, then
      * - Exactly ((oxm_len + 4) + 7)/8*8 - (oxm_len + 4) (between 0 and 7)
      *   bytes of all-zero bytes
      */
-    uint8_t field[4];               /* OXM TLV - Make compiler happy */
 };
 OFP_ASSERT(sizeof(struct ofp12_action_set_field) == 8);
 

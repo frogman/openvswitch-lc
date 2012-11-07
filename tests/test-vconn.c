@@ -148,8 +148,7 @@ test_refuse_connection(int argc OVS_UNUSED, char *argv[])
     int error;
 
     fpv_create(type, &fpv);
-    CHECK_ERRNO(vconn_open(fpv.vconn_name, OFP10_VERSION, &vconn,
-                           DSCP_DEFAULT), 0);
+    CHECK_ERRNO(vconn_open(fpv.vconn_name, 0, &vconn, DSCP_DEFAULT), 0);
     fpv_close(&fpv);
     vconn_run(vconn);
 
@@ -159,8 +158,15 @@ test_refuse_connection(int argc OVS_UNUSED, char *argv[])
             ovs_fatal(0, "unexpected vconn_connect() return value %d (%s)",
                       error, strerror(error));
         }
+    } else if (!strcmp(type, "unix")) {
+        CHECK_ERRNO(error, EPIPE);
+    } else if (!strcmp(type, "ssl")) {
+        if (error != EPROTO && error != ECONNRESET) {
+            ovs_fatal(0, "unexpected vconn_connect() return value %d (%s)",
+                      error, strerror(error));
+        }
     } else {
-        CHECK_ERRNO(error, !strcmp(type, "unix") ? EPIPE : EPROTO);
+        ovs_fatal(0, "invalid connection type %s", type);
     }
 
     vconn_close(vconn);
@@ -179,8 +185,7 @@ test_accept_then_close(int argc OVS_UNUSED, char *argv[])
     int error;
 
     fpv_create(type, &fpv);
-    CHECK_ERRNO(vconn_open(fpv.vconn_name, OFP10_VERSION, &vconn,
-                           DSCP_DEFAULT), 0);
+    CHECK_ERRNO(vconn_open(fpv.vconn_name, 0, &vconn, DSCP_DEFAULT), 0);
     vconn_run(vconn);
     stream_close(fpv_accept(&fpv));
     fpv_close(&fpv);
@@ -212,8 +217,7 @@ test_read_hello(int argc OVS_UNUSED, char *argv[])
     int error;
 
     fpv_create(type, &fpv);
-    CHECK_ERRNO(vconn_open(fpv.vconn_name, OFP10_VERSION, &vconn,
-                           DSCP_DEFAULT), 0);
+    CHECK_ERRNO(vconn_open(fpv.vconn_name, 0, &vconn, DSCP_DEFAULT), 0);
     vconn_run(vconn);
     stream = fpv_accept(&fpv);
     fpv_destroy(&fpv);
@@ -266,8 +270,7 @@ test_send_hello(const char *type, const void *out, size_t out_size,
     size_t n_sent;
 
     fpv_create(type, &fpv);
-    CHECK_ERRNO(vconn_open(fpv.vconn_name, OFP10_VERSION, &vconn,
-                           DSCP_DEFAULT), 0);
+    CHECK_ERRNO(vconn_open(fpv.vconn_name, 0, &vconn, DSCP_DEFAULT), 0);
     vconn_run(vconn);
     stream = fpv_accept(&fpv);
     fpv_destroy(&fpv);

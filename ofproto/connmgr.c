@@ -137,7 +137,8 @@ struct ofservice {
 
 static void ofservice_reconfigure(struct ofservice *,
                                   const struct ofproto_controller *);
-static int ofservice_create(struct connmgr *, const char *target, uint8_t dscp);
+static int ofservice_create(struct connmgr *mgr, const char *target,
+                            uint32_t allowed_versions, uint8_t dscp);
 static void ofservice_destroy(struct connmgr *, struct ofservice *);
 static struct ofservice *ofservice_lookup(struct connmgr *,
                                           const char *target);
@@ -289,7 +290,7 @@ connmgr_run(struct connmgr *mgr,
         struct vconn *vconn;
         int retval;
 
-        retval = pvconn_accept(ofservice->pvconn, OFP10_VERSION, &vconn);
+        retval = pvconn_accept(ofservice->pvconn, &vconn);
         if (!retval) {
             struct rconn *rconn;
             char *name;
@@ -313,7 +314,7 @@ connmgr_run(struct connmgr *mgr,
         struct vconn *vconn;
         int retval;
 
-        retval = pvconn_accept(mgr->snoops[i], OFP10_VERSION, &vconn);
+        retval = pvconn_accept(mgr->snoops[i], &vconn);
         if (!retval) {
             add_snooper(mgr, vconn);
         } else if (retval != EAGAIN) {
@@ -513,7 +514,7 @@ connmgr_set_controllers(struct connmgr *mgr,
             if (!ofservice_lookup(mgr, c->target)) {
                 VLOG_INFO("%s: added service controller \"%s\"",
                           mgr->name, c->target);
-                ofservice_create(mgr, c->target, c->dscp);
+                ofservice_create(mgr, c->target, 0, c->dscp);
             }
         } else {
             VLOG_WARN_RL(&rl, "%s: unsupported controller \"%s\"",
@@ -720,8 +721,7 @@ set_pvconns(struct pvconn ***pvconnsp, size_t *n_pvconnsp,
     SSET_FOR_EACH (name, sset) {
         struct pvconn *pvconn;
         int error;
-
-        error = pvconn_open(name, &pvconn, 0);
+        error = pvconn_open(name, 0, &pvconn, 0);
         if (!error) {
             pvconns[n_pvconns++] = pvconn;
         } else {
@@ -1604,14 +1604,14 @@ connmgr_flushed(struct connmgr *mgr)
     if (!connmgr_has_controllers(mgr)
         && mgr->fail_mode == OFPROTO_FAIL_STANDALONE) {
         struct ofpbuf ofpacts;
-        struct cls_rule rule;
+        struct match match;
 
         ofpbuf_init(&ofpacts, OFPACT_OUTPUT_SIZE);
         ofpact_put_OUTPUT(&ofpacts)->port = OFPP_NORMAL;
         ofpact_pad(&ofpacts);
 
-        cls_rule_init_catchall(&rule, 0);
-        ofproto_add_flow(mgr->ofproto, &rule, ofpacts.data, ofpacts.size);
+        match_init_catchall(&match);
+        ofproto_add_flow(mgr->ofproto, &match, 0, ofpacts.data, ofpacts.size);
 
         ofpbuf_uninit(&ofpacts);
     }
@@ -1623,13 +1623,14 @@ connmgr_flushed(struct connmgr *mgr)
  * ofservice_reconfigure() must be called to fully configure the new
  * ofservice. */
 static int
-ofservice_create(struct connmgr *mgr, const char *target, uint8_t dscp)
+ofservice_create(struct connmgr *mgr, const char *target,
+                 uint32_t allowed_versions, uint8_t dscp)
 {
     struct ofservice *ofservice;
     struct pvconn *pvconn;
     int error;
 
-    error = pvconn_open(target, &pvconn, dscp);
+    error = pvconn_open(target, allowed_versions, &pvconn, dscp);
     if (error) {
         return error;
     }
@@ -1721,7 +1722,7 @@ ofmonitor_create(const struct ofputil_flow_monitor_request *request,
     m->flags = request->flags;
     m->out_port = request->out_port;
     m->table_id = request->table_id;
-    m->match = request->match;
+    minimatch_init(&m->match, &request->match);
 
     *monitorp = m;
     return 0;
@@ -1809,6 +1810,7 @@ ofmonitor_report(struct connmgr *mgr, struct rule *rule,
 
             if (ofconn != abbrev_ofconn || ofconn->monitor_paused) {
                 struct ofputil_flow_update fu;
+                struct match match;
 
                 fu.event = event;
                 fu.reason = event == NXFME_DELETED ? reason : 0;
@@ -1816,7 +1818,9 @@ ofmonitor_report(struct connmgr *mgr, struct rule *rule,
                 fu.hard_timeout = rule->hard_timeout;
                 fu.table_id = rule->table_id;
                 fu.cookie = rule->flow_cookie;
-                fu.match = &rule->cr;
+                minimatch_expand(&rule->cr.match, &match);
+                fu.match = &match;
+                fu.priority = rule->cr.priority;
                 if (flags & NXFMF_ACTIONS) {
                     fu.ofpacts = rule->ofpacts;
                     fu.ofpacts_len = rule->ofpacts_len;
