@@ -50,6 +50,7 @@ void jsonrpc_wait(struct jsonrpc *);
 
 int jsonrpc_get_status(const struct jsonrpc *);
 size_t jsonrpc_get_backlog(const struct jsonrpc *);
+unsigned int jsonrpc_get_received_bytes(const struct jsonrpc *);
 const char *jsonrpc_get_name(const struct jsonrpc *);
 
 int jsonrpc_send(struct jsonrpc *, struct jsonrpc_msg *);
@@ -98,7 +99,8 @@ struct json *jsonrpc_msg_to_json(struct jsonrpc_msg *);
 /* A JSON-RPC session with reconnection. */
 
 struct jsonrpc_session *jsonrpc_session_open(const char *name);
-struct jsonrpc_session *jsonrpc_session_open_unreliably(struct jsonrpc *);
+struct jsonrpc_session *jsonrpc_session_open_unreliably(struct jsonrpc *,
+                                                        uint8_t);
 void jsonrpc_session_close(struct jsonrpc_session *);
 
 void jsonrpc_session_run(struct jsonrpc_session *);

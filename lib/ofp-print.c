@@ -63,7 +63,7 @@ ofp_packet_to_string(const void *data, size_t len)
     struct flow flow;
 
     ofpbuf_use_const(&buf, data, len);
-    flow_extract(&buf, 0, 0, 0, &flow);
+    flow_extract(&buf, 0, NULL, 0, &flow);
     flow_format(&ds, &flow);
 
     if (buf.l7) {
@@ -457,6 +457,7 @@ ofputil_action_bitmap_to_name(uint32_t bit)
     case OFPUTIL_A_SET_NW_TOS:     return "SET_NW_TOS";
     case OFPUTIL_A_SET_TP_SRC:     return "SET_TP_SRC";
     case OFPUTIL_A_SET_TP_DST:     return "SET_TP_DST";
+    case OFPUTIL_A_SET_FIELD:      return "SET_FIELD";
     case OFPUTIL_A_ENQUEUE:        return "ENQUEUE";
     case OFPUTIL_A_COPY_TTL_OUT:   return "COPY_TTL_OUT";
     case OFPUTIL_A_COPY_TTL_IN:    return "COPY_TTL_IN";
@@ -616,6 +617,8 @@ ofp10_match_to_string(const struct ofp10_match *om, int verbosity)
             }
         } else if (om->dl_type == htons(ETH_TYPE_ARP)) {
             ds_put_cstr(&f, "arp,");
+        } else if (om->dl_type == htons(ETH_TYPE_RARP)){
+            ds_put_cstr(&f, "rarp,");
         } else {
             skip_type = false;
         }
@@ -641,7 +644,8 @@ ofp10_match_to_string(const struct ofp10_match *om, int verbosity)
                      (w & OFPFW10_NW_DST_MASK) >> OFPFW10_NW_DST_SHIFT,
                      verbosity);
     if (!skip_proto) {
-        if (om->dl_type == htons(ETH_TYPE_ARP)) {
+        if (om->dl_type == htons(ETH_TYPE_ARP) ||
+            om->dl_type == htons(ETH_TYPE_RARP)) {
             print_wild(&f, "arp_op=", w & OFPFW10_NW_PROTO, verbosity,
                        "%u", om->nw_proto);
         } else {
@@ -733,16 +737,16 @@ ofp_print_flow_mod(struct ds *s, const struct ofp_header *oh, int verbosity)
         /* nx_match_to_string() doesn't print priority. */
         need_priority = true;
     } else {
-        cls_rule_format(&fm.cr, s);
+        match_format(&fm.match, s, fm.priority);
 
-        /* cls_rule_format() does print priority. */
+        /* match_format() does print priority. */
         need_priority = false;
     }
 
     if (ds_last(s) != ' ') {
         ds_put_char(s, ' ');
     }
-    if (fm.new_cookie != htonll(0)) {
+    if (fm.new_cookie != htonll(0) && fm.new_cookie != htonll(UINT64_MAX)) {
         ds_put_format(s, "cookie:0x%"PRIx64" ", ntohll(fm.new_cookie));
     }
     if (fm.cookie_mask != htonll(0)) {
@@ -755,8 +759,8 @@ ofp_print_flow_mod(struct ds *s, const struct ofp_header *oh, int verbosity)
     if (fm.hard_timeout != OFP_FLOW_PERMANENT) {
         ds_put_format(s, "hard:%"PRIu16" ", fm.hard_timeout);
     }
-    if (fm.cr.priority != OFP_DEFAULT_PRIORITY && need_priority) {
-        ds_put_format(s, "pri:%"PRIu16" ", fm.cr.priority);
+    if (fm.priority != OFP_DEFAULT_PRIORITY && need_priority) {
+        ds_put_format(s, "pri:%"PRIu16" ", fm.priority);
     }
     if (fm.buffer_id != UINT32_MAX) {
         ds_put_format(s, "buf:0x%"PRIx32" ", fm.buffer_id);
@@ -837,10 +841,14 @@ ofp_print_flow_removed(struct ds *string, const struct ofp_header *oh)
     }
 
     ds_put_char(string, ' ');
-    cls_rule_format(&fr.rule, string);
+    match_format(&fr.match, string, fr.priority);
 
     ds_put_format(string, " reason=%s",
                   ofp_flow_removed_reason_to_string(fr.reason));
+
+    if (fr.table_id != 255) {
+        ds_put_format(string, " table_id=%"PRIu8, fr.table_id);
+    }
 
     if (fr.cookie != htonll(0)) {
         ds_put_format(string, " cookie:0x%"PRIx64, ntohll(fr.cookie));
@@ -893,6 +901,23 @@ ofp_print_error(struct ds *string, enum ofperr error)
         ds_put_char(string, ' ');
     }
     ds_put_format(string, "***decode error: %s***\n", ofperr_get_name(error));
+}
+
+static void
+ofp_print_hello(struct ds *string, const struct ofp_header *oh)
+{
+    uint32_t allowed_versions;
+    bool ok;
+
+    ok = ofputil_decode_hello(oh, &allowed_versions);
+
+    ds_put_cstr(string, "\n version bitmap: ");
+    ofputil_format_version_bitmap(string, allowed_versions);
+
+    if (!ok) {
+        ds_put_cstr(string, "\n unknown data in hello:\n");
+        ds_put_hex_dump(string, oh, ntohs(oh->length), 0, true);
+    }
 }
 
 static void
@@ -983,12 +1008,8 @@ ofp_print_flow_stats_request(struct ds *string, const struct ofp_header *oh)
         ofputil_format_port(fsr.out_port, string);
     }
 
-    /* A flow stats request doesn't include a priority, but cls_rule_format()
-     * will print one unless it is OFP_DEFAULT_PRIORITY. */
-    fsr.match.priority = OFP_DEFAULT_PRIORITY;
-
     ds_put_char(string, ' ');
-    cls_rule_format(&fsr.match, string);
+    match_format(&fsr.match, string, OFP_DEFAULT_PRIORITY);
 }
 
 void
@@ -1014,7 +1035,7 @@ ofp_print_flow_stats(struct ds *string, struct ofputil_flow_stats *fs)
         ds_put_format(string, "hard_age=%d, ", fs->hard_age);
     }
 
-    cls_rule_format(&fs->rule, string);
+    match_format(&fs->match, string, fs->priority);
     if (string->string[string->length - 1] != ' ') {
         ds_put_char(string, ' ');
     }
@@ -1064,11 +1085,9 @@ ofp_print_aggregate_stats_reply(struct ds *string, const struct ofp_header *oh)
     ds_put_format(string, " flow_count=%"PRIu32, as.flow_count);
 }
 
-static void print_port_stat(struct ds *string, const char *leader,
-                            const ovs_32aligned_be64 *statp, int more)
+static void
+print_port_stat(struct ds *string, const char *leader, uint64_t stat, int more)
 {
-    uint64_t stat = ntohll(get_32aligned_be64(statp));
-
     ds_put_cstr(string, leader);
     if (stat != UINT64_MAX) {
         ds_put_format(string, "%"PRIu64, stat);
@@ -1085,50 +1104,59 @@ static void print_port_stat(struct ds *string, const char *leader,
 static void
 ofp_print_ofpst_port_request(struct ds *string, const struct ofp_header *oh)
 {
-    const struct ofp10_port_stats_request *psr = ofpmsg_body(oh);
-    ds_put_format(string, " port_no=%"PRIu16, ntohs(psr->port_no));
+    uint16_t ofp10_port;
+    enum ofperr error;
+
+    error = ofputil_decode_port_stats_request(oh, &ofp10_port);
+    if (error) {
+        ofp_print_error(string, error);
+        return;
+    }
+
+    ds_put_format(string, " port_no=%2"PRIu16, ofp10_port);
 }
 
 static void
 ofp_print_ofpst_port_reply(struct ds *string, const struct ofp_header *oh,
                            int verbosity)
 {
-    struct ofp10_port_stats *ps;
     struct ofpbuf b;
-    size_t n;
 
-    ofpbuf_use_const(&b, oh, ntohs(oh->length));
-    ofpraw_pull_assert(&b);
-
-    n = b.size / sizeof *ps;
-    ds_put_format(string, " %zu ports\n", n);
+    ds_put_format(string, " %zu ports\n", ofputil_count_port_stats(oh));
     if (verbosity < 1) {
         return;
     }
 
+    ofpbuf_use_const(&b, oh, ntohs(oh->length));
     for (;;) {
-        ps = ofpbuf_try_pull(&b, sizeof *ps);
-        if (!ps) {
+        struct ofputil_port_stats ps;
+        int retval;
+
+        retval = ofputil_decode_port_stats(&ps, &b);
+        if (retval) {
+            if (retval != EOF) {
+                ds_put_cstr(string, " ***parse error***");
+            }
             return;
         }
 
-        ds_put_format(string, "  port %2"PRIu16": ", ntohs(ps->port_no));
+        ds_put_format(string, "  port %2"PRIu16, ps.port_no);
 
-        ds_put_cstr(string, "rx ");
-        print_port_stat(string, "pkts=", &ps->rx_packets, 1);
-        print_port_stat(string, "bytes=", &ps->rx_bytes, 1);
-        print_port_stat(string, "drop=", &ps->rx_dropped, 1);
-        print_port_stat(string, "errs=", &ps->rx_errors, 1);
-        print_port_stat(string, "frame=", &ps->rx_frame_err, 1);
-        print_port_stat(string, "over=", &ps->rx_over_err, 1);
-        print_port_stat(string, "crc=", &ps->rx_crc_err, 0);
+        ds_put_cstr(string, ": rx ");
+        print_port_stat(string, "pkts=", ps.stats.rx_packets, 1);
+        print_port_stat(string, "bytes=", ps.stats.rx_bytes, 1);
+        print_port_stat(string, "drop=", ps.stats.rx_dropped, 1);
+        print_port_stat(string, "errs=", ps.stats.rx_errors, 1);
+        print_port_stat(string, "frame=", ps.stats.rx_frame_errors, 1);
+        print_port_stat(string, "over=", ps.stats.rx_over_errors, 1);
+        print_port_stat(string, "crc=", ps.stats.rx_crc_errors, 0);
 
         ds_put_cstr(string, "           tx ");
-        print_port_stat(string, "pkts=", &ps->tx_packets, 1);
-        print_port_stat(string, "bytes=", &ps->tx_bytes, 1);
-        print_port_stat(string, "drop=", &ps->tx_dropped, 1);
-        print_port_stat(string, "errs=", &ps->tx_errors, 1);
-        print_port_stat(string, "coll=", &ps->collisions, 0);
+        print_port_stat(string, "pkts=", ps.stats.tx_packets, 1);
+        print_port_stat(string, "bytes=", ps.stats.tx_bytes, 1);
+        print_port_stat(string, "drop=", ps.stats.tx_dropped, 1);
+        print_port_stat(string, "errs=", ps.stats.tx_errors, 1);
+        print_port_stat(string, "coll=", ps.stats.collisions, 0);
     }
 }
 
@@ -1318,47 +1346,55 @@ ofp_print_queue_name(struct ds *string, uint32_t queue_id)
 static void
 ofp_print_ofpst_queue_request(struct ds *string, const struct ofp_header *oh)
 {
-    const struct ofp10_queue_stats_request *qsr = ofpmsg_body(oh);
+    struct ofputil_queue_stats_request oqsr;
+    enum ofperr error;
+
+    error = ofputil_decode_queue_stats_request(oh, &oqsr);
+    if (error) {
+        ds_put_format(string, "***decode error: %s***\n", ofperr_get_name(error));
+        return;
+    }
 
     ds_put_cstr(string, "port=");
-    ofputil_format_port(ntohs(qsr->port_no), string);
+    ofputil_format_port(oqsr.port_no, string);
 
     ds_put_cstr(string, " queue=");
-    ofp_print_queue_name(string, ntohl(qsr->queue_id));
+    ofp_print_queue_name(string, oqsr.queue_id);
 }
 
 static void
 ofp_print_ofpst_queue_reply(struct ds *string, const struct ofp_header *oh,
                             int verbosity)
 {
-    struct ofp10_queue_stats *qs;
     struct ofpbuf b;
-    size_t n;
 
-    ofpbuf_use_const(&b, oh, ntohs(oh->length));
-    ofpraw_pull_assert(&b);
-
-    n = b.size / sizeof *qs;
-    ds_put_format(string, " %zu queues\n", n);
+    ds_put_format(string, " %zu queues\n", ofputil_count_queue_stats(oh));
     if (verbosity < 1) {
         return;
     }
 
+    ofpbuf_use_const(&b, oh, ntohs(oh->length));
     for (;;) {
-        qs = ofpbuf_try_pull(&b, sizeof *qs);
-        if (!qs) {
+        struct ofputil_queue_stats qs;
+        int retval;
+
+        retval = ofputil_decode_queue_stats(&qs, &b);
+        if (retval) {
+            if (retval != EOF) {
+                ds_put_cstr(string, " ***parse error***");
+            }
             return;
         }
 
         ds_put_cstr(string, "  port ");
-        ofputil_format_port(ntohs(qs->port_no), string);
+        ofputil_format_port(qs.port_no, string);
         ds_put_cstr(string, " queue ");
-        ofp_print_queue_name(string, ntohl(qs->queue_id));
+        ofp_print_queue_name(string, qs.queue_id);
         ds_put_cstr(string, ": ");
 
-        print_port_stat(string, "bytes=", &qs->tx_bytes, 1);
-        print_port_stat(string, "pkts=", &qs->tx_packets, 1);
-        print_port_stat(string, "errors=", &qs->tx_errors, 0);
+        print_port_stat(string, "bytes=", qs.stats.tx_bytes, 1);
+        print_port_stat(string, "pkts=", qs.stats.tx_packets, 1);
+        print_port_stat(string, "errors=", qs.stats.tx_errors, 0);
     }
 }
 
@@ -1600,7 +1636,7 @@ ofp_print_nxst_flow_monitor_request(struct ds *string,
         }
 
         ds_put_char(string, ' ');
-        cls_rule_format(&request.match, string);
+        match_format(&request.match, string, OFP_DEFAULT_PRIORITY);
         ds_chomp(string, ' ');
     }
 }
@@ -1617,7 +1653,7 @@ ofp_print_nxst_flow_monitor_reply(struct ds *string,
     ofpbuf_use_stub(&ofpacts, ofpacts_stub, sizeof ofpacts_stub);
     for (;;) {
         struct ofputil_flow_update update;
-        struct cls_rule match;
+        struct match match;
         int retval;
 
         update.match = &match;
@@ -1662,7 +1698,7 @@ ofp_print_nxst_flow_monitor_reply(struct ds *string,
         ds_put_format(string, " cookie=%#"PRIx64, ntohll(update.cookie));
 
         ds_put_char(string, ' ');
-        cls_rule_format(update.match, string);
+        match_format(update.match, string, OFP_DEFAULT_PRIORITY);
 
         if (update.ofpacts_len) {
             if (string->string[string->length - 1] != ' ') {
@@ -1710,9 +1746,7 @@ ofp_to_string__(const struct ofp_header *oh, enum ofpraw raw,
     ofp_header_to_string__(oh, raw, string);
     switch (ofptype_from_ofpraw(raw)) {
     case OFPTYPE_HELLO:
-        ds_put_char(string, '\n');
-        ds_put_hex_dump(string, oh + 1, ntohs(oh->length) - sizeof *oh,
-                        0, true);
+        ofp_print_hello(string, oh);
         break;
 
     case OFPTYPE_ERROR:

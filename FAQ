@@ -168,6 +168,21 @@ A: Tunnel and patch virtual ports are not supported, as described in the
    may not be transmitted.
 
 
+Terminology
+-----------
+
+Q: I thought Open vSwitch was a virtual Ethernet switch, but the
+   documentation keeps talking about bridges.  What's a bridge?
+
+A: In networking, the terms "bridge" and "switch" are synonyms.  Open
+   vSwitch implements an Ethernet switch, which means that it is also
+   an Ethernet bridge.
+
+Q: What's a VLAN?
+
+A: See the "VLAN" section below.
+
+
 Basic Configuration
 -------------------
 
@@ -413,6 +428,14 @@ A: Wireless base stations generally only allow packets with the source
 Q: Is there any documentation on the database tables and fields?
 
 A: Yes.  ovs-vswitchd.conf.db(5) is a comprehensive reference.
+
+Q: When I run ovs-dpctl I no longer see the bridges I created.  Instead,
+   I only see a datapath called "ovs-system".  How can I see datapath
+   information about a particular bridge?
+
+A: In version 1.9.0, OVS switched to using a single datapath that is
+   shared by all bridges of that type.  The "ovs-appctl dpif/*"
+   commands provide similar functionality that is scoped by the bridge.
 
 
 VLANs
@@ -739,6 +762,34 @@ A: The OFPT_FEATURES_REQUEST message requests an OpenFlow switch to
    means that the interface hasn't been created yet.  The latter is
    normally an intermittent condition (unless ovs-vswitchd is not
    running).
+
+Q: I added some flows with my controller or with ovs-ofctl, but when I
+   run "ovs-dpctl dump-flows" I don't see them.
+
+A: ovs-dpctl queries a kernel datapath, not an OpenFlow switch.  It
+   won't display the information that you want.  You want to use
+   "ovs-ofctl dump-flows" instead.
+
+Q: It looks like each of the interfaces in my bonded port shows up
+   as an individual OpenFlow port.  Is that right?
+
+A: Yes, Open vSwitch makes individual bond interfaces visible as
+   OpenFlow ports, rather than the bond as a whole.  The interfaces
+   are treated together as a bond for only a few purposes:
+
+       - Sending a packet to the OFPP_NORMAL port.  (When an OpenFlow
+         controller is not configured, this happens implicitly to
+         every packet.)
+
+       - The "autopath" Nicira extension action.  However, "autopath"
+         is deprecated and scheduled for removal in February 2013.
+
+       - Mirrors configured for output to a bonded port.
+
+   It would make a lot of sense for Open vSwitch to present a bond as
+   a single OpenFlow port.  If you want to contribute an
+   implementation of such a feature, please bring it up on the Open
+   vSwitch development mailing list at dev@openvswitch.org.
 
 Contact 
 -------

@@ -61,8 +61,8 @@
 #include "vport-internal_dev.h"
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,18) || \
-    LINUX_VERSION_CODE >= KERNEL_VERSION(3,6,0)
-#error Kernels before 2.6.18 or after 3.5 are not supported by this version of Open vSwitch.
+    LINUX_VERSION_CODE >= KERNEL_VERSION(3,7,0)
+#error Kernels before 2.6.18 or after 3.6 are not supported by this version of Open vSwitch.
 #endif
 
 #define REHASH_FLOW_INTERVAL (10 * 60 * HZ)
@@ -587,10 +587,17 @@ static int validate_set(const struct nlattr *a,
 
 	switch (key_type) {
 	const struct ovs_key_ipv4 *ipv4_key;
+	const struct ovs_key_ipv4_tunnel *tun_key;
 
 	case OVS_KEY_ATTR_PRIORITY:
 	case OVS_KEY_ATTR_TUN_ID:
 	case OVS_KEY_ATTR_ETHERNET:
+		break;
+
+	case OVS_KEY_ATTR_IPV4_TUNNEL:
+		tun_key = nla_data(ovs_key);
+		if (!tun_key->ipv4_dst)
+			return -EINVAL;
 		break;
 
 	case OVS_KEY_ATTR_IPV4:
@@ -781,25 +788,20 @@ static int ovs_packet_cmd_execute(struct sk_buff *skb, struct genl_info *info)
 
 	err = ovs_flow_extract(packet, -1, &flow->key, &key_len);
 	if (err)
-		goto err_flow_put;
+		goto err_flow_free;
 
-	err = ovs_flow_metadata_from_nlattrs(&flow->key.phy.priority,
-					     &flow->key.phy.in_port,
-					     &flow->key.phy.tun_id,
-					     a[OVS_PACKET_ATTR_KEY]);
+	err = ovs_flow_metadata_from_nlattrs(flow, key_len, a[OVS_PACKET_ATTR_KEY]);
 	if (err)
-		goto err_flow_put;
+		goto err_flow_free;
 
 	err = validate_actions(a[OVS_PACKET_ATTR_ACTIONS], &flow->key, 0);
 	if (err)
-		goto err_flow_put;
-
-	flow->hash = ovs_flow_hash(&flow->key, key_len);
+		goto err_flow_free;
 
 	acts = ovs_flow_actions_alloc(a[OVS_PACKET_ATTR_ACTIONS]);
 	err = PTR_ERR(acts);
 	if (IS_ERR(acts))
-		goto err_flow_put;
+		goto err_flow_free;
 	rcu_assign_pointer(flow->sf_acts, acts);
 
 	OVS_CB(packet)->flow = flow;
@@ -816,13 +818,13 @@ static int ovs_packet_cmd_execute(struct sk_buff *skb, struct genl_info *info)
 	local_bh_enable();
 	rcu_read_unlock();
 
-	ovs_flow_put(flow);
+	ovs_flow_free(flow);
 	return err;
 
 err_unlock:
 	rcu_read_unlock();
-err_flow_put:
-	ovs_flow_put(flow);
+err_flow_free:
+	ovs_flow_free(flow);
 err_kfree_skb:
 	kfree_skb(packet);
 err:
@@ -1066,7 +1068,6 @@ static int ovs_flow_cmd_new_or_set(struct sk_buff *skb, struct genl_info *info)
 			error = PTR_ERR(flow);
 			goto error;
 		}
-		flow->key = key;
 		clear_stats(flow);
 
 		/* Obtain actions. */
@@ -1077,8 +1078,7 @@ static int ovs_flow_cmd_new_or_set(struct sk_buff *skb, struct genl_info *info)
 		rcu_assign_pointer(flow->sf_acts, acts);
 
 		/* Put flow in bucket. */
-		flow->hash = ovs_flow_hash(&key, key_len);
-		ovs_flow_tbl_insert(table, flow);
+		ovs_flow_tbl_insert(table, flow, &key, key_len);
 
 		reply = ovs_flow_cmd_build_info(flow, dp, info->snd_pid,
 						info->snd_seq,
@@ -1139,7 +1139,7 @@ static int ovs_flow_cmd_new_or_set(struct sk_buff *skb, struct genl_info *info)
 	return 0;
 
 error_free_flow:
-	ovs_flow_put(flow);
+	ovs_flow_free(flow);
 error:
 	return error;
 }
@@ -2257,3 +2257,4 @@ module_exit(dp_cleanup);
 
 MODULE_DESCRIPTION("Open vSwitch switching datapath");
 MODULE_LICENSE("GPL");
+MODULE_VERSION(VERSION);
