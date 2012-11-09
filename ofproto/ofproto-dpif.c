@@ -935,7 +935,7 @@ bf_gdt_update(struct ofproto *ofproto_, struct bloom_filter *bf_)
 {
     struct ofproto_dpif *ofproto = ofproto_dpif_cast(ofproto_);
     int error;
-    error = dpif_bf_gdt_put(ofproto->dpif, DPIF_BP_CREATE, bf_, sizeof(struct bloom_filter));
+    error = dpif_bf_gdt_put(ofproto->backer->dpif, DPIF_BP_CREATE, bf_, sizeof(struct bloom_filter));
     return error;
 }
 #endif
@@ -1489,7 +1489,7 @@ get_stat(struct ofproto *ofproto_, struct stat_base *s)
 {
     struct dpif_dp_stats dp_s;
     struct ofproto_dpif *ofproto = ofproto_dpif_cast(ofproto_);
-    dpif_get_dp_stats(ofproto->dpif, &dp_s);
+    dpif_get_dp_stats(ofproto->backer->dpif, &dp_s);
     s->num = 1;
     s->entry[0].bytes = dp_s.n_hit + dp_s.n_missed;
 }
@@ -6955,38 +6955,31 @@ packet_remote(struct ofproto *ofproto_, struct ofpbuf *packet,
     struct ofproto_dpif *ofproto = ofproto_dpif_cast(ofproto_);
     enum ofperr error;
 
-    if (flow->in_port >= ofproto->max_ports && flow->in_port < OFPP_MAX) {
-        return OFPERR_NXBRC_BAD_IN_PORT;
-    }
+    struct odputil_keybuf keybuf;
+    struct dpif_flow_stats stats;
 
-    error = ofpacts_check(ofpacts, ofpacts_len, flow, ofproto->max_ports);
-    if (!error) {
-        struct odputil_keybuf keybuf;
-        struct dpif_flow_stats stats;
+    struct ofpbuf key;
 
-        struct ofpbuf key;
+    struct action_xlate_ctx ctx;
+    uint64_t odp_actions_stub[1024 / 8];
+    struct ofpbuf odp_actions;
 
-        struct action_xlate_ctx ctx;
-        uint64_t odp_actions_stub[1024 / 8];
-        struct ofpbuf odp_actions;
+    ofpbuf_use_stack(&key, &keybuf, sizeof keybuf);
+    odp_flow_key_from_flow(&key, flow,
+                           ofp_port_to_odp_port(ofproto, flow->in_port));
 
-        ofpbuf_use_stack(&key, &keybuf, sizeof keybuf);
-        odp_flow_key_from_flow(&key, flow);
+    dpif_flow_stats_extract(flow, packet, time_msec(), &stats);
 
-        dpif_flow_stats_extract(flow, packet, time_msec(), &stats);
+    action_xlate_ctx_init(&ctx, ofproto, flow, flow->vlan_tci, NULL,
+            packet_get_tcp_flags(packet, flow), packet);
+    ctx.resubmit_stats = &stats;
 
-        action_xlate_ctx_init(&ctx, ofproto, flow, flow->vlan_tci, NULL,
-                              packet_get_tcp_flags(packet, flow), packet);
-        ctx.resubmit_stats = &stats;
-
-        ofpbuf_use_stub(&odp_actions,
-                        odp_actions_stub, sizeof odp_actions_stub);
-        xlate_actions(&ctx, ofpacts, ofpacts_len, &odp_actions);
-        dpif_execute(ofproto->dpif, key.data, key.size,
-                     odp_actions.data, odp_actions.size, packet);
-        ofpbuf_uninit(&odp_actions);
-    }
-    return error;
+    ofpbuf_use_stub(&odp_actions,
+            odp_actions_stub, sizeof odp_actions_stub);
+    xlate_actions(&ctx, ofpacts, ofpacts_len, &odp_actions);
+    dpif_execute(ofproto->backer->dpif, key.data, key.size,
+            odp_actions.data, odp_actions.size, packet);
+    ofpbuf_uninit(&odp_actions);
 }
 
 #endif

@@ -2607,7 +2607,7 @@ ofputil_decode_packet_remote(struct ofputil_packet_remote *pr,
             return error;
         }
 
-        bad_in_port_err = OFPERR_NXBRC_BAD_IN_PORT;
+        bad_in_port_err = OFPERR_OFPBRC_BAD_PORT;
     } else {
         NOT_REACHED();
     }
