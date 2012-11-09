@@ -1335,7 +1335,6 @@ bridge_refresh_ofp_port(struct bridge *br)
     }
 }
 
-<<<<<<< HEAD
 #ifdef LC_ENABLE
 /**
  * update a bf content into dp.
@@ -1379,10 +1378,8 @@ int bridge_update_local_bf(const struct bridge *br, char *src_mac)
 }
 #endif
 
-/* Opens a network device for 'iface_cfg' and configures it.  If '*ofp_portp'
-=======
+
 /* Opens a network device for 'if_cfg' and configures it.  If '*ofp_portp'
->>>>>>> ovs-master
  * is negative, adds the network device to br->ofproto and stores the OpenFlow
  * port number in '*ofp_portp'; otherwise leaves br->ofproto and '*ofp_portp'
  * untouched.
@@ -2455,6 +2452,7 @@ qos_unixctl_show(struct unixctl_conn *conn, int argc OVS_UNUSED,
     ds_destroy(&ds);
 }
 
+#ifdef LC_ENABLE
 /**
  * start the mcast.
  */
@@ -2547,6 +2545,7 @@ bridge_lc_init(struct bridge *br)
     VLOG_INFO("%s bridge_lc_init() done.\n",br->name);
     bridge_start_mcast(br);
 }
+#endif
 
 /* Bridge reconfiguration functions. */
     static void
@@ -2581,7 +2580,7 @@ bridge_create(const struct ovsrec_bridge *br_cfg)
     hmap_insert(&all_bridges, &br->node, hash_string(br->name, 0));
 }
 
-    static void
+static void
 bridge_destroy(struct bridge *br)
 {
     if (br) {
@@ -2601,7 +2600,7 @@ bridge_destroy(struct bridge *br)
             free(if_cfg);
         }
         LIST_FOR_EACH_SAFE (garbage, next_garbage, list_node,
-                &br->ofpp_garbage) {
+                            &br->ofpp_garbage) {
             list_remove(&garbage->list_node);
             free(garbage);
         }
@@ -2625,7 +2624,7 @@ bridge_destroy(struct bridge *br)
     }
 }
 
-    static struct bridge *
+static struct bridge *
 bridge_lookup(const char *name)
 {
     struct bridge *br;

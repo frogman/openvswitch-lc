@@ -2364,12 +2364,6 @@ handle_packet_out(struct ofconn *ofconn, const struct ofp_header *oh)
         ofpbuf_use_const(payload, po.packet, po.packet_len);
     }
 
-<<<<<<< HEAD
-    /* Send out packet. */
-    flow_extract(payload, 0, 0, po.in_port, &flow); //init the flow
-    error = p->ofproto_class->packet_out(p, payload, &flow,
-                                         po.ofpacts, po.ofpacts_len);
-=======
     /* Verify actions against packet, then send packet if successful. */
     flow_extract(payload, 0, NULL, po.in_port, &flow);
     error = ofpacts_check(po.ofpacts, po.ofpacts_len, &flow, p->max_ports);
@@ -2377,7 +2371,6 @@ handle_packet_out(struct ofconn *ofconn, const struct ofp_header *oh)
         error = p->ofproto_class->packet_out(p, payload, &flow,
                                              po.ofpacts, po.ofpacts_len);
     }
->>>>>>> ovs-master
     ofpbuf_delete(payload);
 
 exit_free_ofpacts:

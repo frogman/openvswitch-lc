@@ -929,7 +929,6 @@ dealloc(struct ofproto *ofproto_)
     free(ofproto);
 }
 
-<<<<<<< HEAD
 #ifdef LC_ENABLE
 static int 
 bf_gdt_update(struct ofproto *ofproto_, struct bloom_filter *bf_)
@@ -942,12 +941,8 @@ bf_gdt_update(struct ofproto *ofproto_, struct bloom_filter *bf_)
 #endif
 
 
-static int
-construct(struct ofproto *ofproto_)
-=======
 static void
 close_dpif_backer(struct dpif_backer *backer)
->>>>>>> ovs-master
 {
     struct shash_node *node;
 
@@ -1026,16 +1021,6 @@ open_dpif_backer(const char *type, struct dpif_backer **backerp)
         return error;
     }
 
-<<<<<<< HEAD
-    /*TODO:only for test sending bf-gdt nlmsg to kernel.
-    struct bloom_filter bf;
-    bf.bf_id = 2012;
-    bf_gdt_update(ofproto_,&bf);
-    */
-
-    ofproto->max_ports = dpif_get_max_ports(ofproto->dpif);
-    ofproto->n_matches = 0;
-=======
     backer->type = xstrdup(type);
     backer->refcount = 1;
     hmap_init(&backer->odp_to_ofport_map);
@@ -1063,7 +1048,6 @@ open_dpif_backer(const char *type, struct dpif_backer **backerp)
         list_remove(&garbage->list_node);
         free(garbage);
     }
->>>>>>> ovs-master
 
     shash_add(&all_dpif_backers, type, backer);
 
@@ -5001,8 +4985,6 @@ subfacet_update_stats(struct subfacet *subfacet,
     }
 }
 
-
-
 /* Rules. */
 
 static struct rule_dpif *

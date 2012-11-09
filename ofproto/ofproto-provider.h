@@ -39,13 +39,10 @@
 struct match;
 struct ofpact;
 struct ofputil_flow_mod;
-<<<<<<< HEAD
-struct simap;
+
 #ifdef LC_ENABLE
 struct bridge;
 #endif
-=======
->>>>>>> ovs-master
 
 /* An OpenFlow switch.
  *
