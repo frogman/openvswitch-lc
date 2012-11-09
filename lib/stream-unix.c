@@ -48,7 +48,7 @@ unix_open(const char *name, char *suffix, struct stream **streamp,
 
     fd = make_unix_socket(SOCK_STREAM, true, NULL, connect_path);
     if (fd < 0) {
-        VLOG_ERR("%s: connection failed (%s)", connect_path, strerror(-fd));
+        VLOG_WARN("%s: connection failed (%s)", connect_path, strerror(-fd));
         return -fd;
     }
 
@@ -92,7 +92,7 @@ punix_open(const char *name OVS_UNUSED, char *suffix,
         return error;
     }
 
-    return new_fd_pstream(name, fd, punix_accept,
+    return new_fd_pstream(name, fd, punix_accept, NULL,
                           xstrdup(suffix), pstreamp);
 }
 
@@ -118,6 +118,7 @@ const struct pstream_class punix_pstream_class = {
     punix_open,
     NULL,
     NULL,
-    NULL
+    NULL,
+    NULL,
 };
 

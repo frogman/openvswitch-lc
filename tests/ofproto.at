@@ -11,15 +11,46 @@ OVS_VSWITCHD_START
 AT_CHECK([ovs-ofctl -vwarn show br0], [0], [stdout])
 AT_CHECK([STRIP_XIDS stdout], [0], [dnl
 OFPT_FEATURES_REPLY: dpid:fedcba9876543210
-n_tables:255, n_buffers:256
+n_tables:254, n_buffers:256
 capabilities: FLOW_STATS TABLE_STATS PORT_STATS QUEUE_STATS ARP_MATCH_IP
 actions: OUTPUT SET_VLAN_VID SET_VLAN_PCP STRIP_VLAN SET_DL_SRC SET_DL_DST SET_NW_SRC SET_NW_DST SET_NW_TOS SET_TP_SRC SET_TP_DST ENQUEUE
  LOCAL(br0): addr:aa:55:aa:55:00:00
      config:     PORT_DOWN
      state:      LINK_DOWN
-     speed: 100 Mbps now, 100 Mbps max
+     speed: 0 Mbps now, 0 Mbps max
 OFPT_GET_CONFIG_REPLY: frags=normal miss_send_len=0
 ])
+OVS_VSWITCHD_STOP
+AT_CLEANUP
+
+AT_SETUP([ofproto - set OpenFlow port number])
+OVS_VSWITCHD_START(
+       [add-port br0 p1 -- set Interface p1 type=dummy --\
+        add-port br0 p2 -- set Interface p2 type=dummy ofport_request=99])
+AT_CHECK([ovs-ofctl -vwarn show br0], [0], [stdout])
+AT_CHECK([[sed '
+s/ (xid=0x[0-9a-fA-F]*)//
+s/00:0.$/00:0x/' < stdout]],
+      [0], [dnl
+OFPT_FEATURES_REPLY: dpid:fedcba9876543210
+n_tables:254, n_buffers:256
+capabilities: FLOW_STATS TABLE_STATS PORT_STATS QUEUE_STATS ARP_MATCH_IP
+actions: OUTPUT SET_VLAN_VID SET_VLAN_PCP STRIP_VLAN SET_DL_SRC SET_DL_DST SET_NW_SRC SET_NW_DST SET_NW_TOS SET_TP_SRC SET_TP_DST ENQUEUE
+ 1(p1): addr:aa:55:aa:55:00:0x
+     config:     PORT_DOWN
+     state:      LINK_DOWN
+     speed: 0 Mbps now, 0 Mbps max
+ 99(p2): addr:aa:55:aa:55:00:0x
+     config:     PORT_DOWN
+     state:      LINK_DOWN
+     speed: 0 Mbps now, 0 Mbps max
+ LOCAL(br0): addr:aa:55:aa:55:00:0x
+     config:     PORT_DOWN
+     state:      LINK_DOWN
+     speed: 0 Mbps now, 0 Mbps max
+OFPT_GET_CONFIG_REPLY: frags=normal miss_send_len=0
+])
+
 OVS_VSWITCHD_STOP
 AT_CLEANUP
 
@@ -46,7 +77,7 @@ OFPST_PORT_DESC reply:
  LOCAL(br0): addr:aa:55:aa:55:00:00
      config:     PORT_DOWN
      state:      LINK_DOWN
-     speed: 100 Mbps now, 100 Mbps max
+     speed: 0 Mbps now, 0 Mbps max
 ])
 OVS_VSWITCHD_STOP
 AT_CLEANUP
@@ -60,12 +91,12 @@ AT_CHECK([STRIP_XIDS stdout], [0], [dnl
 OFPST_QUEUE reply: 0 queues
 ])
 AT_CHECK([ovs-ofctl -vwarn queue-stats br0 ALL 5], [0],
-  [OFPT_ERROR (xid=0x1): OFPQOFC_BAD_QUEUE
-OFPST_QUEUE request (xid=0x1):port=ALL queue=5
+  [OFPT_ERROR (xid=0x2): OFPQOFC_BAD_QUEUE
+OFPST_QUEUE request (xid=0x2):port=ALL queue=5
 ])
 AT_CHECK([ovs-ofctl -vwarn queue-stats br0 10], [0],
-  [OFPT_ERROR (xid=0x1): OFPQOFC_BAD_PORT
-OFPST_QUEUE request (xid=0x1):port=10 queue=ALL
+  [OFPT_ERROR (xid=0x2): OFPQOFC_BAD_PORT
+OFPST_QUEUE request (xid=0x2):port=10 queue=ALL
 ])
 OVS_VSWITCHD_STOP
 AT_CLEANUP
@@ -91,13 +122,13 @@ do
     AT_CHECK([ovs-ofctl -vwarn show br0], [0], [stdout])
     AT_CHECK_UNQUOTED([STRIP_XIDS stdout], [0], [dnl
 OFPT_FEATURES_REPLY: dpid:fedcba9876543210
-n_tables:255, n_buffers:256
+n_tables:254, n_buffers:256
 capabilities: FLOW_STATS TABLE_STATS PORT_STATS QUEUE_STATS ARP_MATCH_IP
 actions: OUTPUT SET_VLAN_VID SET_VLAN_PCP STRIP_VLAN SET_DL_SRC SET_DL_DST SET_NW_SRC SET_NW_DST SET_NW_TOS SET_TP_SRC SET_TP_DST ENQUEUE
  LOCAL(br0): addr:aa:55:aa:55:00:00
      config:     $config
      state:      $state
-     speed: 100 Mbps now, 100 Mbps max
+     speed: 0 Mbps now, 0 Mbps max
 OFPT_GET_CONFIG_REPLY: frags=normal miss_send_len=0
 ])
 done
@@ -108,13 +139,13 @@ AT_SETUP([ofproto - basic flow_mod commands (NXM)])
 OVS_VSWITCHD_START
 AT_CHECK([ovs-ofctl dump-flows br0 | ofctl_strip], [0], [NXST_FLOW reply:
 ])
-AT_CHECK([echo 'in_port=1,actions=0' | ovs-ofctl add-flows br0 -])
-AT_CHECK([ovs-ofctl add-flow br0 in_port=0,actions=1])
-AT_CHECK([ovs-ofctl -F nxm add-flow br0 table=1,in_port=3,actions=2])
+AT_CHECK([echo 'in_port=2,actions=1' | ovs-ofctl add-flows br0 -])
+AT_CHECK([ovs-ofctl add-flow br0 in_port=1,actions=2])
+AT_CHECK([ovs-ofctl -F nxm add-flow br0 table=1,in_port=4,actions=3])
 AT_CHECK([ovs-ofctl dump-flows br0 | ofctl_strip | sort], [0], [dnl
- in_port=0 actions=output:1
- in_port=1 actions=output:0
- table=1, in_port=3 actions=output:2
+ in_port=1 actions=output:2
+ in_port=2 actions=output:1
+ table=1, in_port=4 actions=output:3
 NXST_FLOW reply:
 ])
 AT_CHECK([ovs-ofctl dump-aggregate br0 table=0 | STRIP_XIDS], [0], [dnl
@@ -130,13 +161,13 @@ AT_SETUP([ofproto - basic flow_mod commands (OpenFlow 1.0)])
 OVS_VSWITCHD_START
 AT_CHECK([ovs-ofctl -F openflow10 dump-flows br0 | ofctl_strip], [0], [OFPST_FLOW reply:
 ])
-AT_CHECK([echo 'in_port=1,actions=0' | ovs-ofctl -F openflow10 add-flows br0 -])
-AT_CHECK([ovs-ofctl -F openflow10 add-flow br0 in_port=0,actions=1])
-AT_CHECK([ovs-ofctl -F openflow10 add-flow br0 table=1,in_port=3,actions=2])
+AT_CHECK([echo 'in_port=2,actions=1' | ovs-ofctl -F openflow10 add-flows br0 -])
+AT_CHECK([ovs-ofctl -F openflow10 add-flow br0 in_port=1,actions=2])
+AT_CHECK([ovs-ofctl -F openflow10 add-flow br0 table=1,in_port=4,actions=3])
 AT_CHECK([ovs-ofctl -F openflow10 dump-flows br0 | ofctl_strip | sort], [0], [dnl
- in_port=0 actions=output:1
- in_port=1 actions=output:0
- table=1, in_port=3 actions=output:2
+ in_port=1 actions=output:2
+ in_port=2 actions=output:1
+ table=1, in_port=4 actions=output:3
 OFPST_FLOW reply:
 ])
 AT_CHECK([ovs-ofctl -F openflow10 dump-aggregate br0 table=0 | STRIP_XIDS], [0], [dnl
@@ -148,22 +179,33 @@ AT_CHECK([ovs-ofctl -F openflow10 dump-flows br0 | ofctl_strip], [0], [OFPST_FLO
 OVS_VSWITCHD_STOP
 AT_CLEANUP
 
+AT_SETUP([ofproto - set-field flow_mod commands (NXM)])
+OVS_VSWITCHD_START
+AT_CHECK([ovs-ofctl add-flow br0 ipv6,table=1,in_port=3,actions=drop])
+AT_CHECK([ovs-ofctl add-flow br0 ipv6,table=1,in_port=3,actions=set_field:fe80:0123:4567:890a:a6ba:dbff:fefe:59fa-\>ipv6_src])
+AT_CHECK([ovs-ofctl dump-flows br0 | ofctl_strip | sort], [0], [dnl
+ table=1, ipv6,in_port=3 actions=load:0xa6badbfffefe59fa->NXM_NX_IPV6_SRC[[0..63]],load:0xfe8001234567890a->NXM_NX_IPV6_SRC[[64..127]]
+NXST_FLOW reply:
+])
+OVS_VSWITCHD_STOP
+AT_CLEANUP
+
 AT_SETUP([ofproto - dump flows with cookie])
 OVS_VSWITCHD_START
-AT_CHECK([ovs-ofctl add-flow br0 cookie=0x1,in_port=1,actions=0])
-AT_CHECK([ovs-ofctl add-flow br0 cookie=0x2,in_port=2,actions=0])
-AT_CHECK([ovs-ofctl add-flow br0 cookie=0x3,in_port=3,actions=0])
+AT_CHECK([ovs-ofctl add-flow br0 cookie=0x1,in_port=1,actions=1])
+AT_CHECK([ovs-ofctl add-flow br0 cookie=0x2,in_port=2,actions=1])
+AT_CHECK([ovs-ofctl add-flow br0 cookie=0x3,in_port=3,actions=1])
 AT_CHECK([ovs-ofctl dump-flows br0 | ofctl_strip | sort], [0], [dnl
- cookie=0x1, in_port=1 actions=output:0
- cookie=0x2, in_port=2 actions=output:0
- cookie=0x3, in_port=3 actions=output:0
+ cookie=0x1, in_port=1 actions=output:1
+ cookie=0x2, in_port=2 actions=output:1
+ cookie=0x3, in_port=3 actions=output:1
 NXST_FLOW reply:
 ])
 AT_CHECK([ovs-ofctl dump-aggregate br0 table=0 | STRIP_XIDS], [0], [dnl
 NXST_AGGREGATE reply: packet_count=0 byte_count=0 flow_count=3
 ])
 AT_CHECK([ovs-ofctl dump-flows br0 cookie=0x3/-1 | ofctl_strip | sort], [0], [dnl
- cookie=0x3, in_port=3 actions=output:0
+ cookie=0x3, in_port=3 actions=output:1
 NXST_FLOW reply:
 ])
 AT_CHECK([ovs-ofctl dump-aggregate br0 cookie=0x3/-1 | STRIP_XIDS], [0], [dnl
@@ -174,21 +216,21 @@ AT_CLEANUP
 
 AT_SETUP([ofproto - dump flows with cookie mask])
 OVS_VSWITCHD_START
-AT_CHECK([ovs-ofctl add-flow br0 cookie=0x1,in_port=1,actions=0])
-AT_CHECK([ovs-ofctl add-flow br0 cookie=0x2,in_port=2,actions=0])
-AT_CHECK([ovs-ofctl add-flow br0 cookie=0x3,in_port=3,actions=0])
+AT_CHECK([ovs-ofctl add-flow br0 cookie=0x1,in_port=1,actions=1])
+AT_CHECK([ovs-ofctl add-flow br0 cookie=0x2,in_port=2,actions=1])
+AT_CHECK([ovs-ofctl add-flow br0 cookie=0x3,in_port=3,actions=1])
 AT_CHECK([ovs-ofctl dump-flows br0 | ofctl_strip | sort], [0], [dnl
- cookie=0x1, in_port=1 actions=output:0
- cookie=0x2, in_port=2 actions=output:0
- cookie=0x3, in_port=3 actions=output:0
+ cookie=0x1, in_port=1 actions=output:1
+ cookie=0x2, in_port=2 actions=output:1
+ cookie=0x3, in_port=3 actions=output:1
 NXST_FLOW reply:
 ])
 AT_CHECK([ovs-ofctl dump-aggregate br0 table=0 | STRIP_XIDS], [0], [dnl
 NXST_AGGREGATE reply: packet_count=0 byte_count=0 flow_count=3
 ])
 AT_CHECK([ovs-ofctl dump-flows br0 cookie=0x3/0x1 | ofctl_strip | sort], [0], [dnl
- cookie=0x1, in_port=1 actions=output:0
- cookie=0x3, in_port=3 actions=output:0
+ cookie=0x1, in_port=1 actions=output:1
+ cookie=0x3, in_port=3 actions=output:1
 NXST_FLOW reply:
 ])
 AT_CHECK([ovs-ofctl dump-aggregate br0 cookie=0x3/0x1 | STRIP_XIDS], [0], [dnl
@@ -199,15 +241,15 @@ AT_CLEANUP
 
 AT_SETUP([ofproto - mod flow with cookie change (OpenFlow 1.0)])
 OVS_VSWITCHD_START
-AT_CHECK([ovs-ofctl -F openflow10 add-flow br0 cookie=0x1,in_port=1,actions=0])
+AT_CHECK([ovs-ofctl -F openflow10 add-flow br0 cookie=0x1,in_port=1,actions=1])
 AT_CHECK([ovs-ofctl -F openflow10 dump-flows br0 | ofctl_strip | sort], [0], [dnl
- cookie=0x1, in_port=1 actions=output:0
+ cookie=0x1, in_port=1 actions=output:1
 OFPST_FLOW reply:
 ])
 
-AT_CHECK([ovs-ofctl -F openflow10 mod-flows br0 cookie=0x2,in_port=1,actions=0])
+AT_CHECK([ovs-ofctl -F openflow10 mod-flows br0 cookie=0x2,in_port=1,actions=1])
 AT_CHECK([ovs-ofctl -F openflow10 dump-flows br0 | ofctl_strip | sort], [0], [dnl
- cookie=0x2, in_port=1 actions=output:0
+ cookie=0x2, in_port=1 actions=output:1
 OFPST_FLOW reply:
 ])
 OVS_VSWITCHD_STOP
@@ -215,15 +257,15 @@ AT_CLEANUP
 
 AT_SETUP([ofproto - mod flow with cookie change (NXM)])
 OVS_VSWITCHD_START
-AT_CHECK([ovs-ofctl -F nxm add-flow br0 cookie=0x1,in_port=1,actions=0])
+AT_CHECK([ovs-ofctl -F nxm add-flow br0 cookie=0x1,in_port=1,actions=1])
 AT_CHECK([ovs-ofctl -F nxm dump-flows br0 | ofctl_strip | sort], [0], [dnl
- cookie=0x1, in_port=1 actions=output:0
+ cookie=0x1, in_port=1 actions=output:1
 NXST_FLOW reply:
 ])
 
-AT_CHECK([ovs-ofctl -F nxm mod-flows br0 cookie=0x2,in_port=1,actions=0])
+AT_CHECK([ovs-ofctl -F nxm mod-flows br0 cookie=0x2,in_port=1,actions=1])
 AT_CHECK([ovs-ofctl -F nxm dump-flows br0 | ofctl_strip | sort], [0], [dnl
- cookie=0x2, in_port=1 actions=output:0
+ cookie=0x2, in_port=1 actions=output:1
 NXST_FLOW reply:
 ])
 OVS_VSWITCHD_STOP
@@ -231,13 +273,13 @@ AT_CLEANUP
 
 AT_SETUP([ofproto - mod flows based on cookie mask])
 OVS_VSWITCHD_START
-AT_CHECK([ovs-ofctl add-flow br0 cookie=0x1,in_port=1,actions=0])
-AT_CHECK([ovs-ofctl add-flow br0 cookie=0x1,in_port=2,actions=0])
-AT_CHECK([ovs-ofctl add-flow br0 cookie=0x2,in_port=3,actions=0])
+AT_CHECK([ovs-ofctl add-flow br0 cookie=0x1,in_port=1,actions=1])
+AT_CHECK([ovs-ofctl add-flow br0 cookie=0x1,in_port=2,actions=1])
+AT_CHECK([ovs-ofctl add-flow br0 cookie=0x2,in_port=3,actions=1])
 AT_CHECK([ovs-ofctl dump-flows br0 | ofctl_strip | sort], [0], [dnl
- cookie=0x1, in_port=1 actions=output:0
- cookie=0x1, in_port=2 actions=output:0
- cookie=0x2, in_port=3 actions=output:0
+ cookie=0x1, in_port=1 actions=output:1
+ cookie=0x1, in_port=2 actions=output:1
+ cookie=0x2, in_port=3 actions=output:1
 NXST_FLOW reply:
 ])
 
@@ -245,7 +287,7 @@ AT_CHECK([ovs-ofctl -F nxm mod-flows br0 cookie=0x1/0xff,actions=4])
 AT_CHECK([ovs-ofctl -F nxm dump-flows br0 | ofctl_strip | sort], [0], [dnl
  cookie=0x1, in_port=1 actions=output:4
  cookie=0x1, in_port=2 actions=output:4
- cookie=0x2, in_port=3 actions=output:0
+ cookie=0x2, in_port=3 actions=output:1
 NXST_FLOW reply:
 ])
 OVS_VSWITCHD_STOP
@@ -253,19 +295,19 @@ AT_CLEANUP
 
 AT_SETUP([ofproto - mod flows based on cookie mask with cookie change])
 OVS_VSWITCHD_START
-AT_CHECK([ovs-ofctl add-flow br0 cookie=0x1,in_port=1,actions=0])
-AT_CHECK([ovs-ofctl add-flow br0 cookie=0x1,in_port=2,actions=0])
-AT_CHECK([ovs-ofctl add-flow br0 cookie=0x2,in_port=3,actions=0])
+AT_CHECK([ovs-ofctl add-flow br0 cookie=0x1,in_port=1,actions=1])
+AT_CHECK([ovs-ofctl add-flow br0 cookie=0x1,in_port=2,actions=1])
+AT_CHECK([ovs-ofctl add-flow br0 cookie=0x2,in_port=3,actions=1])
 AT_CHECK([ovs-ofctl dump-flows br0 | ofctl_strip | sort], [0], [dnl
- cookie=0x1, in_port=1 actions=output:0
- cookie=0x1, in_port=2 actions=output:0
- cookie=0x2, in_port=3 actions=output:0
+ cookie=0x1, in_port=1 actions=output:1
+ cookie=0x1, in_port=2 actions=output:1
+ cookie=0x2, in_port=3 actions=output:1
 NXST_FLOW reply:
 ])
 
 AT_CHECK([ovs-ofctl -F nxm mod-flows br0 cookie=1/-1,cookie=4,actions=4])
 AT_CHECK([ovs-ofctl -F nxm dump-flows br0 | ofctl_strip | sort], [0], [dnl
- cookie=0x2, in_port=3 actions=output:0
+ cookie=0x2, in_port=3 actions=output:1
  cookie=0x4, in_port=1 actions=output:4
  cookie=0x4, in_port=2 actions=output:4
 NXST_FLOW reply:
@@ -275,9 +317,9 @@ AT_CLEANUP
 
 AT_SETUP([ofproto - mod flow with cookie miss (mask==0)])
 OVS_VSWITCHD_START
-AT_CHECK([ovs-ofctl -F nxm mod-flows br0 in_port=1,actions=0])
+AT_CHECK([ovs-ofctl -F nxm mod-flows br0 in_port=1,actions=1])
 AT_CHECK([ovs-ofctl -F nxm dump-flows br0 | ofctl_strip | sort], [0], [dnl
- in_port=1 actions=output:0
+ in_port=1 actions=output:1
 NXST_FLOW reply:
 ])
 OVS_VSWITCHD_STOP
@@ -285,7 +327,7 @@ AT_CLEANUP
 
 AT_SETUP([ofproto - mod flow with cookie miss (mask!=0)])
 OVS_VSWITCHD_START
-AT_CHECK([ovs-ofctl -F nxm mod-flows br0 cookie=1/1,in_port=1,actions=0])
+AT_CHECK([ovs-ofctl -F nxm mod-flows br0 cookie=1/1,in_port=1,actions=1])
 AT_CHECK([ovs-ofctl -F nxm dump-flows br0 | ofctl_strip | sort], [0], [dnl
 NXST_FLOW reply:
 ])
@@ -294,13 +336,13 @@ AT_CLEANUP
 
 AT_SETUP([ofproto - del flows with cookies])
 OVS_VSWITCHD_START
-AT_CHECK([ovs-ofctl add-flow br0 cookie=0x1,in_port=1,actions=0])
-AT_CHECK([ovs-ofctl add-flow br0 cookie=0x2,in_port=2,actions=0])
-AT_CHECK([ovs-ofctl add-flow br0 cookie=0x3,in_port=3,actions=0])
+AT_CHECK([ovs-ofctl add-flow br0 cookie=0x1,in_port=1,actions=1])
+AT_CHECK([ovs-ofctl add-flow br0 cookie=0x2,in_port=2,actions=1])
+AT_CHECK([ovs-ofctl add-flow br0 cookie=0x3,in_port=3,actions=1])
 AT_CHECK([ovs-ofctl dump-flows br0 | ofctl_strip | sort], [0], [dnl
- cookie=0x1, in_port=1 actions=output:0
- cookie=0x2, in_port=2 actions=output:0
- cookie=0x3, in_port=3 actions=output:0
+ cookie=0x1, in_port=1 actions=output:1
+ cookie=0x2, in_port=2 actions=output:1
+ cookie=0x3, in_port=3 actions=output:1
 NXST_FLOW reply:
 ])
 
@@ -313,20 +355,20 @@ AT_CLEANUP
 
 AT_SETUP([ofproto - del flows based on cookie])
 OVS_VSWITCHD_START
-AT_CHECK([ovs-ofctl add-flow br0 cookie=0x1,in_port=1,actions=0])
-AT_CHECK([ovs-ofctl add-flow br0 cookie=0x2,in_port=2,actions=0])
-AT_CHECK([ovs-ofctl add-flow br0 cookie=0x3,in_port=3,actions=0])
+AT_CHECK([ovs-ofctl add-flow br0 cookie=0x1,in_port=1,actions=1])
+AT_CHECK([ovs-ofctl add-flow br0 cookie=0x2,in_port=2,actions=1])
+AT_CHECK([ovs-ofctl add-flow br0 cookie=0x3,in_port=3,actions=1])
 AT_CHECK([ovs-ofctl dump-flows br0 | ofctl_strip | sort], [0], [dnl
- cookie=0x1, in_port=1 actions=output:0
- cookie=0x2, in_port=2 actions=output:0
- cookie=0x3, in_port=3 actions=output:0
+ cookie=0x1, in_port=1 actions=output:1
+ cookie=0x2, in_port=2 actions=output:1
+ cookie=0x3, in_port=3 actions=output:1
 NXST_FLOW reply:
 ])
 
 AT_CHECK([ovs-ofctl del-flows br0 cookie=0x3/-1])
 AT_CHECK([ovs-ofctl dump-flows br0 | ofctl_strip | sort], [0], [dnl
- cookie=0x1, in_port=1 actions=output:0
- cookie=0x2, in_port=2 actions=output:0
+ cookie=0x1, in_port=1 actions=output:1
+ cookie=0x2, in_port=2 actions=output:1
 NXST_FLOW reply:
 ])
 OVS_VSWITCHD_STOP
@@ -334,18 +376,50 @@ AT_CLEANUP
 
 AT_SETUP([ofproto - del flows based on cookie mask])
 OVS_VSWITCHD_START
-AT_CHECK([ovs-ofctl add-flow br0 cookie=0x1,in_port=1,actions=0])
-AT_CHECK([ovs-ofctl add-flow br0 cookie=0x2,in_port=2,actions=0])
-AT_CHECK([ovs-ofctl add-flow br0 cookie=0x3,in_port=3,actions=0])
+AT_CHECK([ovs-ofctl add-flow br0 cookie=0x1,in_port=1,actions=1])
+AT_CHECK([ovs-ofctl add-flow br0 cookie=0x2,in_port=2,actions=1])
+AT_CHECK([ovs-ofctl add-flow br0 cookie=0x3,in_port=3,actions=1])
 AT_CHECK([ovs-ofctl dump-flows br0 | ofctl_strip | sort], [0], [dnl
- cookie=0x1, in_port=1 actions=output:0
- cookie=0x2, in_port=2 actions=output:0
- cookie=0x3, in_port=3 actions=output:0
+ cookie=0x1, in_port=1 actions=output:1
+ cookie=0x2, in_port=2 actions=output:1
+ cookie=0x3, in_port=3 actions=output:1
 NXST_FLOW reply:
 ])
 AT_CHECK([ovs-ofctl del-flows br0 cookie=0x3/0x1])
 AT_CHECK([ovs-ofctl dump-flows br0 | ofctl_strip | sort], [0], [dnl
- cookie=0x2, in_port=2 actions=output:0
+ cookie=0x2, in_port=2 actions=output:1
+NXST_FLOW reply:
+])
+OVS_VSWITCHD_STOP
+AT_CLEANUP
+
+AT_SETUP([ofproto - del flows based on table id])
+OVS_VSWITCHD_START
+AT_CHECK([ovs-ofctl add-flow br0 cookie=0x1,in_port=1,actions=1])
+AT_CHECK([ovs-ofctl add-flow br0 cookie=0x2,in_port=2,table=1,actions=1])
+AT_CHECK([ovs-ofctl dump-flows br0 | ofctl_strip | sort], [0], [dnl
+ cookie=0x1, in_port=1 actions=output:1
+ cookie=0x2, table=1, in_port=2 actions=output:1
+NXST_FLOW reply:
+])
+AT_CHECK([ovs-ofctl del-flows br0 table=0])
+AT_CHECK([ovs-ofctl dump-flows br0 | ofctl_strip | sort], [0], [dnl
+ cookie=0x2, table=1, in_port=2 actions=output:1
+NXST_FLOW reply:
+])
+AT_CHECK([ovs-ofctl del-flows br0 table=1])
+AT_CHECK([ovs-ofctl dump-flows br0 | ofctl_strip | sort], [0], [dnl
+NXST_FLOW reply:
+])
+AT_CHECK([ovs-ofctl add-flow br0 cookie=0x1,in_port=1,actions=1])
+AT_CHECK([ovs-ofctl add-flow br0 cookie=0x2,in_port=2,table=1,actions=1])
+AT_CHECK([ovs-ofctl dump-flows br0 | ofctl_strip | sort], [0], [dnl
+ cookie=0x1, in_port=1 actions=output:1
+ cookie=0x2, table=1, in_port=2 actions=output:1
+NXST_FLOW reply:
+])
+AT_CHECK([ovs-ofctl del-flows br0])
+AT_CHECK([ovs-ofctl dump-flows br0 | ofctl_strip | sort], [0], [dnl
 NXST_FLOW reply:
 ])
 OVS_VSWITCHD_STOP
@@ -354,7 +428,7 @@ AT_CLEANUP
 AT_SETUP([ofproto - flow table configuration])
 OVS_VSWITCHD_START
 # Check the default configuration.
-(echo "OFPST_TABLE reply (xid=0x1): 255 tables
+(echo "OFPST_TABLE reply (xid=0x2): 254 tables
   0: classifier: wild=0x3fffff, max=1000000, active=0
                lookup=0, matched=0"
  x=1
@@ -363,9 +437,7 @@ OVS_VSWITCHD_START
                lookup=0, matched=0
 " $x table$x
    x=`expr $x + 1`
- done
- echo "  254: table254: wild=0x3fffff, max=1000000, active=2
-               lookup=0, matched=0") > expout
+ done) > expout
 AT_CHECK([ovs-ofctl dump-tables br0], [0], [expout])
 # Change the configuration.
 AT_CHECK(
@@ -379,7 +451,7 @@ AT_CHECK(
 ])
 # Check that the configuration was updated.
 mv expout orig-expout
-(echo "OFPST_TABLE reply (xid=0x1): 255 tables
+(echo "OFPST_TABLE reply (xid=0x2): 254 tables
   0: main    : wild=0x3fffff, max=1000000, active=0
                lookup=0, matched=0
   1: table1  : wild=0x3fffff, max=  1024, active=0
@@ -413,12 +485,12 @@ NXST_FLOW reply:
 # Adding another flow will be refused.
 AT_CHECK([ovs-ofctl add-flow br0 in_port=5,actions=drop], [1], [], [stderr])
 AT_CHECK([head -n 1 stderr | ofctl_strip], [0],
-  [OFPT_ERROR: OFPFMFC_ALL_TABLES_FULL
+  [OFPT_ERROR: OFPFMFC_TABLE_FULL
 ])
 # Also a mod-flow that would add a flow will be refused.
 AT_CHECK([ovs-ofctl mod-flows br0 in_port=5,actions=drop], [1], [], [stderr])
 AT_CHECK([head -n 1 stderr | ofctl_strip], [0],
-  [OFPT_ERROR: OFPFMFC_ALL_TABLES_FULL
+  [OFPT_ERROR: OFPFMFC_TABLE_FULL
 ])
 # Replacing or modifying an existing flow is allowed.
 AT_CHECK([ovs-ofctl add-flow br0 in_port=4,actions=normal])
@@ -479,7 +551,7 @@ NXST_FLOW reply:
 AT_CHECK([ovs-ofctl add-flow br0 in_port=7,actions=normal])
 AT_CHECK([ovs-ofctl add-flow br0 in_port=8,actions=drop], [1], [], [stderr])
 AT_CHECK([head -n 1 stderr | ofctl_strip], [0],
-  [OFPT_ERROR: OFPFMFC_ALL_TABLES_FULL
+  [OFPT_ERROR: OFPFMFC_TABLE_FULL
 ])
 AT_CHECK([ovs-ofctl dump-flows br0 | ofctl_strip | sort], [0], [dnl
  in_port=4 actions=NORMAL
@@ -588,30 +660,30 @@ check_async () {
     ovs-ofctl -v packet-out br0 none controller '0001020304050010203040501234'
     if test X"$1" = X"OFPR_ACTION"; then shift;
         echo >>expout "OFPT_PACKET_IN: total_len=14 in_port=NONE (via action) data_len=14 (unbuffered)
-priority:0,tunnel:0,metadata:0,in_port:0000,tci(0) mac(00:10:20:30:40:50->00:01:02:03:04:05) type:1234 proto:0 tos:0 ttl:0 ip(0.0.0.0->0.0.0.0)"
+priority=0,metadata=0,in_port=0,vlan_tci=0x0000,dl_src=00:10:20:30:40:50,dl_dst=00:01:02:03:04:05,dl_type=0x1234"
     fi
 
     # OFPT_PACKET_IN, OFPR_NO_MATCH (controller_id=123)
     ovs-ofctl -v packet-out br0 none 'controller(reason=no_match,id=123)' '0001020304050010203040501234'
     if test X"$1" = X"OFPR_NO_MATCH"; then shift;
         echo >>expout "OFPT_PACKET_IN: total_len=14 in_port=NONE (via no_match) data_len=14 (unbuffered)
-priority:0,tunnel:0,metadata:0,in_port:0000,tci(0) mac(00:10:20:30:40:50->00:01:02:03:04:05) type:1234 proto:0 tos:0 ttl:0 ip(0.0.0.0->0.0.0.0)"
+priority=0,metadata=0,in_port=0,vlan_tci=0x0000,dl_src=00:10:20:30:40:50,dl_dst=00:01:02:03:04:05,dl_type=0x1234"
     fi
 
     # OFPT_PACKET_IN, OFPR_INVALID_TTL (controller_id=0)
     ovs-ofctl packet-out br0 none dec_ttl '002583dfb4000026b98cb0f908004500003fb7e200000011339bac11370dac100002d7730035002b8f6d86fb0100000100000000000006626c702d7873066e696369726103636f6d00000f00'
     if test X"$1" = X"OFPR_INVALID_TTL"; then shift;
         echo >>expout "OFPT_PACKET_IN: total_len=76 in_port=NONE (via invalid_ttl) data_len=76 (unbuffered)
-priority:0,tunnel:0,metadata:0,in_port:0000,tci(0) mac(00:26:b9:8c:b0:f9->00:25:83:df:b4:00) type:0800 proto:17 tos:0 ttl:0 ip(172.17.55.13->172.16.0.2) port(55155->53) udp_csum:8f6d"
+priority=0,udp,metadata=0,in_port=0,vlan_tci=0x0000,dl_src=00:26:b9:8c:b0:f9,dl_dst=00:25:83:df:b4:00,nw_src=172.17.55.13,nw_dst=172.16.0.2,nw_tos=0,nw_ecn=0,nw_ttl=0,tp_src=55155,tp_dst=53 udp_csum:8f6d"
     fi
 
     # OFPT_PORT_STATUS, OFPPR_ADD
-    ovs-vsctl add-port br0 test -- set Interface test type=dummy
+    ovs-vsctl add-port br0 test -- set Interface test type=dummy ofport_request=1
     if test X"$1" = X"OFPPR_ADD"; then shift;
         echo >>expout "OFPT_PORT_STATUS: ADD: 1(test): addr:aa:55:aa:55:00:0x
      config:     PORT_DOWN
      state:      LINK_DOWN
-     speed: 100 Mbps now, 100 Mbps max"
+     speed: 0 Mbps now, 0 Mbps max"
     fi
 
     # OFPT_PORT_STATUS, OFPPR_DELETE
@@ -620,7 +692,7 @@ priority:0,tunnel:0,metadata:0,in_port:0000,tci(0) mac(00:26:b9:8c:b0:f9->00:25:
         echo >>expout "OFPT_PORT_STATUS: DEL: 1(test): addr:aa:55:aa:55:00:0x
      config:     PORT_DOWN
      state:      LINK_DOWN
-     speed: 100 Mbps now, 100 Mbps max"
+     speed: 0 Mbps now, 0 Mbps max"
     fi
 
     # OFPT_FLOW_REMOVED, OFPRR_DELETE
@@ -692,7 +764,7 @@ AT_CAPTURE_FILE([monitor.log])
 
 # Send some packet-outs with OFPP_NONE and OFPP_CONTROLLER (65533) as in_port.
 AT_CHECK([ovs-ofctl packet-out br0 none controller '0001020304050010203040501234'])
-AT_CHECK([ovs-ofctl packet-out br0 65533 controller '0001020304050010203040505678'])
+AT_CHECK([ovs-ofctl packet-out br0 controller controller '0001020304050010203040505678'])
 
 # Stop the monitor and check its output.
 ovs-appctl -t ovs-ofctl ofctl/barrier
@@ -700,9 +772,9 @@ ovs-appctl -t ovs-ofctl exit
 
 AT_CHECK([sed 's/ (xid=0x[[0-9a-fA-F]]*)//' monitor.log], [0], [dnl
 OFPT_PACKET_IN: total_len=14 in_port=NONE (via action) data_len=14 (unbuffered)
-priority:0,tunnel:0,metadata:0,in_port:0000,tci(0) mac(00:10:20:30:40:50->00:01:02:03:04:05) type:1234 proto:0 tos:0 ttl:0 ip(0.0.0.0->0.0.0.0)
+priority=0,metadata=0,in_port=0,vlan_tci=0x0000,dl_src=00:10:20:30:40:50,dl_dst=00:01:02:03:04:05,dl_type=0x1234
 OFPT_PACKET_IN: total_len=14 in_port=CONTROLLER (via action) data_len=14 (unbuffered)
-priority:0,tunnel:0,metadata:0,in_port:0000,tci(0) mac(00:10:20:30:40:50->00:01:02:03:04:05) type:5678 proto:0 tos:0 ttl:0 ip(0.0.0.0->0.0.0.0)
+priority=0,metadata=0,in_port=0,vlan_tci=0x0000,dl_src=00:10:20:30:40:50,dl_dst=00:01:02:03:04:05,dl_type=0x5678
 OFPT_BARRIER_REPLY:
 ])
 
@@ -730,7 +802,7 @@ ovs-appctl -t ovs-ofctl exit
 
 AT_CHECK([sed 's/ (xid=0x[[0-9a-fA-F]]*)//' monitor.log], [0], [dnl
 NXT_PACKET_IN: total_len=14 in_port=NONE metadata=0xfafafafa5a5a5a5a (via action) data_len=14 (unbuffered)
-priority:0,tunnel:0,metadata:0,in_port:0000,tci(0) mac(00:10:20:30:40:50->00:01:02:03:04:05) type:1234 proto:0 tos:0 ttl:0 ip(0.0.0.0->0.0.0.0)
+priority=0,metadata=0,in_port=0,vlan_tci=0x0000,dl_src=00:10:20:30:40:50,dl_dst=00:01:02:03:04:05,dl_type=0x1234
 OFPT_BARRIER_REPLY:
 ])
 

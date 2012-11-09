@@ -84,6 +84,7 @@ struct if_cfg {
     struct hmap_node hmap_node;         /* Node in bridge's if_cfg_todo. */
     const struct ovsrec_interface *cfg; /* Interface record. */
     const struct ovsrec_port *parent;   /* Parent port record. */
+    int64_t ofport;                     /* Requested OpenFlow port number. */
 };
 
 /* OpenFlow port slated for removal from ofproto. */
@@ -290,6 +291,50 @@ static void configure_splinter_port(struct port *);
 static void add_vlan_splinter_ports(struct bridge *,
                                     const unsigned long int *splinter_vlans,
                                     struct shash *ports);
+
+static void
+bridge_init_ofproto(const struct ovsrec_open_vswitch *cfg)
+{
+    struct shash iface_hints;
+    static bool initialized = false;
+    int i;
+
+    if (initialized) {
+        return;
+    }
+
+    shash_init(&iface_hints);
+
+    if (cfg) {
+        for (i = 0; i < cfg->n_bridges; i++) {
+            const struct ovsrec_bridge *br_cfg = cfg->bridges[i];
+            int j;
+
+            for (j = 0; j < br_cfg->n_ports; j++) {
+                struct ovsrec_port *port_cfg = br_cfg->ports[j];
+                int k;
+
+                for (k = 0; k < port_cfg->n_interfaces; k++) {
+                    struct ovsrec_interface *if_cfg = port_cfg->interfaces[k];
+                    struct iface_hint *iface_hint;
+
+                    iface_hint = xmalloc(sizeof *iface_hint);
+                    iface_hint->br_name = br_cfg->name;
+                    iface_hint->br_type = br_cfg->datapath_type;
+                    iface_hint->ofp_port = if_cfg->n_ofport_request ?
+                        *if_cfg->ofport_request : OFPP_NONE;
+
+                    shash_add(&iface_hints, if_cfg->name, iface_hint);
+                }
+            }
+        }
+    }
+
+    ofproto_init(&iface_hints);
+
+    shash_destroy_free_data(&iface_hints);
+    initialized = true;
+}
 
 /* Public functions. */
 
@@ -303,6 +348,7 @@ bridge_init(const char *remote)
     idl = ovsdb_idl_create(remote, &ovsrec_idl_class, true);
     idl_seqno = ovsdb_idl_get_seqno(idl);
     ovsdb_idl_set_lock(idl, "ovs_vswitchd");
+    ovsdb_idl_verify_write_only(idl);
 
     ovsdb_idl_omit_alert(idl, &ovsrec_open_vswitch_col_cur_cfg);
     ovsdb_idl_omit_alert(idl, &ovsrec_open_vswitch_col_statistics);
@@ -334,6 +380,7 @@ bridge_init(const char *remote)
     ovsdb_idl_omit_alert(idl, &ovsrec_interface_col_cfm_fault_status);
     ovsdb_idl_omit_alert(idl, &ovsrec_interface_col_cfm_remote_mpids);
     ovsdb_idl_omit_alert(idl, &ovsrec_interface_col_cfm_health);
+    ovsdb_idl_omit_alert(idl, &ovsrec_interface_col_cfm_remote_opstate);
     ovsdb_idl_omit_alert(idl, &ovsrec_interface_col_lacp_current);
     ovsdb_idl_omit(idl, &ovsrec_interface_col_external_ids);
 
@@ -919,7 +966,7 @@ port_configure_stp(const struct ofproto *ofproto, struct port *port,
     const char *config_str;
     struct iface *iface;
 
-    if (smap_get_bool(&port->cfg->other_config, "stp-enable", false)) {
+    if (!smap_get_bool(&port->cfg->other_config, "stp-enable", true)) {
         port_s->enable = false;
         return;
     } else {
@@ -985,16 +1032,11 @@ port_configure_stp(const struct ofproto *ofproto, struct port *port,
         port_s->path_cost = strtoul(config_str, NULL, 10);
     } else {
         enum netdev_features current;
+        unsigned int mbps;
 
-        if (netdev_get_features(iface->netdev, &current, NULL, NULL, NULL)) {
-            /* Couldn't get speed, so assume 100Mb/s. */
-            port_s->path_cost = 19;
-        } else {
-            unsigned int mbps;
-
-            mbps = netdev_features_to_bps(current) / 1000000;
-            port_s->path_cost = stp_convert_speed_to_cost(mbps);
-        }
+        netdev_get_features(iface->netdev, &current, NULL, NULL, NULL);
+        mbps = netdev_features_to_bps(current, 100 * 1000 * 1000) / 1000000;
+        port_s->path_cost = stp_convert_speed_to_cost(mbps);
     }
 
     config_str = smap_get(&port->cfg->other_config, "stp-port-priority");
@@ -1293,6 +1335,7 @@ bridge_refresh_ofp_port(struct bridge *br)
     }
 }
 
+<<<<<<< HEAD
 #ifdef LC_ENABLE
 /**
  * update a bf content into dp.
@@ -1337,6 +1380,9 @@ int bridge_update_local_bf(const struct bridge *br, char *src_mac)
 #endif
 
 /* Opens a network device for 'iface_cfg' and configures it.  If '*ofp_portp'
+=======
+/* Opens a network device for 'if_cfg' and configures it.  If '*ofp_portp'
+>>>>>>> ovs-master
  * is negative, adds the network device to br->ofproto and stores the OpenFlow
  * port number in '*ofp_portp'; otherwise leaves br->ofproto and '*ofp_portp'
  * untouched.
@@ -1345,10 +1391,11 @@ int bridge_update_local_bf(const struct bridge *br, char *src_mac)
  * failure, returns a positive errno value and stores NULL in '*netdevp'. */
 static int
 iface_do_create(const struct bridge *br,
-                const struct ovsrec_interface *iface_cfg,
-                const struct ovsrec_port *port_cfg,
+                const struct if_cfg *if_cfg,
                 int *ofp_portp, struct netdev **netdevp)
 {
+    const struct ovsrec_interface *iface_cfg = if_cfg->cfg;
+    const struct ovsrec_port *port_cfg = if_cfg->parent;
     struct netdev *netdev;
     int error;
 
@@ -1366,7 +1413,7 @@ iface_do_create(const struct bridge *br,
     }
 
     if (*ofp_portp < 0) {
-        uint16_t ofp_port;
+        uint16_t ofp_port = if_cfg->ofport;
 
         error = ofproto_port_add(br->ofproto, netdev, &ofp_port);
         if (error) {
@@ -1410,11 +1457,7 @@ iface_create(struct bridge *br, struct if_cfg *if_cfg, int ofp_port)
     struct iface *iface;
     struct port *port;
     int error;
-
-    /* Get rid of 'if_cfg' itself.  We already copied out the interesting
-     * bits. */
-    hmap_remove(&br->if_cfg_todo, &if_cfg->hmap_node);
-    free(if_cfg);
+    bool ok = true;
 
     /* Do the bits that can fail up front.
      *
@@ -1423,11 +1466,12 @@ iface_create(struct bridge *br, struct if_cfg *if_cfg, int ofp_port)
      * additions and deletions are cheaper, these calls should be removed. */
     bridge_run_fast();
     assert(!iface_lookup(br, iface_cfg->name));
-    error = iface_do_create(br, iface_cfg, port_cfg, &ofp_port, &netdev);
+    error = iface_do_create(br, if_cfg, &ofp_port, &netdev);
     bridge_run_fast();
     if (error) {
         iface_clear_db_record(iface_cfg);
-        return false;
+        ok = false;
+        goto done;
     }
 
     /* Get or create the port structure. */
@@ -1465,7 +1509,9 @@ iface_create(struct bridge *br, struct if_cfg *if_cfg, int ofp_port)
 
             error = netdev_open(port->name, "internal", &netdev);
             if (!error) {
-                ofproto_port_add(br->ofproto, netdev, NULL);
+                uint16_t ofp_port = if_cfg->ofport;
+
+                ofproto_port_add(br->ofproto, netdev, &ofp_port);
                 netdev_close(netdev);
             } else {
                 VLOG_WARN("could not open network device %s (%s)",
@@ -1477,7 +1523,11 @@ iface_create(struct bridge *br, struct if_cfg *if_cfg, int ofp_port)
         }
     }
 
-    return true;
+done:
+    hmap_remove(&br->if_cfg_todo, &if_cfg->hmap_node);
+    free(if_cfg);
+
+    return ok;
 }
 
 /* Set Flow eviction threshold */
@@ -1492,7 +1542,7 @@ bridge_configure_flow_eviction_threshold(struct bridge *br)
     if (threshold_str) {
         threshold = strtoul(threshold_str, NULL, 10);
     } else {
-        threshold = OFPROTO_FLOW_EVICTON_THRESHOLD_DEFAULT;
+        threshold = OFPROTO_FLOW_EVICTION_THRESHOLD_DEFAULT;
     }
     ofproto_set_flow_eviction_threshold(br->ofproto, threshold);
 }
@@ -1729,12 +1779,11 @@ iface_refresh_status(struct iface *iface)
     smap_destroy(&smap);
 
     error = netdev_get_features(iface->netdev, &current, NULL, NULL, NULL);
-    if (!error) {
+    bps = !error ? netdev_features_to_bps(current, 0) : 0;
+    if (bps) {
         ovsrec_interface_set_duplex(iface->cfg,
                                     netdev_features_is_full_duplex(current)
                                     ? "full" : "half");
-        /* warning: uint64_t -> int64_t conversion */
-        bps = netdev_features_to_bps(current);
         ovsrec_interface_set_link_speed(iface->cfg, &bps, 1);
     }
     else {
@@ -2106,7 +2155,16 @@ refresh_instant_stats(void)
 void
 bridge_run_fast(void)
 {
+    struct sset types;
+    const char *type;
     struct bridge *br;
+
+    sset_init(&types);
+    ofproto_enumerate_types(&types);
+    SSET_FOR_EACH (type, &types) {
+        ofproto_type_run_fast(type);
+    }
+    sset_destroy(&types);
 
     HMAP_FOR_EACH (br, node, &all_bridges) {
         ofproto_run_fast(br->ofproto);
@@ -2119,6 +2177,8 @@ bridge_run(void)
     static const struct ovsrec_open_vswitch null_cfg;
     const struct ovsrec_open_vswitch *cfg;
     struct ovsdb_idl_txn *reconf_txn = NULL;
+    struct sset types;
+    const char *type;
 
     bool vlan_splinters_changed;
     struct bridge *br;
@@ -2145,6 +2205,20 @@ bridge_run(void)
         }
     }
     cfg = ovsrec_open_vswitch_first(idl);
+
+    /* Initialize the ofproto library.  This only needs to run once, but
+     * it must be done after the configuration is set.  If the
+     * initialization has already occurred, bridge_init_ofproto()
+     * returns immediately. */
+    bridge_init_ofproto(cfg);
+
+    /* Let each datapath type do the work that it needs to do. */
+    sset_init(&types);
+    ofproto_enumerate_types(&types);
+    SSET_FOR_EACH (type, &types) {
+        ofproto_type_run(type);
+    }
+    sset_destroy(&types);
 
     /* Let each bridge do the work that it needs to do. */
     HMAP_FOR_EACH (br, node, &all_bridges) {
@@ -2248,11 +2322,21 @@ bridge_run(void)
 void
 bridge_wait(void)
 {
+    struct sset types;
+    const char *type;
+
     ovsdb_idl_wait(idl);
 
     if (reconfiguring) {
         poll_immediate_wake();
     }
+
+    sset_init(&types);
+    ofproto_enumerate_types(&types);
+    SSET_FOR_EACH (type, &types) {
+        ofproto_type_wait(type);
+    }
+    sset_destroy(&types);
 
     if (!hmap_is_empty(&all_bridges)) {
         struct bridge *br;
@@ -2629,6 +2713,7 @@ bridge_queue_if_cfg(struct bridge *br,
 
     if_cfg->cfg = cfg;
     if_cfg->parent = parent;
+    if_cfg->ofport = cfg->n_ofport_request ? *cfg->ofport_request : OFPP_NONE;
     hmap_insert(&br->if_cfg_todo, &if_cfg->hmap_node,
                 hash_string(if_cfg->cfg->name, 0));
 }
@@ -2705,7 +2790,12 @@ bridge_add_del_ports(struct bridge *br,
             if (iface) {
                 iface->cfg = cfg;
                 iface->type = type;
-            } else if (strcmp(type, "null")) {
+            } else if (!strcmp(type, "null")) {
+                VLOG_WARN_ONCE("%s: The null interface type is deprecated and"
+                               " may be removed in February 2013. Please email"
+                               " dev@openvswitch.org with concerns.",
+                               cfg->name);
+            } else {
                 bridge_queue_if_cfg(br, cfg, port);
             }
         }
@@ -3235,11 +3325,14 @@ static const char *
 iface_get_type(const struct ovsrec_interface *iface,
                const struct ovsrec_bridge *br)
 {
-    /* The local port always has type "internal".  Other ports take their type
-     * from the database and default to "system" if none is specified. */
-    return (!strcmp(iface->name, br->name) ? "internal"
-            : iface->type[0] ? iface->type
-            : "system");
+    /* The local port always has type "internal" unless the bridge is of
+     * type "dummy".  Other ports take their type from the database and
+     * default to "system" if none is specified. */
+    if (!strcmp(iface->name, br->name)) {
+        return !strcmp(br->datapath_type, "dummy") ? "dummy" : "internal";
+    } else {
+        return iface->type[0] ? iface->type : "system";
+    }
 }
 
 static void
@@ -3485,11 +3578,23 @@ iface_configure_cfm(struct iface *iface)
     const char *opstate_str;
     const char *cfm_ccm_vlan;
     struct cfm_settings s;
+    struct smap netdev_args;
 
     if (!cfg->n_cfm_mpid) {
         ofproto_port_clear_cfm(iface->port->bridge->ofproto, iface->ofp_port);
         return;
     }
+
+    s.check_tnl_key = false;
+    smap_init(&netdev_args);
+    if (!netdev_get_config(iface->netdev, &netdev_args)) {
+        const char *key = smap_get(&netdev_args, "key");
+        const char *in_key = smap_get(&netdev_args, "in_key");
+
+        s.check_tnl_key = (key && !strcmp(key, "flow"))
+                           || (in_key && !strcmp(in_key, "flow"));
+    }
+    smap_destroy(&netdev_args);
 
     s.mpid = *cfg->cfm_mpid;
     s.interval = smap_get_int(&iface->cfg->other_config, "cfm_interval", 0);

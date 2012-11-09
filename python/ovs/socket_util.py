@@ -19,6 +19,7 @@ import socket
 import sys
 
 import ovs.fatal_signal
+import ovs.poller
 import ovs.vlog
 
 vlog = ovs.vlog.Vlog("socket_util")
@@ -75,12 +76,47 @@ def make_unix_socket(style, nonblock, bind_path, connect_path):
 
 
 def check_connection_completion(sock):
-    p = select.poll()
+    p = ovs.poller.SelectPoll()
     p.register(sock, select.POLLOUT)
     if len(p.poll(0)) == 1:
         return get_socket_error(sock)
     else:
         return errno.EAGAIN
+
+
+def inet_parse_active(target, default_port):
+    address = target.split(":")
+    host_name = address[0]
+    if not host_name:
+        raise ValueError("%s: bad peer name format" % target)
+    if len(address) >= 2:
+        port = int(address[1])
+    elif default_port:
+        port = default_port
+    else:
+        raise ValueError("%s: port number must be specified" % target)
+    return (host_name, port)
+
+
+def inet_open_active(style, target, default_port, dscp):
+    address = inet_parse_active(target, default_port)
+    try:
+        sock = socket.socket(socket.AF_INET, style, 0)
+    except socket.error, e:
+        return get_exception_errno(e), None
+
+    try:
+        set_nonblocking(sock)
+        set_dscp(sock, dscp)
+        try:
+            sock.connect(address)
+        except socket.error, e:
+            if get_exception_errno(e) != errno.EINPROGRESS:
+                raise
+        return 0, sock
+    except socket.error, e:
+        sock.close()
+        return get_exception_errno(e), None
 
 
 def get_socket_error(sock):
@@ -147,3 +183,10 @@ def set_nonblocking(sock):
     except socket.error, e:
         vlog.err("could not set nonblocking mode on socket: %s"
                  % os.strerror(get_socket_error(e)))
+
+
+def set_dscp(sock, dscp):
+    if dscp > 63:
+        raise ValueError("Invalid dscp %d" % dscp)
+    val = dscp << 2
+    sock.setsockopt(socket.IPPROTO_IP, socket.IP_TOS, val)

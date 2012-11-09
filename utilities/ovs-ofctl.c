@@ -336,7 +336,7 @@ open_vconn_socket(const char *name, struct vconn **vconnp)
 {
     char *vconn_name = xasprintf("unix:%s", name);
     VLOG_DBG("connecting to %s", vconn_name);
-    run(vconn_open_block(vconn_name, OFP10_VERSION, vconnp),
+    run(vconn_open_block(vconn_name, 0, vconnp),
         "connecting to %s", vconn_name);
     free(vconn_name);
 }
@@ -360,8 +360,7 @@ open_vconn__(const char *name, const char *default_suffix,
     free(datapath_type);
 
     if (strchr(name, ':')) {
-        run(vconn_open_block(name, OFP10_VERSION, vconnp),
-            "connecting to %s", name);
+        run(vconn_open_block(name, 0, vconnp), "connecting to %s", name);
     } else if (!stat(name, &s) && S_ISSOCK(s.st_mode)) {
         open_vconn_socket(name, vconnp);
     } else if (!stat(bridge_path, &s) && S_ISSOCK(s.st_mode)) {
@@ -424,7 +423,7 @@ dump_trivial_transaction(const char *vconn_name, enum ofpraw raw)
 }
 
 static void
-dump_stats_transaction__(struct vconn *vconn, struct ofpbuf *request)
+dump_stats_transaction(struct vconn *vconn, struct ofpbuf *request)
 {
     const struct ofp_header *request_oh = request->data;
     ovs_be32 send_xid = request_oh->xid;
@@ -467,22 +466,15 @@ dump_stats_transaction__(struct vconn *vconn, struct ofpbuf *request)
 }
 
 static void
-dump_stats_transaction(const char *vconn_name, struct ofpbuf *request)
-{
-    struct vconn *vconn;
-
-    open_vconn(vconn_name, &vconn);
-    dump_stats_transaction__(vconn, request);
-    vconn_close(vconn);
-}
-
-static void
 dump_trivial_stats_transaction(const char *vconn_name, enum ofpraw raw)
 {
     struct ofpbuf *request;
+    struct vconn *vconn;
 
-    request = ofpraw_alloc(raw, OFP10_VERSION, 0);
-    dump_stats_transaction(vconn_name, request);
+    open_vconn(vconn_name, &vconn);
+    request = ofpraw_alloc(raw, vconn_get_version(vconn), 0);
+    dump_stats_transaction(vconn, request);
+    vconn_close(vconn);
 }
 
 /* Sends 'request', which should be a request that only has a reply if an error
@@ -748,9 +740,9 @@ fetch_ofputil_phy_port(const char *vconn_name, const char *port_name,
 static uint16_t
 str_to_port_no(const char *vconn_name, const char *port_name)
 {
-    unsigned int port_no;
+    uint16_t port_no;
 
-    if (str_to_uint(port_name, 10, &port_no)) {
+    if (ofputil_port_from_string(port_name, &port_no)) {
         return port_no;
     } else {
         struct ofputil_phy_port pp;
@@ -839,7 +831,7 @@ ofctl_dump_flows__(int argc, char *argv[], bool aggregate)
     struct vconn *vconn;
 
     vconn = prepare_dump_flows(argc, argv, aggregate, &request);
-    dump_stats_transaction__(vconn, request);
+    dump_stats_transaction(vconn, request);
     vconn_close(vconn);
 }
 
@@ -848,8 +840,8 @@ compare_flows(const void *afs_, const void *bfs_)
 {
     const struct ofputil_flow_stats *afs = afs_;
     const struct ofputil_flow_stats *bfs = bfs_;
-    const struct cls_rule *a = &afs->rule;
-    const struct cls_rule *b = &bfs->rule;
+    const struct match *a = &afs->match;
+    const struct match *b = &bfs->match;
     const struct sort_criterion *sc;
 
     for (sc = criteria; sc < &criteria[n_criteria]; sc++) {
@@ -857,7 +849,9 @@ compare_flows(const void *afs_, const void *bfs_)
         int ret;
 
         if (!f) {
-            ret = a->priority < b->priority ? -1 : a->priority > b->priority;
+            unsigned int a_pri = afs->priority;
+            unsigned int b_pri = bfs->priority;
+            ret = a_pri < b_pri ? -1 : a_pri > b_pri;
         } else {
             bool ina, inb;
 
@@ -954,26 +948,26 @@ ofctl_dump_aggregate(int argc, char *argv[])
 static void
 ofctl_queue_stats(int argc, char *argv[])
 {
-    struct ofp10_queue_stats_request *req;
     struct ofpbuf *request;
+    struct vconn *vconn;
+    struct ofputil_queue_stats_request oqs;
 
-    request = ofpraw_alloc(OFPRAW_OFPST_QUEUE_REQUEST, OFP10_VERSION, 0);
-    req = ofpbuf_put_zeros(request, sizeof *req);
+    open_vconn(argv[1], &vconn);
 
     if (argc > 2 && argv[2][0] && strcasecmp(argv[2], "all")) {
-        req->port_no = htons(str_to_port_no(argv[1], argv[2]));
+        oqs.port_no = str_to_port_no(argv[1], argv[2]);
     } else {
-        req->port_no = htons(OFPP_ALL);
+        oqs.port_no = OFPP_ALL;
     }
     if (argc > 3 && argv[3][0] && strcasecmp(argv[3], "all")) {
-        req->queue_id = htonl(atoi(argv[3]));
+        oqs.queue_id = atoi(argv[3]);
     } else {
-        req->queue_id = htonl(OFPQ_ALL);
+        oqs.queue_id = OFPQ_ALL;
     }
 
-    memset(req->pad, 0, sizeof req->pad);
-
-    dump_stats_transaction(argv[1], request);
+    request = ofputil_encode_queue_stats_request(vconn_get_version(vconn), &oqs);
+    dump_stats_transaction(vconn, request);
+    vconn_close(vconn);
 }
 
 static enum ofputil_protocol
@@ -1087,7 +1081,10 @@ static void
 set_packet_in_format(struct vconn *vconn,
                      enum nx_packet_in_format packet_in_format)
 {
-    struct ofpbuf *spif = ofputil_make_set_packet_in_format(packet_in_format);
+    struct ofpbuf *spif;
+
+    spif = ofputil_make_set_packet_in_format(vconn_get_version(vconn),
+                                             packet_in_format);
     transact_noreply(vconn, spif);
     VLOG_DBG("%s: using user-specified packet in format %s",
              vconn_get_name(vconn),
@@ -1377,7 +1374,7 @@ ofctl_monitor(int argc, char *argv[])
 
             msg = ofpbuf_new(0);
             ofputil_append_flow_monitor_request(&fmr, msg);
-            dump_stats_transaction__(vconn, msg);
+            dump_stats_transaction(vconn, msg);
         } else {
             ovs_fatal(0, "%s: unsupported \"monitor\" argument", arg);
         }
@@ -1388,7 +1385,8 @@ ofctl_monitor(int argc, char *argv[])
     } else {
         struct ofpbuf *spif, *reply;
 
-        spif = ofputil_make_set_packet_in_format(NXPIF_NXM);
+        spif = ofputil_make_set_packet_in_format(vconn_get_version(vconn),
+                                                 NXPIF_NXM);
         run(vconn_transact_noreply(vconn, spif, &reply),
             "talking to %s", vconn_get_name(vconn));
         if (reply) {
@@ -1416,15 +1414,15 @@ ofctl_snoop(int argc OVS_UNUSED, char *argv[])
 static void
 ofctl_dump_ports(int argc, char *argv[])
 {
-    struct ofp10_port_stats_request *req;
     struct ofpbuf *request;
+    struct vconn *vconn;
     uint16_t port;
 
-    request = ofpraw_alloc(OFPRAW_OFPST_PORT_REQUEST, OFP10_VERSION, 0);
-    req = ofpbuf_put_zeros(request, sizeof *req);
+    open_vconn(argv[1], &vconn);
     port = argc > 2 ? str_to_port_no(argv[1], argv[2]) : OFPP_NONE;
-    req->port_no = htons(port);
-    dump_stats_transaction(argv[1], request);
+    request = ofputil_encode_dump_ports_request(vconn_get_version(vconn), port);
+    dump_stats_transaction(vconn, request);
+    vconn_close(vconn);
 }
 
 static void
@@ -1463,9 +1461,7 @@ ofctl_packet_out(int argc, char *argv[])
     parse_ofpacts(argv[3], &ofpacts);
 
     po.buffer_id = UINT32_MAX;
-    po.in_port = (!strcasecmp(argv[2], "none") ? OFPP_NONE
-                  : !strcasecmp(argv[2], "local") ? OFPP_LOCAL
-                  : str_to_port_no(argv[1], argv[2]));
+    po.in_port = str_to_port_no(argv[1], argv[2]);
     po.ofpacts = ofpacts.data;
     po.ofpacts_len = ofpacts.size;
 
@@ -1775,6 +1771,7 @@ fte_free(struct fte *fte)
     if (fte) {
         fte_version_free(fte->versions[0]);
         fte_version_free(fte->versions[1]);
+        cls_rule_destroy(&fte->rule);
         free(fte);
     }
 }
@@ -1800,19 +1797,20 @@ fte_free_all(struct classifier *cls)
  *
  * Takes ownership of 'version'. */
 static void
-fte_insert(struct classifier *cls, const struct cls_rule *rule,
-           struct fte_version *version, int index)
+fte_insert(struct classifier *cls, const struct match *match,
+           unsigned int priority, struct fte_version *version, int index)
 {
     struct fte *old, *fte;
 
     fte = xzalloc(sizeof *fte);
-    fte->rule = *rule;
+    cls_rule_init(&fte->rule, match, priority);
     fte->versions[index] = version;
 
     old = fte_from_cls_rule(classifier_replace(cls, &fte->rule));
     if (old) {
         fte_version_free(old->versions[index]);
         fte->versions[!index] = old->versions[!index];
+        cls_rule_destroy(&old->rule);
         free(old);
     }
 }
@@ -1848,9 +1846,9 @@ read_flows_from_file(const char *filename, struct classifier *cls, int index)
         version->ofpacts = fm.ofpacts;
         version->ofpacts_len = fm.ofpacts_len;
 
-        usable_protocols &= ofputil_usable_protocols(&fm.cr);
+        usable_protocols &= ofputil_usable_protocols(&fm.match);
 
-        fte_insert(cls, &fm.cr, version, index);
+        fte_insert(cls, &fm.match, fm.priority, version, index);
     }
     ds_destroy(&s);
 
@@ -1930,7 +1928,7 @@ read_flows_from_switch(struct vconn *vconn,
     ovs_be32 send_xid;
 
     fsr.aggregate = false;
-    cls_rule_init_catchall(&fsr.match, 0);
+    match_init_catchall(&fsr.match);
     fsr.out_port = OFPP_NONE;
     fsr.table_id = 0xff;
     fsr.cookie = fsr.cookie_mask = htonll(0);
@@ -1951,7 +1949,7 @@ read_flows_from_switch(struct vconn *vconn,
         version->ofpacts_len = fs.ofpacts_len;
         version->ofpacts = xmemdup(fs.ofpacts, fs.ofpacts_len);
 
-        fte_insert(cls, &fs.rule, version, index);
+        fte_insert(cls, &fs.match, fs.priority, version, index);
     }
     ofpbuf_uninit(&ofpacts);
 }
@@ -1964,7 +1962,8 @@ fte_make_flow_mod(const struct fte *fte, int index, uint16_t command,
     struct ofputil_flow_mod fm;
     struct ofpbuf *ofm;
 
-    fm.cr = fte->rule;
+    minimatch_expand(&fte->rule.match, &fm.match);
+    fm.priority = fte->rule.priority;
     fm.cookie = htonll(0);
     fm.cookie_mask = htonll(0);
     fm.new_cookie = version->cookie;
@@ -2176,7 +2175,7 @@ ofctl_parse_nxm__(bool oxm)
     ds_init(&in);
     while (!ds_get_test_line(&in, stdin)) {
         struct ofpbuf nx_match;
-        struct cls_rule rule;
+        struct match match;
         ovs_be64 cookie, cookie_mask;
         enum ofperr error;
         int match_len;
@@ -2189,19 +2188,19 @@ ofctl_parse_nxm__(bool oxm)
             match_len = nx_match_from_string(ds_cstr(&in), &nx_match);
         }
 
-        /* Convert nx_match to cls_rule. */
+        /* Convert nx_match to match. */
         if (strict) {
             if (oxm) {
-                error = oxm_pull_match(&nx_match, 0, &rule);
+                error = oxm_pull_match(&nx_match, &match);
             } else {
-                error = nx_pull_match(&nx_match, match_len, 0, &rule,
+                error = nx_pull_match(&nx_match, match_len, &match,
                                       &cookie, &cookie_mask);
             }
         } else {
             if (oxm) {
-                error = oxm_pull_match_loose(&nx_match, 0, &rule);
+                error = oxm_pull_match_loose(&nx_match, &match);
             } else {
-                error = nx_pull_match_loose(&nx_match, match_len, 0, &rule,
+                error = nx_pull_match_loose(&nx_match, match_len, &match,
                                             &cookie, &cookie_mask);
             }
         }
@@ -2210,14 +2209,14 @@ ofctl_parse_nxm__(bool oxm)
         if (!error) {
             char *out;
 
-            /* Convert cls_rule back to nx_match. */
+            /* Convert match back to nx_match. */
             ofpbuf_uninit(&nx_match);
             ofpbuf_init(&nx_match, 0);
             if (oxm) {
-                match_len = oxm_put_match(&nx_match, &rule);
+                match_len = oxm_put_match(&nx_match, &match);
                 out = oxm_match_to_string(nx_match.data, match_len);
             } else {
-                match_len = nx_put_match(&nx_match, &rule,
+                match_len = nx_put_match(&nx_match, &match,
                                          cookie, cookie_mask);
                 out = nx_match_to_string(nx_match.data, match_len);
             }
@@ -2353,7 +2352,7 @@ ofctl_parse_ofp10_match(int argc OVS_UNUSED, char *argv[] OVS_UNUSED)
         struct ofpbuf match_in, match_expout;
         struct ofp10_match match_out;
         struct ofp10_match match_normal;
-        struct cls_rule rule;
+        struct match match;
         char *p;
 
         /* Parse hex bytes to use for expected output. */
@@ -2389,18 +2388,17 @@ ofctl_parse_ofp10_match(int argc OVS_UNUSED, char *argv[] OVS_UNUSED)
         }
 
         /* Convert to cls_rule and print. */
-        ofputil_cls_rule_from_ofp10_match(match_in.data, OFP_DEFAULT_PRIORITY,
-                                          &rule);
-        cls_rule_print(&rule);
+        ofputil_match_from_ofp10_match(match_in.data, &match);
+        match_print(&match);
 
         /* Convert back to ofp10_match and print differences from input. */
-        ofputil_cls_rule_to_ofp10_match(&rule, &match_out);
+        ofputil_match_to_ofp10_match(&match, &match_out);
         print_differences("", match_expout.data, match_expout.size,
                           &match_out, sizeof match_out);
 
         /* Normalize, then convert and compare again. */
-        ofputil_normalize_rule(&rule);
-        ofputil_cls_rule_to_ofp10_match(&rule, &match_normal);
+        ofputil_normalize_match(&match);
+        ofputil_match_to_ofp10_match(&match, &match_normal);
         print_differences("normal: ", &match_out, sizeof match_out,
                           &match_normal, sizeof match_normal);
         putchar('\n');
@@ -2413,9 +2411,9 @@ ofctl_parse_ofp10_match(int argc OVS_UNUSED, char *argv[] OVS_UNUSED)
 }
 
 /* "parse-ofp11-match": reads a series of ofp11_match specifications as hex
- * bytes from stdin, converts them to cls_rules, prints them as strings on
- * stdout, and then converts them back to hex bytes and prints any differences
- * from the input. */
+ * bytes from stdin, converts them to "struct match"es, prints them as strings
+ * on stdout, and then converts them back to hex bytes and prints any
+ * differences from the input. */
 static void
 ofctl_parse_ofp11_match(int argc OVS_UNUSED, char *argv[] OVS_UNUSED)
 {
@@ -2425,7 +2423,7 @@ ofctl_parse_ofp11_match(int argc OVS_UNUSED, char *argv[] OVS_UNUSED)
     while (!ds_get_preprocessed_line(&in, stdin)) {
         struct ofpbuf match_in;
         struct ofp11_match match_out;
-        struct cls_rule rule;
+        struct match match;
         enum ofperr error;
 
         /* Parse hex bytes. */
@@ -2438,20 +2436,19 @@ ofctl_parse_ofp11_match(int argc OVS_UNUSED, char *argv[] OVS_UNUSED)
                       match_in.size, sizeof(struct ofp11_match));
         }
 
-        /* Convert to cls_rule. */
-        error = ofputil_cls_rule_from_ofp11_match(match_in.data,
-                                                  OFP_DEFAULT_PRIORITY, &rule);
+        /* Convert to match. */
+        error = ofputil_match_from_ofp11_match(match_in.data, &match);
         if (error) {
             printf("bad ofp11_match: %s\n\n", ofperr_get_name(error));
             ofpbuf_uninit(&match_in);
             continue;
         }
 
-        /* Print cls_rule. */
-        cls_rule_print(&rule);
+        /* Print match. */
+        match_print(&match);
 
         /* Convert back to ofp11_match and print differences from input. */
-        ofputil_cls_rule_to_ofp11_match(&rule, &match_out);
+        ofputil_match_to_ofp11_match(&match, &match_out);
 
         print_differences("", match_in.data, match_in.size,
                           &match_out, sizeof match_out);
@@ -2585,71 +2582,71 @@ ofctl_parse_ofp11_instructions(int argc OVS_UNUSED, char *argv[] OVS_UNUSED)
 static void
 ofctl_check_vlan(int argc OVS_UNUSED, char *argv[])
 {
-    struct cls_rule rule;
+    struct match match;
 
     char *string_s;
     struct ofputil_flow_mod fm;
 
     struct ofpbuf nxm;
-    struct cls_rule nxm_rule;
+    struct match nxm_match;
     int nxm_match_len;
     char *nxm_s;
 
-    struct ofp10_match of10_match;
-    struct cls_rule of10_rule;
+    struct ofp10_match of10_raw;
+    struct match of10_match;
 
-    struct ofp11_match of11_match;
-    struct cls_rule of11_rule;
+    struct ofp11_match of11_raw;
+    struct match of11_match;
 
     enum ofperr error;
 
-    cls_rule_init_catchall(&rule, OFP_DEFAULT_PRIORITY);
-    rule.flow.vlan_tci = htons(strtoul(argv[1], NULL, 16));
-    rule.wc.vlan_tci_mask = htons(strtoul(argv[2], NULL, 16));
+    match_init_catchall(&match);
+    match.flow.vlan_tci = htons(strtoul(argv[1], NULL, 16));
+    match.wc.masks.vlan_tci = htons(strtoul(argv[2], NULL, 16));
 
     /* Convert to and from string. */
-    string_s = cls_rule_to_string(&rule);
+    string_s = match_to_string(&match, OFP_DEFAULT_PRIORITY);
     printf("%s -> ", string_s);
     fflush(stdout);
     parse_ofp_str(&fm, -1, string_s, false);
     printf("%04"PRIx16"/%04"PRIx16"\n",
-           ntohs(fm.cr.flow.vlan_tci),
-           ntohs(fm.cr.wc.vlan_tci_mask));
+           ntohs(fm.match.flow.vlan_tci),
+           ntohs(fm.match.wc.masks.vlan_tci));
     free(string_s);
 
     /* Convert to and from NXM. */
     ofpbuf_init(&nxm, 0);
-    nxm_match_len = nx_put_match(&nxm, &rule, htonll(0), htonll(0));
+    nxm_match_len = nx_put_match(&nxm, &match, htonll(0), htonll(0));
     nxm_s = nx_match_to_string(nxm.data, nxm_match_len);
-    error = nx_pull_match(&nxm, nxm_match_len, 0, &nxm_rule, NULL, NULL);
+    error = nx_pull_match(&nxm, nxm_match_len, &nxm_match, NULL, NULL);
     printf("NXM: %s -> ", nxm_s);
     if (error) {
         printf("%s\n", ofperr_to_string(error));
     } else {
         printf("%04"PRIx16"/%04"PRIx16"\n",
-               ntohs(nxm_rule.flow.vlan_tci),
-               ntohs(nxm_rule.wc.vlan_tci_mask));
+               ntohs(nxm_match.flow.vlan_tci),
+               ntohs(nxm_match.wc.masks.vlan_tci));
     }
     free(nxm_s);
     ofpbuf_uninit(&nxm);
 
     /* Convert to and from OXM. */
     ofpbuf_init(&nxm, 0);
-    nxm_match_len = oxm_put_match(&nxm, &rule);
+    nxm_match_len = oxm_put_match(&nxm, &match);
     nxm_s = oxm_match_to_string(nxm.data, nxm_match_len);
-    error = oxm_pull_match(&nxm, 0, &nxm_rule);
+    error = oxm_pull_match(&nxm, &nxm_match);
     printf("OXM: %s -> ", nxm_s);
     if (error) {
         printf("%s\n", ofperr_to_string(error));
     } else {
-        uint16_t vid = ntohs(nxm_rule.flow.vlan_tci) &
+        uint16_t vid = ntohs(nxm_match.flow.vlan_tci) &
             (VLAN_VID_MASK | VLAN_CFI);
-        uint16_t mask = ntohs(nxm_rule.wc.vlan_tci_mask) &
+        uint16_t mask = ntohs(nxm_match.wc.masks.vlan_tci) &
             (VLAN_VID_MASK | VLAN_CFI);
 
         printf("%04"PRIx16"/%04"PRIx16",", vid, mask);
-        if (vid && vlan_tci_to_pcp(nxm_rule.wc.vlan_tci_mask)) {
-            printf("%02"PRIx8"\n", vlan_tci_to_pcp(nxm_rule.flow.vlan_tci));
+        if (vid && vlan_tci_to_pcp(nxm_match.wc.masks.vlan_tci)) {
+            printf("%02"PRIx8"\n", vlan_tci_to_pcp(nxm_match.flow.vlan_tci));
         } else {
             printf("--\n");
         }
@@ -2658,26 +2655,26 @@ ofctl_check_vlan(int argc OVS_UNUSED, char *argv[])
     ofpbuf_uninit(&nxm);
 
     /* Convert to and from OpenFlow 1.0. */
-    ofputil_cls_rule_to_ofp10_match(&rule, &of10_match);
-    ofputil_cls_rule_from_ofp10_match(&of10_match, 0, &of10_rule);
+    ofputil_match_to_ofp10_match(&match, &of10_raw);
+    ofputil_match_from_ofp10_match(&of10_raw, &of10_match);
     printf("OF1.0: %04"PRIx16"/%d,%02"PRIx8"/%d -> %04"PRIx16"/%04"PRIx16"\n",
-           ntohs(of10_match.dl_vlan),
-           (of10_match.wildcards & htonl(OFPFW10_DL_VLAN)) != 0,
-           of10_match.dl_vlan_pcp,
-           (of10_match.wildcards & htonl(OFPFW10_DL_VLAN_PCP)) != 0,
-           ntohs(of10_rule.flow.vlan_tci),
-           ntohs(of10_rule.wc.vlan_tci_mask));
+           ntohs(of10_raw.dl_vlan),
+           (of10_raw.wildcards & htonl(OFPFW10_DL_VLAN)) != 0,
+           of10_raw.dl_vlan_pcp,
+           (of10_raw.wildcards & htonl(OFPFW10_DL_VLAN_PCP)) != 0,
+           ntohs(of10_match.flow.vlan_tci),
+           ntohs(of10_match.wc.masks.vlan_tci));
 
     /* Convert to and from OpenFlow 1.1. */
-    ofputil_cls_rule_to_ofp11_match(&rule, &of11_match);
-    ofputil_cls_rule_from_ofp11_match(&of11_match, 0, &of11_rule);
+    ofputil_match_to_ofp11_match(&match, &of11_raw);
+    ofputil_match_from_ofp11_match(&of11_raw, &of11_match);
     printf("OF1.1: %04"PRIx16"/%d,%02"PRIx8"/%d -> %04"PRIx16"/%04"PRIx16"\n",
-           ntohs(of11_match.dl_vlan),
-           (of11_match.wildcards & htonl(OFPFW11_DL_VLAN)) != 0,
-           of11_match.dl_vlan_pcp,
-           (of11_match.wildcards & htonl(OFPFW11_DL_VLAN_PCP)) != 0,
-           ntohs(of11_rule.flow.vlan_tci),
-           ntohs(of11_rule.wc.vlan_tci_mask));
+           ntohs(of11_raw.dl_vlan),
+           (of11_raw.wildcards & htonl(OFPFW11_DL_VLAN)) != 0,
+           of11_raw.dl_vlan_pcp,
+           (of11_raw.wildcards & htonl(OFPFW11_DL_VLAN_PCP)) != 0,
+           ntohs(of11_match.flow.vlan_tci),
+           ntohs(of11_match.wc.masks.vlan_tci));
 }
 
 /* "print-error ENUM": Prints the type and code of ENUM for every OpenFlow
@@ -2721,6 +2718,20 @@ ofctl_ofp_print(int argc, char *argv[])
     ofpbuf_uninit(&packet);
 }
 
+/* "encode-hello BITMAP...": Encodes each BITMAP as an OpenFlow hello message
+ * and dumps each message in hex.  */
+static void
+ofctl_encode_hello(int argc OVS_UNUSED, char *argv[])
+{
+    uint32_t bitmap = strtol(argv[1], NULL, 0);
+    struct ofpbuf *hello;
+
+    hello = ofputil_encode_hello(bitmap);
+    ovs_hex_dump(stdout, hello->data, hello->size, 0, false);
+    ofp_print(stdout, hello->data, hello->size, verbosity);
+    ofpbuf_delete(hello);
+}
+
 static const struct command all_commands[] = {
     { "show", 1, 1, ofctl_show },
     { "monitor", 1, 3, ofctl_monitor },
@@ -2761,6 +2772,7 @@ static const struct command all_commands[] = {
     { "check-vlan", 2, 2, ofctl_check_vlan },
     { "print-error", 1, 1, ofctl_print_error },
     { "ofp-print", 1, 2, ofctl_ofp_print },
+    { "encode-hello", 1, 1, ofctl_encode_hello },
 
     { NULL, 0, 0, NULL },
 };

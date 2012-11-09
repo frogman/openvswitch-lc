@@ -154,6 +154,20 @@ const char *ofproto_normalize_type(const char *);
 int ofproto_enumerate_names(const char *type, struct sset *names);
 void ofproto_parse_name(const char *name, char **dp_name, char **dp_type);
 
+/* An interface hint element, which is used by ofproto_init() to
+ * describe the caller's understanding of the startup state. */
+struct iface_hint {
+    char *br_name;              /* Name of owning bridge. */
+    char *br_type;              /* Type of owning bridge. */
+    uint16_t ofp_port;          /* OpenFlow port number. */
+};
+
+void ofproto_init(const struct shash *iface_hints);
+
+int ofproto_type_run(const char *datapath_type);
+int ofproto_type_run_fast(const char *datapath_type);
+void ofproto_type_wait(const char *datapath_type);
+
 int ofproto_create(const char *datapath, const char *datapath_type,
                    struct ofproto **ofprotop);
 #ifdef LC_ENABLE
@@ -204,7 +218,7 @@ int ofproto_port_dump_done(struct ofproto_port_dump *);
           : (ofproto_port_dump_done(DUMP), false));         \
         )
 
-#define OFPROTO_FLOW_EVICTON_THRESHOLD_DEFAULT  1000
+#define OFPROTO_FLOW_EVICTION_THRESHOLD_DEFAULT  1000
 #define OFPROTO_FLOW_EVICTION_THRESHOLD_MIN 100
 
 int ofproto_port_add(struct ofproto *, struct netdev *, uint16_t *ofp_portp);

@@ -16,6 +16,7 @@ TESTSUITE_AT = \
 	tests/daemon-py.at \
 	tests/ofp-actions.at \
 	tests/ofp-print.at \
+	tests/ofp-util.at \
 	tests/ofp-errors.at \
 	tests/ovs-ofctl.at \
 	tests/odp.at \
@@ -146,7 +147,6 @@ check-valgrind: all tests/atconfig tests/atlocal $(TESTSUITE) \
 clean-local:
 	test ! -f '$(TESTSUITE)' || $(SHELL) '$(TESTSUITE)' -C tests --clean
 
-AUTOM4TE = autom4te
 AUTOTEST = $(AUTOM4TE) --language=autotest
 $(TESTSUITE): package.m4 $(TESTSUITE_AT)
 	$(AUTOTEST) -I '$(srcdir)' -o $@.tmp $@.at

@@ -129,10 +129,9 @@ enum nx_hash_fields {
  *      table.  If an identical flow already exists in that table only, then it
  *      is replaced.  If the flow cannot be placed in the specified table,
  *      either because the table is full or because the table cannot support
- *      flows of the given type, the switch replies with an
- *      OFPFMFC_ALL_TABLES_FULL error.  (A controller can distinguish these
- *      cases by comparing the current and maximum number of entries reported
- *      in ofp_table_stats.)
+ *      flows of the given type, the switch replies with an OFPFMFC_TABLE_FULL
+ *      error.  (A controller can distinguish these cases by comparing the
+ *      current and maximum number of entries reported in ofp_table_stats.)
  *
  *      If the table ID is wildcarded, the switch picks an appropriate table
  *      itself.  If an identical flow already exist in the selected flow table,
@@ -293,7 +292,7 @@ enum nx_action_subtype {
     NXAST_NOTE,                 /* struct nx_action_note */
     NXAST_SET_TUNNEL64,         /* struct nx_action_set_tunnel64 */
     NXAST_MULTIPATH,            /* struct nx_action_multipath */
-    NXAST_AUTOPATH,             /* struct nx_action_autopath */
+    NXAST_AUTOPATH__DEPRECATED, /* struct nx_action_autopath */
     NXAST_BUNDLE,               /* struct nx_action_bundle */
     NXAST_BUNDLE_LOAD,          /* struct nx_action_bundle */
     NXAST_RESUBMIT_TABLE,       /* struct nx_action_resubmit */
@@ -304,6 +303,7 @@ enum nx_action_subtype {
     NXAST_FIN_TIMEOUT,          /* struct nx_action_fin_timeout */
     NXAST_CONTROLLER,           /* struct nx_action_controller */
     NXAST_DEC_TTL_CNT_IDS,      /* struct nx_action_cnt_ids */
+    NXAST_WRITE_METADATA,       /* struct nx_action_write_metadata */
 };
 
 /* Header for Nicira-defined actions. */
@@ -503,6 +503,10 @@ OFP_ASSERT(sizeof(struct nx_action_pop_queue) == 16);
  * The switch will reject actions for which src_ofs+n_bits is greater than the
  * width of 'src' or dst_ofs+n_bits is greater than the width of 'dst' with
  * error type OFPET_BAD_ACTION, code OFPBAC_BAD_ARGUMENT.
+ *
+ * This action behaves properly when 'src' overlaps with 'dst', that is, it
+ * behaves as if 'src' were copied out to a temporary buffer, then the
+ * temporary buffer copied to 'dst'.
  */
 struct nx_action_reg_move {
     ovs_be16 type;                  /* OFPAT_VENDOR. */
@@ -1512,7 +1516,7 @@ OFP_ASSERT(sizeof(struct nx_action_output_reg) == 24);
  * otherwise.  Only ARP opcodes between 1 and 255 should be specified for
  * matching.
  *
- * Prereqs: NXM_OF_ETH_TYPE must match 0x0806 exactly.
+ * Prereqs: NXM_OF_ETH_TYPE must match either 0x0806 or 0x8035.
  *
  * Format: 16-bit integer in network byte order.
  *
@@ -1522,7 +1526,7 @@ OFP_ASSERT(sizeof(struct nx_action_output_reg) == 24);
 /* For an Ethernet+IP ARP packet, the source or target protocol address
  * in the ARP header.  Always 0 otherwise.
  *
- * Prereqs: NXM_OF_ETH_TYPE must match 0x0806 exactly.
+ * Prereqs: NXM_OF_ETH_TYPE must match either 0x0806 or 0x8035.
  *
  * Format: 32-bit integer in network byte order.
  *
@@ -1589,7 +1593,7 @@ OFP_ASSERT(sizeof(struct nx_action_output_reg) == 24);
 /* For an Ethernet+IP ARP packet, the source or target hardware address
  * in the ARP header.  Always 0 otherwise.
  *
- * Prereqs: NXM_OF_ETH_TYPE must match 0x0806 exactly.
+ * Prereqs: NXM_OF_ETH_TYPE must match either 0x0806 or 0x8035.
  *
  * Format: 48-bit Ethernet MAC address.
  *
@@ -2173,10 +2177,10 @@ OFP_ASSERT(sizeof(struct nx_flow_update_full) == 24);
  * change in future versions of Open vSwitch.
  *
  * OVS will always send the notifications for a given flow table change before
- * the reply to a OFPT_BARRIER_REQUEST request that precedes the flow table
- * change.  Thus, if the controller does not receive an abbreviated
- * notification for a flow_mod before the next OFPT_BARRIER_REPLY, it will
- * never receive one. */
+ * the reply to a OFPT_BARRIER_REQUEST request that follows the flow table
+ * change.  Thus, if the controller does not receive an abbreviated (or
+ * unabbreviated) notification for a flow_mod before the next
+ * OFPT_BARRIER_REPLY, it will never receive one. */
 struct nx_flow_update_abbrev {
     ovs_be16 length;            /* Length is 8. */
     ovs_be16 event;             /* NXFME_ABBREV. */
@@ -2191,5 +2195,19 @@ struct nx_flow_monitor_cancel {
     ovs_be32 id;                /* 'id' from nx_flow_monitor_request. */
 };
 OFP_ASSERT(sizeof(struct nx_flow_monitor_cancel) == 4);
+
+/* Action structure for NXAST_WRITE_METADATA.
+ *
+ * Modifies the 'mask' bits of the metadata value. */
+struct nx_action_write_metadata {
+    ovs_be16 type;                  /* OFPAT_VENDOR. */
+    ovs_be16 len;                   /* Length is 32. */
+    ovs_be32 vendor;                /* NX_VENDOR_ID. */
+    ovs_be16 subtype;               /* NXAST_WRITE_METADATA. */
+    uint8_t zeros[6];               /* Must be zero. */
+    ovs_be64 metadata;              /* Metadata register. */
+    ovs_be64 mask;                  /* Metadata mask. */
+};
+OFP_ASSERT(sizeof(struct nx_action_write_metadata) == 32);
 
 #endif /* openflow/nicira-ext.h */

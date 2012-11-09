@@ -162,9 +162,18 @@ netdev_vport_get_netdev_type(const struct dpif_linux_vport *vport)
         return (nl_attr_get_u32(a[OVS_TUNNEL_ATTR_FLAGS]) & TNL_F_IPSEC
                 ? "ipsec_gre" : "gre");
 
+    case OVS_VPORT_TYPE_GRE64:
+        if (tnl_port_config_from_nlattr(vport->options, vport->options_len,
+                                        a)) {
+            break;
+        }
+        return (nl_attr_get_u32(a[OVS_TUNNEL_ATTR_FLAGS]) & TNL_F_IPSEC
+                ? "ipsec_gre64" : "gre64");
+
     case OVS_VPORT_TYPE_CAPWAP:
         return "capwap";
 
+    case OVS_VPORT_TYPE_FT_GRE:
     case __OVS_VPORT_TYPE_MAX:
         break;
     }
@@ -582,14 +591,17 @@ parse_tunnel_config(const char *name, const char *type,
     ovs_be32 saddr = htonl(0);
     uint32_t flags;
 
-    flags = TNL_F_DF_DEFAULT | TNL_F_PMTUD | TNL_F_HDR_CACHE;
-    if (!strcmp(type, "gre")) {
+    if (!strcmp(type, "capwap")) {
+        VLOG_WARN_ONCE("CAPWAP tunnel support is deprecated.");
+    }
+
+    flags = TNL_F_DF_DEFAULT;
+    if (!strcmp(type, "gre") || !strcmp(type, "gre64")) {
         is_gre = true;
-    } else if (!strcmp(type, "ipsec_gre")) {
+    } else if (!strcmp(type, "ipsec_gre") || !strcmp(type, "ipsec_gre64")) {
         is_gre = true;
         is_ipsec = true;
         flags |= TNL_F_IPSEC;
-        flags &= ~TNL_F_HDR_CACHE;
     }
 
     SMAP_FOR_EACH (node, args) {
@@ -639,12 +651,12 @@ parse_tunnel_config(const char *name, const char *type,
                 flags &= ~TNL_F_DF_DEFAULT;
             }
         } else if (!strcmp(node->key, "pmtud")) {
-            if (!strcmp(node->value, "false")) {
-                flags &= ~TNL_F_PMTUD;
-            }
-        } else if (!strcmp(node->key, "header_cache")) {
-            if (!strcmp(node->value, "false")) {
-                flags &= ~TNL_F_HDR_CACHE;
+            if (!strcmp(node->value, "true")) {
+                VLOG_WARN_ONCE("%s: The tunnel Path MTU discovery is "
+                               "deprecated and may be removed in February "
+                               "2013. Please email dev@openvswitch.org with "
+                               "concerns.", name);
+                flags |= TNL_F_PMTUD;
             }
         } else if (!strcmp(node->key, "peer_cert") && is_ipsec) {
             if (smap_get(args, "certificate")) {
@@ -776,11 +788,6 @@ unparse_tunnel_config(const char *name OVS_UNUSED, const char *type OVS_UNUSED,
         return error;
     }
 
-    flags = nl_attr_get_u32(a[OVS_TUNNEL_ATTR_FLAGS]);
-    if (!(flags & TNL_F_HDR_CACHE) == !(flags & TNL_F_IPSEC)) {
-        smap_add(args, "header_cache",
-                 flags & TNL_F_HDR_CACHE ? "true" : "false");
-    }
 
     daddr = nl_attr_get_be32(a[OVS_TUNNEL_ATTR_DST_IPV4]);
     smap_add_format(args, "remote_ip", IP_FMT, IP_ARGS(&daddr));
@@ -813,11 +820,12 @@ unparse_tunnel_config(const char *name OVS_UNUSED, const char *type OVS_UNUSED,
         }
     }
 
+    flags = nl_attr_get_u32(a[OVS_TUNNEL_ATTR_FLAGS]);
     if (flags & TNL_F_TTL_INHERIT) {
-        smap_add(args, "tos", "inherit");
+        smap_add(args, "ttl", "inherit");
     } else if (a[OVS_TUNNEL_ATTR_TTL]) {
         int ttl = nl_attr_get_u8(a[OVS_TUNNEL_ATTR_TTL]);
-        smap_add_format(args, "tos", "%d", ttl);
+        smap_add_format(args, "ttl", "%d", ttl);
     }
 
     if (flags & TNL_F_TOS_INHERIT) {
@@ -836,8 +844,8 @@ unparse_tunnel_config(const char *name OVS_UNUSED, const char *type OVS_UNUSED,
     if (!(flags & TNL_F_DF_DEFAULT)) {
         smap_add(args, "df_default", "false");
     }
-    if (!(flags & TNL_F_PMTUD)) {
-        smap_add(args, "pmtud", "false");
+    if (flags & TNL_F_PMTUD) {
+        smap_add(args, "pmtud", "true");
     }
 
     return 0;
@@ -968,6 +976,14 @@ netdev_vport_register(void)
 
         { OVS_VPORT_TYPE_GRE,
           { "ipsec_gre", VPORT_FUNCTIONS(netdev_vport_get_drv_info) },
+          parse_tunnel_config, unparse_tunnel_config },
+
+        { OVS_VPORT_TYPE_GRE64,
+          { "gre64", VPORT_FUNCTIONS(netdev_vport_get_drv_info) },
+          parse_tunnel_config, unparse_tunnel_config },
+
+        { OVS_VPORT_TYPE_GRE64,
+          { "ipsec_gre64", VPORT_FUNCTIONS(netdev_vport_get_drv_info) },
           parse_tunnel_config, unparse_tunnel_config },
 
         { OVS_VPORT_TYPE_CAPWAP,
