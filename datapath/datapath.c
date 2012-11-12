@@ -340,6 +340,8 @@ void ovs_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
 
 		/* Look up in local table. */
         flow = ovs_flow_tbl_lookup(rcu_dereference(dp->table), &key, key_len);
+        unsigned char *src_ip = (unsigned char*)(htonl(key.ipv4.addr.src));
+        unsigned char *dst_ip = (unsigned char*)(htonl(key.ipv4.addr.dst));
 
         if (unlikely(!flow)) { /*not found in local fwd table, means to remote*/
 #ifdef LC_ENABLE 
@@ -349,9 +351,9 @@ void ovs_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
                 tmp_dst[6] = '\0';
                 bf = bf_gdt_check(dp->gdt,tmp_dst);
             }
-            printk("[datapath] no found flow (src_ip=0x%x, dst_ip=0x%x) in local tbl.",key.ipv4.addr.src, key.ipv4.addr.dst);
+            printk("[datapath] no flow found (src_ip=%d.%d.%d.%d, dst_ip=%d.%d.%d.%d) in local tbl.\n",src_ip[0],src_ip[1],src_ip[2],src_ip[3],dst_ip[0],dst_ip[1],dst_ip[2],dst_ip[3]);
             if (!OVS_CB(skb)->encaped && likely(bf)) { //local vm pkt to remote sw and is in local bf-gdt
-                printk("[datapath] found flow (src_ip=0x%x, dst_ip=0x%x) in bf_gdt.",key.ipv4.addr.src, key.ipv4.addr.dst);
+                printk("[datapath] found flow (src_ip=%d.%d.%d.%d, dst_ip=%d.%d.%d.%d) in bf_gdt.\n",src_ip[0],src_ip[1],src_ip[2],src_ip[3],dst_ip[0],dst_ip[1],dst_ip[2],dst_ip[3]);
                 flow = kmalloc(sizeof(struct sw_flow), GFP_ATOMIC);
                 flow->sf_acts = kmalloc(sizeof(struct sw_flow_actions)+sizeof(struct nlattr)+sizeof(u32), GFP_ATOMIC);
                 memcpy(&(flow->key),&key,sizeof(struct sw_flow_key));
@@ -364,7 +366,7 @@ void ovs_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
                 ((u32*)flow->sf_acts->actions)[2] = bf->bf_id; //remote sw's ip is stored in bf->bf_id;
             } else { /* Not in local table. Not in bf-gdt yet or from remote sw, then send to ovsd using upcall */
 #endif
-                printk("[datapath] no found flow (src_ip=0x%x, dst_ip=0x%x), and will send OVS_PACKET_CMD_MISS upcall to ovsd.",key.ipv4.addr.src, key.ipv4.addr.dst);
+                printk("[datapath] no flow found (src_ip=%d.%d.%d.%d, dst_ip=%d.%d.%d.%d), and will send OVS_PACKET_CMD_MISS.\n",src_ip[0],src_ip[1],src_ip[2],src_ip[3],dst_ip[0],dst_ip[1],dst_ip[2],dst_ip[3]);
                 struct dp_upcall_info upcall;
                 upcall.cmd = OVS_PACKET_CMD_MISS;
                 upcall.key = &key;
