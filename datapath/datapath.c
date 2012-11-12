@@ -349,9 +349,9 @@ void ovs_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
                 tmp_dst[6] = '\0';
                 bf = bf_gdt_check(dp->gdt,tmp_dst);
             }
-            printk("[datapath] no found flow (src_ip=0x%x, dst_ip=0x%x) in local tbl.",key.ipv4.src, key.ipv4.dst);
+            printk("[datapath] no found flow (src_ip=0x%x, dst_ip=0x%x) in local tbl.",key.ipv4.addr.src, key.ipv4.addr.dst);
             if (!OVS_CB(skb)->encaped && likely(bf)) { //local vm pkt to remote sw and is in local bf-gdt
-                printk("[datapath] found flow (src_ip=0x%x, dst_ip=0x%x) in bf_gdt.",key.ipv4.src, key.ipv4.dst);
+                printk("[datapath] found flow (src_ip=0x%x, dst_ip=0x%x) in bf_gdt.",key.ipv4.addr.src, key.ipv4.addr.dst);
                 flow = kmalloc(sizeof(struct sw_flow), GFP_ATOMIC);
                 flow->sf_acts = kmalloc(sizeof(struct sw_flow_actions)+sizeof(struct nlattr)+sizeof(u32), GFP_ATOMIC);
                 memcpy(&(flow->key),&key,sizeof(struct sw_flow_key));
@@ -364,7 +364,7 @@ void ovs_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
                 ((u32*)flow->sf_acts->actions)[2] = bf->bf_id; //remote sw's ip is stored in bf->bf_id;
             } else { /* Not in local table. Not in bf-gdt yet or from remote sw, then send to ovsd using upcall */
 #endif
-                printk("[datapath] no found flow (src_ip=0x%x, dst_ip=0x%x), and will send OVS_PACKET_CMD_MISS upcall to ovsd.",key.ipv4.src, key.ipv4.dst);
+                printk("[datapath] no found flow (src_ip=0x%x, dst_ip=0x%x), and will send OVS_PACKET_CMD_MISS upcall to ovsd.",key.ipv4.addr.src, key.ipv4.addr.dst);
                 struct dp_upcall_info upcall;
                 upcall.cmd = OVS_PACKET_CMD_MISS;
                 upcall.key = &key;
