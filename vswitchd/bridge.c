@@ -2452,7 +2452,6 @@ bridge_lc_init(struct bridge *br)
     br->send_arg.br = br;
     br->send_arg.local_id = br->local_id;
 
-    /*TODO:test here*/
     bf_gdt_add_filter(br->gdt,br->local_id,0,LC_BF_DFT_LEN);
 
     br->recv_arg.group_ip = inet_addr(LC_MCAST_GROUP_IP)+br->gdt->gid;

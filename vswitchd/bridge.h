@@ -28,7 +28,7 @@ struct simap;
 #define LC_MCAST_PORT 5000
 #endif
 
-#define LC_DP_NI_NAME "eth0"
+#define LC_DP_NI_NAME "eth2"
 
 struct bridge;
 struct bloom_filter;
