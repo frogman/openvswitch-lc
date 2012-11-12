@@ -47,6 +47,7 @@ EXTRA_DIST = \
 	DESIGN \
 	FAQ \
 	INSTALL \
+	INSTALL.Fedora \
 	INSTALL.KVM \
 	INSTALL.Libvirt \
 	INSTALL.RHEL \
@@ -213,6 +214,11 @@ clean-local: $(CLEAN_LOCAL)
 install-data-local: $(INSTALL_DATA_LOCAL)
 uninstall-local: $(UNINSTALL_LOCAL)
 .PHONY: $(DIST_HOOKS) $(CLEAN_LOCAL) $(INSTALL_DATA_LOCAL) $(UNINSTALL_LOCAL)
+
+modules_install:
+if LINUX_ENABLED
+	cd datapath/linux && $(MAKE) modules_install
+endif
 
 include lib/automake.mk
 include ofproto/automake.mk

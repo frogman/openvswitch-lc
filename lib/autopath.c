@@ -36,8 +36,8 @@ void
 autopath_parse(struct ofpact_autopath *ap, const char *s_)
 {
     char *s;
-    int id_int;
     char *id_str, *dst, *save_ptr;
+    uint16_t port;
 
     ofpact_init_AUTOPATH(ap);
 
@@ -50,12 +50,10 @@ autopath_parse(struct ofpact_autopath *ap, const char *s_)
         ovs_fatal(0, "%s: not enough arguments to autopath action", s_);
     }
 
-    id_int = atoi(id_str);
-    if (id_int < 1 || id_int > UINT32_MAX) {
-        ovs_fatal(0, "%s: autopath id %d is not in valid range "
-                  "1 to %"PRIu32, s_, id_int, UINT32_MAX);
+    if (!ofputil_port_from_string(id_str, &port)) {
+        ovs_fatal(0, "%s: bad port number", s_);
     }
-    ap->port = id_int;
+    ap->port = port;
 
     mf_parse_subfield(&ap->dst, dst);
     if (ap->dst.n_bits < 16) {
@@ -89,6 +87,9 @@ autopath_from_openflow(const struct nx_action_autopath *nap,
 enum ofperr
 autopath_check(const struct ofpact_autopath *autopath, const struct flow *flow)
 {
+    VLOG_WARN_ONCE("The autopath action is deprecated and may be removed in"
+                   " February 2013.  Please email dev@openvswitch.org with"
+                   " concerns.");
     return mf_check_dst(&autopath->dst, flow);
 }
 
@@ -96,8 +97,9 @@ void
 autopath_to_nxast(const struct ofpact_autopath *autopath,
                   struct ofpbuf *openflow)
 {
-    struct nx_action_autopath *ap = ofputil_put_NXAST_AUTOPATH(openflow);
+    struct nx_action_autopath *ap;
 
+    ap = ofputil_put_NXAST_AUTOPATH__DEPRECATED(openflow);
     ap->ofs_nbits = nxm_encode_ofs_nbits(autopath->dst.ofs,
                                          autopath->dst.n_bits);
     ap->dst = htonl(autopath->dst.field->nxm_header);

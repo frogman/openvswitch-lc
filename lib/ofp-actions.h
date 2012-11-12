@@ -92,7 +92,13 @@
                                                                     \
     /* Other. */                                                    \
     DEFINE_OFPACT(NOTE,            ofpact_note,          data)      \
-    DEFINE_OFPACT(EXIT,            ofpact_null,          ofpact)
+    DEFINE_OFPACT(EXIT,            ofpact_null,          ofpact)    \
+                                                                    \
+    /* Instructions */                                              \
+    /* TODO:XXX Write-Actions */                                    \
+    DEFINE_OFPACT(WRITE_METADATA,  ofpact_metadata,      ofpact)    \
+    DEFINE_OFPACT(CLEAR_ACTIONS,   ofpact_null,          ofpact)    \
+    DEFINE_OFPACT(GOTO_TABLE,      ofpact_goto_table,    ofpact)
 
 /* enum ofpact_type, with a member OFPACT_<ENUM> for each action. */
 enum OVS_PACKED_ENUM ofpact_type {
@@ -113,7 +119,31 @@ enum {
  *
  * Each action is a structure "struct ofpact_*" that begins with "struct
  * ofpact", usually followed by other data that describes the action.  Actions
- * are padded out to a multiple of OFPACT_ALIGNTO bytes in length. */
+ * are padded out to a multiple of OFPACT_ALIGNTO bytes in length.
+ *
+ * The 'compat' member is special:
+ *
+ *     - Most "struct ofpact"s correspond to one particular kind of OpenFlow
+ *       action, at least in a given OpenFlow version.  For example,
+ *       OFPACT_SET_VLAN_VID corresponds to OFPAT10_SET_VLAN_VID in OpenFlow
+ *       1.0.
+ *
+ *       For such actions, the 'compat' member is not meaningful and generally
+ *       should be zero.
+ *
+ *     - A few "struct ofpact"s correspond to multiple OpenFlow actions.  For
+ *       example, OFPACT_SET_TUNNEL can be NXAST_SET_TUNNEL or
+ *       NXAST_SET_TUNNEL64.  In these cases, if the "struct ofpact" originated
+ *       from OpenFlow, then we want to make sure that, if it gets translated
+ *       back to OpenFlow later, it is translated back to the same action type.
+ *       (Otherwise, we'd violate the promise made in DESIGN, in the "Action
+ *       Reproduction" section.)
+ *
+ *       For such actions, the 'compat' member should be the original action
+ *       type.  (If the action didn't originate from OpenFlow, then setting
+ *       'compat' to zero should be fine: code to translate the ofpact to
+ *       OpenFlow must tolerate this case.)
+ */
 struct ofpact {
     enum ofpact_type type;      /* OFPACT_*. */
     enum ofputil_action_code compat; /* Original type when added, if any. */
@@ -150,9 +180,10 @@ ofpact_end(const struct ofpact *ofpacts, size_t ofpacts_len)
 
 /* Action structure for each OFPACT_*. */
 
-/* OFPACT_STRIP_VLAN, OFPACT_POP_QUEUE, OFPACT_EXIT.
+/* OFPACT_STRIP_VLAN, OFPACT_POP_QUEUE, OFPACT_EXIT, OFPACT_CLEAR_ACTIONS.
  *
- * Used for OFPAT10_STRIP_VLAN, NXAST_DEC_TTL, NXAST_POP_QUEUE, NXAST_EXIT.
+ * Used for OFPAT10_STRIP_VLAN, NXAST_POP_QUEUE, NXAST_EXIT,
+ * OFPAT11_POP_VLAN, OFPIT11_CLEAR_ACTIONS.
  *
  * Action structure for actions that do not have any extra data beyond the
  * action type. */
@@ -289,11 +320,11 @@ struct ofpact_reg_move {
 
 /* OFPACT_REG_LOAD.
  *
- * Used for NXAST_REG_LOAD. */
+ * Used for NXAST_REG_LOAD, OFPAT12_SET_FIELD. */
 struct ofpact_reg_load {
     struct ofpact ofpact;
     struct mf_subfield dst;
-    uint64_t value;
+    union mf_subvalue subvalue; /* Least-significant bits are used. */
 };
 
 /* OFPACT_SET_TUNNEL.
@@ -319,6 +350,15 @@ struct ofpact_fin_timeout {
     struct ofpact ofpact;
     uint16_t fin_idle_timeout;
     uint16_t fin_hard_timeout;
+};
+
+/* OFPACT_WRITE_METADATA.
+ *
+ * Used for NXAST_WRITE_METADATA. */
+struct ofpact_metadata {
+    struct ofpact ofpact;
+    ovs_be64 metadata;
+    ovs_be64 mask;
 };
 
 /* OFPACT_RESUBMIT.
@@ -400,14 +440,21 @@ struct ofpact_note {
 
 /* OFPACT_DEC_TTL.
  *
- * Used for NXAST_DEC_TTL and NXAST_DEC_TTL_CNT_IDS. */
+ * Used for OFPAT11_DEC_NW_TTL, NXAST_DEC_TTL and NXAST_DEC_TTL_CNT_IDS. */
 struct ofpact_cnt_ids {
     struct ofpact ofpact;
 
     /* Controller ids. */
     unsigned int n_controllers;
     uint16_t cnt_ids[];
+};
 
+/* OFPACT_GOTO_TABLE
+ *
+ * Used for OFPIT11_GOTO_TABLE */
+struct ofpact_goto_table {
+    struct ofpact ofpact;
+    uint8_t table_id;
 };
 
 /* Converting OpenFlow to ofpacts. */
@@ -422,6 +469,7 @@ enum ofperr ofpacts_pull_openflow11_instructions(struct ofpbuf *openflow,
                                                  struct ofpbuf *ofpacts);
 enum ofperr ofpacts_check(const struct ofpact[], size_t ofpacts_len,
                           const struct flow *, int max_ports);
+enum ofperr ofpacts_verify(const struct ofpact ofpacts[], size_t ofpacts_len);
 
 /* Converting ofpacts to OpenFlow. */
 void ofpacts_put_openflow10(const struct ofpact[], size_t ofpacts_len,
@@ -560,7 +608,20 @@ enum {
 #undef DEFINE_INST
 };
 
+
+static inline bool
+ofpact_is_instruction(const struct ofpact *a)
+{
+    /* TODO:XXX Write-Actions */
+    return a->type == OFPACT_CLEAR_ACTIONS
+        || a->type == OFPACT_WRITE_METADATA
+        || a->type == OFPACT_GOTO_TABLE;
+}
+
 const char *ofpact_instruction_name_from_type(enum ovs_instruction_type type);
 int ofpact_instruction_type_from_name(const char *name);
+
+void ofpact_set_field_init(struct ofpact_reg_load *load,
+                           const struct mf_field *mf, const void *src);
 
 #endif /* ofp-actions.h */

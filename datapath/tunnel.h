@@ -40,7 +40,8 @@
  * identifiers.
  */
 #define TNL_T_PROTO_GRE		0
-#define TNL_T_PROTO_CAPWAP	1
+#define TNL_T_PROTO_GRE64	1
+#define TNL_T_PROTO_CAPWAP	2
 
 /* These flags are only needed when calling tnl_find_port(). */
 #define TNL_T_KEY_EXACT		(1 << 10)
@@ -55,7 +56,7 @@
 /* All public tunnel flags. */
 #define TNL_F_PUBLIC (TNL_F_CSUM | TNL_F_TOS_INHERIT | TNL_F_TTL_INHERIT | \
 		      TNL_F_DF_INHERIT | TNL_F_DF_DEFAULT | TNL_F_PMTUD | \
-		      TNL_F_HDR_CACHE | TNL_F_IPSEC)
+		      TNL_F_IPSEC)
 
 /**
  * struct port_lookup_key - Tunnel port key, used as hash table key.
@@ -108,8 +109,6 @@ struct tnl_mutable_config {
 
 	unsigned seq;
 
-	unsigned tunnel_hlen;
-
 	unsigned char eth_addr[ETH_ALEN];
 
 	/* Configured via OVS_TUNNEL_ATTR_* attributes. */
@@ -131,101 +130,19 @@ struct tnl_ops {
 	 * build_header() (i.e. excludes the IP header).  Returns a negative
 	 * error code if the configuration is invalid.
 	 */
-	int (*hdr_len)(const struct tnl_mutable_config *);
-
+	int (*hdr_len)(const struct tnl_mutable_config *,
+		       const struct ovs_key_ipv4_tunnel *);
 	/*
-	 * Builds the static portion of the tunnel header, which is stored in
-	 * the header cache.  In general the performance of this function is
-	 * not too important as we try to only call it when building the cache
-	 * so it is preferable to shift as much work as possible here.  However,
-	 * in some circumstances caching is disabled and this function will be
-	 * called for every packet, so try not to make it too slow.
+	 * Returns a linked list of SKBs with tunnel headers (multiple
+	 * packets may be generated in the event of fragmentation).  Space
+	 * will have already been allocated at the start of the packet equal
+	 * to sizeof(struct iphdr) + value returned by hdr_len().  The IP
+	 * header will have already been constructed.
 	 */
-	void (*build_header)(const struct vport *,
-			     const struct tnl_mutable_config *, void *header);
-
-	/*
-	 * Updates the cached header of a packet to match the actual packet
-	 * data.  Typical things that might need to be updated are length,
-	 * checksum, etc.  The IP header will have already been updated and this
-	 * is the final step before transmission.  Returns a linked list of
-	 * completed SKBs (multiple packets may be generated in the event
-	 * of fragmentation).
-	 */
-	struct sk_buff *(*update_header)(const struct vport *,
+	struct sk_buff *(*build_header)(const struct vport *,
 					 const struct tnl_mutable_config *,
-					 struct dst_entry *, struct sk_buff *);
-};
-
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,20)
-/*
- * On these kernels we have a fast mechanism to tell if the ARP cache for a
- * particular destination has changed.
- */
-#define HAVE_HH_SEQ
-#endif
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,27)
-/*
- * On these kernels we have a fast mechanism to tell if the routing table
- * has changed.
- */
-#define HAVE_RT_GENID
-#endif
-#if !defined(HAVE_HH_SEQ) || !defined(HAVE_RT_GENID)
-/* If we can't detect all system changes directly we need to use a timeout. */
-#define NEED_CACHE_TIMEOUT
-#endif
-struct tnl_cache {
-	struct rcu_head rcu;
-
-	int len;		/* Length of data to be memcpy'd from cache. */
-	int hh_len;		/* Hardware hdr length, cached from hh_cache. */
-
-	/* Sequence number of mutable->seq from which this cache was
-	 * generated. */
-	unsigned mutable_seq;
-
-#ifdef HAVE_HH_SEQ
-	/*
-	 * The sequence number from the seqlock protecting the hardware header
-	 * cache (in the ARP cache).  Since every write increments the counter
-	 * this gives us an easy way to tell if it has changed.
-	 */
-	unsigned hh_seq;
-#endif
-
-#ifdef NEED_CACHE_TIMEOUT
-	/*
-	 * If we don't have direct mechanisms to detect all important changes in
-	 * the system fall back to an expiration time.  This expiration time
-	 * can be relatively short since at high rates there will be millions of
-	 * packets per second, so we'll still get plenty of benefit from the
-	 * cache.  Note that if something changes we may blackhole packets
-	 * until the expiration time (depending on what changed and the kernel
-	 * version we may be able to detect the change sooner).  Expiration is
-	 * expressed as a time in jiffies.
-	 */
-	unsigned long expiration;
-#endif
-
-	/*
-	 * The routing table entry that is the result of looking up the tunnel
-	 * endpoints.  It also contains a sequence number (called a generation
-	 * ID) that can be compared to a global sequence to tell if the routing
-	 * table has changed (and therefore there is a potential that this
-	 * cached route has been invalidated).
-	 */
-	struct rtable *rt;
-
-	/*
-	 * If the output device for tunnel traffic is an OVS internal device,
-	 * the flow of that datapath.  Since all tunnel traffic will have the
-	 * same headers this allows us to cache the flow lookup.  NULL if the
-	 * output device is not OVS or if there is no flow installed.
-	 */
-	struct sw_flow *flow;
-
-	/* The cached header follows after padding for alignment. */
+					 struct dst_entry *, struct sk_buff *,
+					 int tunnel_hlen);
 };
 
 struct tnl_vport {
@@ -243,19 +160,6 @@ struct tnl_vport {
 	 * this is not needed.
 	 */
 	atomic_t frag_id;
-
-	spinlock_t cache_lock;
-	struct tnl_cache __rcu *cache;	/* Protected by RCU/cache_lock. */
-
-#ifdef NEED_CACHE_TIMEOUT
-	/*
-	 * If we must rely on expiration time to invalidate the cache, this is
-	 * the interval.  It is randomized within a range (defined by
-	 * MAX_CACHE_EXP in tunnel.c) to avoid synchronized expirations caused
-	 * by creation of a large number of tunnels at a one time.
-	 */
-	unsigned long cache_exp_interval;
-#endif
 };
 
 struct vport *ovs_tnl_create(const struct vport_parms *, const struct vport_ops *,
@@ -269,14 +173,14 @@ int ovs_tnl_set_addr(struct vport *vport, const unsigned char *addr);
 const char *ovs_tnl_get_name(const struct vport *vport);
 const unsigned char *ovs_tnl_get_addr(const struct vport *vport);
 int ovs_tnl_send(struct vport *vport, struct sk_buff *skb);
-void ovs_tnl_rcv(struct vport *vport, struct sk_buff *skb, u8 tos);
+void ovs_tnl_rcv(struct vport *vport, struct sk_buff *skb);
 
 struct vport *ovs_tnl_find_port(struct net *net, __be32 saddr, __be32 daddr,
 				__be64 key, int tunnel_type,
 				const struct tnl_mutable_config **mutable);
 bool ovs_tnl_frag_needed(struct vport *vport,
 			 const struct tnl_mutable_config *mutable,
-			 struct sk_buff *skb, unsigned int mtu, __be64 flow_key);
+			 struct sk_buff *skb, unsigned int mtu);
 void ovs_tnl_free_linked_skbs(struct sk_buff *skb);
 
 int ovs_tnl_init(void);
@@ -284,6 +188,38 @@ void ovs_tnl_exit(void);
 static inline struct tnl_vport *tnl_vport_priv(const struct vport *vport)
 {
 	return vport_priv(vport);
+}
+
+static inline void tnl_tun_key_init(struct ovs_key_ipv4_tunnel *tun_key,
+				    const struct iphdr *iph, __be64 tun_id, u32 tun_flags)
+{
+	tun_key->tun_id = tun_id;
+	tun_key->ipv4_src = iph->saddr;
+	tun_key->ipv4_dst = iph->daddr;
+	tun_key->ipv4_tos = iph->tos;
+	tun_key->ipv4_ttl = iph->ttl;
+	tun_key->tun_flags = tun_flags;
+}
+
+static inline void tnl_get_param(const struct tnl_mutable_config *mutable,
+				 const struct ovs_key_ipv4_tunnel *tun_key,
+				 u32 *flags,  __be64 *out_key)
+{
+	if (tun_key->ipv4_dst) {
+		*flags = 0;
+
+		if (tun_key->tun_flags & OVS_TNL_F_KEY)
+			*flags = TNL_F_OUT_KEY_ACTION;
+		if (tun_key->tun_flags & OVS_TNL_F_CSUM)
+			*flags |= TNL_F_CSUM;
+		*out_key = tun_key->tun_id;
+	} else {
+		*flags = mutable->flags;
+		if (mutable->flags & TNL_F_OUT_KEY_ACTION)
+			*out_key = tun_key->tun_id;
+		else
+			*out_key = mutable->out_key;
+	}
 }
 
 #endif /* tunnel.h */

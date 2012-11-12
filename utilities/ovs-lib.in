@@ -39,6 +39,8 @@ fi
 
 VERSION='@VERSION@'
 
+DAEMON_CWD=/
+
 LC_ALL=C; export LC_ALL
 
 ## ------------- ##
@@ -138,6 +140,9 @@ start_daemon () {
                 log_failure_msg "strace not installed, running $daemon without it"
             fi
             ;;
+        glibc)
+            set env MALLOC_CHECK_=2 MALLOC_PERTURB_=165 "$@"
+            ;;
         '')
             ;;
         *)
@@ -159,7 +164,6 @@ start_daemon () {
     fi
 }
 
-DAEMON_CWD=/
 stop_daemon () {
     if test -e "$rundir/$1.pid"; then
         if pid=`cat "$rundir/$1.pid"`; then

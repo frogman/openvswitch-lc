@@ -1541,7 +1541,7 @@ dpif_linux_vport_send(int dp_ifindex, uint32_t port_no,
     uint64_t action;
 
     ofpbuf_use_const(&packet, data, size);
-    flow_extract(&packet, 0, htonll(0), 0, &flow);
+    flow_extract(&packet, 0, NULL, 0, &flow);
 
     ofpbuf_use_stack(&key, &keybuf, sizeof keybuf);
     odp_flow_key_from_flow(&key, &flow);
@@ -2149,7 +2149,7 @@ report_loss(struct dpif *dpif_, struct dpif_channel *ch)
     }
     ds_chomp(&s, ',');
 
-    VLOG_ERR("%s: lost packet on channel %td%s",
-             dpif_name(dpif_), ch - dpif->channels, ds_cstr(&s));
+    VLOG_WARN("%s: lost packet on channel %td%s",
+              dpif_name(dpif_), ch - dpif->channels, ds_cstr(&s));
     ds_destroy(&s);
 }
