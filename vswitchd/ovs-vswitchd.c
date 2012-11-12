@@ -141,8 +141,11 @@ main(int argc, char *argv[])
         }
 
         /*process data pkts from the datapath*/
-        bridge_run_fast(); //check each bridge and call it's ofproto_class->run_fast()
-        bridge_run(); //main process part, handling pkts
+        /*check each bridge and handle upcalls from dp.
+          by calling it's ofproto_class->run_fast(). */
+        bridge_run_fast(); 
+        //main process part, handling of cmds and db updates.
+        bridge_run(); 
         bridge_run_fast(); //could be run to check the bridge multi-times
 
         /*connect to ovswitchd.pid.ctl, via which, accept cmds from ovs-appctl. */
