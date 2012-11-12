@@ -3165,6 +3165,7 @@ handle_miss_upcalls(struct ofproto_dpif *ofproto, struct dpif_upcall *upcalls,
             src_mac[6] = '\0';
             memcpy(src_mac,miss->flow.dl_src,6);
             bridge_update_local_bf(ofproto->up.br, src_mac);
+            VLOG_INFO("[ovsd] handle_miss_upcalls(): Add mac_src=%s to local bf_gdt",src_mac);
 #endif
             n_misses++;
         } else {
@@ -3293,6 +3294,7 @@ handle_upcalls(struct ofproto_dpif *ofproto, unsigned int max_batch)
 
         switch (classify_upcall(upcall)) {
         case MISS_UPCALL: /* Handle it later. */
+            VLOG_INFO("[ovsd] Received MISS_UPCALL from dp.");
             n_misses++;
             break;
 
