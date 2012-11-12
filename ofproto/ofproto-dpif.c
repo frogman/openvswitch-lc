@@ -6540,40 +6540,32 @@ packet_remote(struct ofproto *ofproto_, struct ofpbuf *packet,
            const struct ofpact *ofpacts, size_t ofpacts_len)
 {
     struct ofproto_dpif *ofproto = ofproto_dpif_cast(ofproto_);
-    enum ofperr error;
 
-    if (flow->in_port >= ofproto->max_ports && flow->in_port < OFPP_MAX) {
-        return OFPERR_NXBRC_BAD_IN_PORT;
-    }
+    struct odputil_keybuf keybuf;
+    struct dpif_flow_stats stats;
 
-    error = ofpacts_check(ofpacts, ofpacts_len, flow, ofproto->max_ports);
-    if (!error) {
-        struct odputil_keybuf keybuf;
-        struct dpif_flow_stats stats;
+    struct ofpbuf key;
 
-        struct ofpbuf key;
+    struct action_xlate_ctx ctx;
+    uint64_t odp_actions_stub[1024 / 8];
+    struct ofpbuf odp_actions;
 
-        struct action_xlate_ctx ctx;
-        uint64_t odp_actions_stub[1024 / 8];
-        struct ofpbuf odp_actions;
+    ofpbuf_use_stack(&key, &keybuf, sizeof keybuf);
+    odp_flow_key_from_flow(&key, flow);
 
-        ofpbuf_use_stack(&key, &keybuf, sizeof keybuf);
-        odp_flow_key_from_flow(&key, flow);
+    dpif_flow_stats_extract(flow, packet, time_msec(), &stats);
 
-        dpif_flow_stats_extract(flow, packet, time_msec(), &stats);
+    action_xlate_ctx_init(&ctx, ofproto, flow, flow->vlan_tci, NULL,
+            packet_get_tcp_flags(packet, flow), packet);
+    ctx.resubmit_stats = &stats;
 
-        action_xlate_ctx_init(&ctx, ofproto, flow, flow->vlan_tci, NULL,
-                              packet_get_tcp_flags(packet, flow), packet);
-        ctx.resubmit_stats = &stats;
-
-        ofpbuf_use_stub(&odp_actions,
-                        odp_actions_stub, sizeof odp_actions_stub);
-        xlate_actions(&ctx, ofpacts, ofpacts_len, &odp_actions);
-        dpif_execute(ofproto->dpif, key.data, key.size,
-                     odp_actions.data, odp_actions.size, packet);
-        ofpbuf_uninit(&odp_actions);
-    }
-    return error;
+    ofpbuf_use_stub(&odp_actions,
+            odp_actions_stub, sizeof odp_actions_stub);
+    xlate_actions(&ctx, ofpacts, ofpacts_len, &odp_actions);
+    dpif_execute(ofproto->dpif, key.data, key.size,
+            odp_actions.data, odp_actions.size, packet);
+    ofpbuf_uninit(&odp_actions);
+    return 0;
 }
 
 #endif
@@ -6581,9 +6573,9 @@ packet_remote(struct ofproto *ofproto_, struct ofpbuf *packet,
 
 /* NetFlow. */
 
-static int
+    static int
 set_netflow(struct ofproto *ofproto_,
-            const struct netflow_options *netflow_options)
+        const struct netflow_options *netflow_options)
 {
     struct ofproto_dpif *ofproto = ofproto_dpif_cast(ofproto_);
 
@@ -6599,20 +6591,20 @@ set_netflow(struct ofproto *ofproto_,
     }
 }
 
-static void
+    static void
 get_netflow_ids(const struct ofproto *ofproto_,
-                uint8_t *engine_type, uint8_t *engine_id)
+        uint8_t *engine_type, uint8_t *engine_id)
 {
     struct ofproto_dpif *ofproto = ofproto_dpif_cast(ofproto_);
 
     dpif_get_netflow_ids(ofproto->dpif, engine_type, engine_id);
 }
 
-static void
+    static void
 send_active_timeout(struct ofproto_dpif *ofproto, struct facet *facet)
 {
     if (!facet_is_controller_flow(facet) &&
-        netflow_active_timeout_expired(ofproto->netflow, &facet->nf_flow)) {
+            netflow_active_timeout_expired(ofproto->netflow, &facet->nf_flow)) {
         struct subfacet *subfacet;
         struct ofexpired expired;
 
@@ -6633,7 +6625,7 @@ send_active_timeout(struct ofproto_dpif *ofproto, struct facet *facet)
     }
 }
 
-static void
+    static void
 send_netflow_active_timeouts(struct ofproto_dpif *ofproto)
 {
     struct facet *facet;
@@ -6643,7 +6635,7 @@ send_netflow_active_timeouts(struct ofproto_dpif *ofproto)
     }
 }
 
-static struct ofproto_dpif *
+    static struct ofproto_dpif *
 ofproto_dpif_lookup(const char *name)
 {
     struct ofproto_dpif *ofproto;
