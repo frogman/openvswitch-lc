@@ -350,9 +350,14 @@ int
 ofproto_create_lc(const char *datapath_name, const char *datapath_type,
                struct ofproto **ofprotop, void *br)
 {
-    ofproto_create(datapath_name, datapath_type, ofprotop);
-    (*ofprotop)->br = br;
-    return 0;
+    int error = 0;
+    error = ofproto_create(datapath_name, datapath_type, ofprotop);
+    if (error) {
+        return error;
+    } else {
+        (*ofprotop)->br = br;
+        return 0;
+    }
 }
 #endif
 
@@ -2197,7 +2202,7 @@ handle_packet_remote(struct ofconn *ofconn, const struct ofp_header *oh)
 
     /* Send out packet. */
     flow_extract(payload, 0, 0, pr.in_port, &flow); //init the flow
-    error = p->ofproto_class->packet_out(p, payload, &flow,
+    error = p->ofproto_class->packet_remote(p, payload, &flow,
                                          pr.ofpacts, pr.ofpacts_len);
     ofpbuf_delete(payload);
 

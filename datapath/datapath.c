@@ -309,6 +309,7 @@ void ovs_dp_detach_port(struct vport *p)
 /* Must be called with rcu_read_lock. */
 void ovs_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
 {
+    printk("KERN_WARNING ovs_dp_process_received_packet() start.\n");
 	struct datapath *dp = p->dp;
 	struct sw_flow *flow;
 	struct dp_stats_percpu *stats;
@@ -340,20 +341,22 @@ void ovs_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
 
 		/* Look up in local table. */
         flow = ovs_flow_tbl_lookup(rcu_dereference(dp->table), &key, key_len);
-        unsigned char *src_ip = (unsigned char*)(htonl(key.ipv4.addr.src));
-        unsigned char *dst_ip = (unsigned char*)(htonl(key.ipv4.addr.dst));
+        printk(KERN_WARNING "just lookup flow.\n");
+        //unsigned char *src_ip = (unsigned char*)(htonl(key.ipv4.addr.src));
+        //unsigned char *dst_ip = (unsigned char*)(htonl(key.ipv4.addr.dst));
+        printk(KERN_WARNING "just get the src_ip and dst_ip.\n");
 
         if (unlikely(!flow)) { /*not found in local fwd table, means to remote*/
-#ifdef LC_ENABLE 
+#ifdef LC_ENABLE
             if (!OVS_CB(skb)->encaped) { /*local vm pkt to remote, first check the bf-gdt*/
                 /*check the bf-gdt*/
                 sprintf(tmp_dst,"%x",key.ipv4.addr.dst);
                 tmp_dst[6] = '\0';
                 bf = bf_gdt_check(dp->gdt,tmp_dst);
             }
-            printk("[datapath] no flow found (src_ip=%d.%d.%d.%d, dst_ip=%d.%d.%d.%d) in local tbl.\n",src_ip[0],src_ip[1],src_ip[2],src_ip[3],dst_ip[0],dst_ip[1],dst_ip[2],dst_ip[3]);
+            //printk("[datapath] no flow found (src_ip=%d.%d.%d.%d, dst_ip=%d.%d.%d.%d) in local tbl.\n",src_ip[0],src_ip[1],src_ip[2],src_ip[3],dst_ip[0],dst_ip[1],dst_ip[2],dst_ip[3]);
             if (!OVS_CB(skb)->encaped && likely(bf)) { //local vm pkt to remote sw and is in local bf-gdt
-                printk("[datapath] found flow (src_ip=%d.%d.%d.%d, dst_ip=%d.%d.%d.%d) in bf_gdt.\n",src_ip[0],src_ip[1],src_ip[2],src_ip[3],dst_ip[0],dst_ip[1],dst_ip[2],dst_ip[3]);
+                //printk("[datapath] found flow (src_ip=%d.%d.%d.%d, dst_ip=%d.%d.%d.%d) in bf_gdt.\n",src_ip[0],src_ip[1],src_ip[2],src_ip[3],dst_ip[0],dst_ip[1],dst_ip[2],dst_ip[3]);
                 flow = kmalloc(sizeof(struct sw_flow), GFP_ATOMIC);
                 flow->sf_acts = kmalloc(sizeof(struct sw_flow_actions)+sizeof(struct nlattr)+sizeof(u32), GFP_ATOMIC);
                 memcpy(&(flow->key),&key,sizeof(struct sw_flow_key));
@@ -366,7 +369,7 @@ void ovs_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
                 ((u32*)flow->sf_acts->actions)[2] = bf->bf_id; //remote sw's ip is stored in bf->bf_id;
             } else { /* Not in local table. Not in bf-gdt yet or from remote sw, then send to ovsd using upcall */
 #endif
-                printk("[datapath] no flow found (src_ip=%d.%d.%d.%d, dst_ip=%d.%d.%d.%d), and will send OVS_PACKET_CMD_MISS.\n",src_ip[0],src_ip[1],src_ip[2],src_ip[3],dst_ip[0],dst_ip[1],dst_ip[2],dst_ip[3]);
+                //printk("[datapath] no flow found (src_ip=%d.%d.%d.%d, dst_ip=%d.%d.%d.%d), and will send OVS_PACKET_CMD_MISS.\n",src_ip[0],src_ip[1],src_ip[2],src_ip[3],dst_ip[0],dst_ip[1],dst_ip[2],dst_ip[3]);
                 struct dp_upcall_info upcall;
                 upcall.cmd = OVS_PACKET_CMD_MISS;
                 upcall.key = &key;
@@ -604,7 +607,7 @@ static struct genl_ops dp_bf_gdt_genl_ops[] = {
 	}
 };
 
-#endif
+#endif //end #ifdef LC_ENABLE
 
 int ovs_dp_upcall(struct datapath *dp, struct sk_buff *skb,
         const struct dp_upcall_info *upcall_info)
@@ -1682,7 +1685,7 @@ static int ovs_dp_cmd_new(struct sk_buff *skb, struct genl_info *info)
 		err = -ENOMEM;
 		goto err_destroy_percpu;
     }
-    bf_gdt_add_filter(dp->gdt,0,LC_BF_DFT_PORT_NO,1024); /*empty filter*/
+    bf_gdt_add_filter(dp->gdt,0,LC_BF_DFT_PORT_NO,LC_BF_DFT_LEN); /*empty filter*/
     dp->local_ip = LC_DP_LOCAL_IP; //ip of network interface bonding on dp.
 #endif
 

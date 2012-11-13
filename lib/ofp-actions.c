@@ -29,10 +29,6 @@
 #include "ofpbuf.h"
 #include "vlog.h"
 
-#ifndef LC_ENABLE
-#define LC_ENABLE
-#endif
-
 VLOG_DEFINE_THIS_MODULE(ofp_actions);
 
 static struct vlog_rate_limit rl = VLOG_RATE_LIMIT_INIT(1, 5);
@@ -52,7 +48,7 @@ output_from_openflow10(const struct ofp10_action_output *oao,
     return ofputil_check_output_port(output->port, OFPP_MAX);
 }
 
-#ifdef LC_ENABLE
+#ifdef LC_ENABLE //defined in ofp-actions.h
 static enum ofperr
 remote_from_openflow10(const struct ofp10_action_remote *oar,
                        struct ofpbuf *out)
@@ -482,7 +478,7 @@ ofpact_from_openflow10(const union ofp_action *a, struct ofpbuf *out)
 
 #ifdef LC_ENABLE
     case OFPUTIL_OFPAT10_REMOTE:
-        return output_from_openflow10(&a->output10, out);
+        return remote_from_openflow10(&a->output10, out);
 #endif
 
 #define NXAST_ACTION(ENUM, STRUCT, EXTENSIBLE, NAME) case OFPUTIL_##ENUM:

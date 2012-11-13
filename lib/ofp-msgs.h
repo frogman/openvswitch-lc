@@ -42,10 +42,6 @@
 #include "ofp-errors.h"
 #include "util.h"
 
-#ifndef LC_ENABLE
-#define LC_ENABLE
-#endif
-
 struct list;
 
 /* Raw identifiers for OpenFlow messages.

@@ -27,10 +27,6 @@
 #include "dpif.h"
 #include "util.h"
 
-#ifndef LC_ENABLE
-#define LC_ENABLE
-#endif
-
 #ifdef  __cplusplus
 extern "C" {
 #endif
@@ -341,7 +337,7 @@ struct dpif_class {
      * return. */
     void (*recv_purge)(struct dpif *dpif);
 
-#ifdef LC_ENABLE
+#ifdef LC_ENABLE //defined in dpif.h
     int (*bf_gdt_put)(struct dpif *dpif, const struct dpif_bf_gdt_put *put);
 #endif
 };

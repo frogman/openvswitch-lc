@@ -189,7 +189,7 @@ enum ovs_bf_gdt_attr {
 
 #define OVS_BF_GDT_ATTR_MAX (__OVS_BF_GDT_ATTR_MAX - 1)
 
-#endif
+#endif //end #ifdef LC_ENABLE
 
 /* Virtual ports. */
 

@@ -158,7 +158,7 @@ struct bridge {
 
 #ifdef LC_ENABLE
     /*bf-gdt*/
-    unsigned int local_id; //used for local bf, should be the ip of dp bonding network interface.
+    unsigned int local_id; //used for local bf, should be the ip of dp network interface.
     struct bf_gdt *gdt;
     uint8_t is_DDCM; //1 if DDCM
     pthread_t send_tid;
@@ -1326,7 +1326,7 @@ int bridge_update_local_bf(const struct bridge *br, char *src_mac)
     struct bloom_filter*bf = bf_gdt_find_filter(br->gdt,br->local_id); //local bf not existed yet.
 
     if (!bf) {/*no local bf existed.*/
-        bf = bf_gdt_add_filter(br->gdt, br->local_id, 0, 1024);
+        bf = bf_gdt_add_filter(br->gdt, br->local_id,LC_BF_DFT_PORT_NO, LC_BF_DFT_LEN);
     }
 
     if (!bf) {/*create failed.*/
@@ -2371,20 +2371,19 @@ qos_unixctl_show(struct unixctl_conn *conn, int argc OVS_UNUSED,
     ds_destroy(&ds);
 }
 
+#ifdef LC_ENABLE
 /**
  * start the mcast.
  */
 static void
 bridge_start_mcast(struct bridge *br)
 {
-    VLOG_INFO("%s bridge_start_mcast() begin...\n",br->name);
+    VLOG_INFO("%s bridge_start_mcast() begin.\n",br->name);
     extern pthread_mutex_t mutex;
     pthread_mutex_init (&mutex,NULL);
     pthread_create(&br->send_tid,NULL,mc_send,&br->send_arg);
-    VLOG_INFO("%s bridge_mc_send() done.\n",br->name);
     sleep(1);
     pthread_create(&br->recv_tid,NULL,mc_recv,&br->recv_arg);
-    VLOG_INFO("%s bridge_mc_recv() done.\n",br->name);
     VLOG_INFO("%s bridge_start_mcast() done.\n",br->name);
 }
 
@@ -2398,8 +2397,6 @@ bridge_end_mcast(struct bridge *br)
     *br->recv_arg.stop = true;
     pthread_join(br->send_tid,NULL);
     pthread_join(br->recv_tid,NULL);
-    VLOG_INFO("%s pthread_join done\n",br->name);
-    VLOG_INFO("%s free br->send_arg.msg done\n",br->name);
     free(br->send_arg.stop);
     free(br->recv_arg.stop);
 }
@@ -2430,7 +2427,7 @@ static unsigned int get_local_ip(char *eth)
         return -1;
     }
     close(sock_fd);
-    return ntohl(((struct sockaddr_in*)&ifr.ifr_addr)->sin_addr.s_addr);
+    return ((struct sockaddr_in*)&ifr.ifr_addr)->sin_addr.s_addr;
 }
 
 /**
@@ -2442,7 +2439,8 @@ bridge_lc_init(struct bridge *br)
     VLOG_INFO("%s bridge_lc_init(): init bf-gdt and mcast args.\n",br->name);
     br->gdt = bf_gdt_init(LC_GROUP_DFT_ID);
     br->local_id = get_local_ip(LC_DP_NI_NAME);
-    VLOG_INFO("%s bridge_lc_init(): get local ip =0x%x.\n",br->name,br->local_id);
+    br->local_id = (192<<24)+(168<<16)+(57<<8)+10; //TODO: must be manually set on each sw.
+    VLOG_INFO("%s bridge_lc_init(): get local ip =0x%x(%u.%u.%u.%u).\n",br->name,br->local_id,((unsigned char *)&br->local_id)[3],((unsigned char *)&br->local_id)[2],((unsigned char *)&br->local_id)[1],((unsigned char *)&br->local_id)[0]);
     br->send_arg.group_ip = inet_addr(LC_MCAST_GROUP_IP)+br->gdt->gid;
     br->send_arg.port = LC_MCAST_GROUP_PORT;
     br->send_arg.gdt = br->gdt;
@@ -2452,7 +2450,7 @@ bridge_lc_init(struct bridge *br)
     br->send_arg.br = br;
     br->send_arg.local_id = br->local_id;
 
-    bf_gdt_add_filter(br->gdt,br->local_id,0,LC_BF_DFT_LEN);
+    bf_gdt_add_filter(br->gdt,br->local_id,LC_BF_DFT_PORT_NO,LC_BF_DFT_LEN);
 
     br->recv_arg.group_ip = inet_addr(LC_MCAST_GROUP_IP)+br->gdt->gid;
     br->recv_arg.port = LC_MCAST_GROUP_PORT;
@@ -2463,6 +2461,8 @@ bridge_lc_init(struct bridge *br)
     VLOG_INFO("%s bridge_lc_init() done.\n",br->name);
     bridge_start_mcast(br);
 }
+#endif
+
 
 /* Bridge reconfiguration functions. */
     static void

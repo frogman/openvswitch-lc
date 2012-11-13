@@ -37,7 +37,7 @@
 #endif
 
 #ifndef LC_BF_DFT_PORT_NO
-#define LC_BF_DFT_PORT_NO 0
+#define LC_BF_DFT_PORT_NO 1
 #endif
 
 struct bf_gdt{

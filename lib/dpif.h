@@ -27,10 +27,6 @@
 #include "util.h"
 #include "bf.h"
 
-#ifndef LC_ENABLE
-#define LC_ENABLE
-#endif
-
 #ifdef  __cplusplus
 extern "C" {
 #endif
@@ -208,7 +204,7 @@ struct dpif_flow_del {
 };
 
 
-#ifdef LC_ENABLE
+#ifdef LC_ENABLE //defined in linux/openvswitch.h
 
 enum dpif_bf_gdt_put_flags {
     DPIF_BP_CREATE = 1 << 0,    /* Allow creating a new bf. */
@@ -224,8 +220,7 @@ struct dpif_bf_gdt_put {
 };
 int dpif_bf_gdt_put(struct dpif *, enum dpif_bf_gdt_put_flags,
                   const struct bloom_filter *bf, size_t bf_len);
-
-#endif
+#endif //end #ifdef LC_ENABLE
 
 struct dpif_execute {
     const struct nlattr *key;       /* Partial flow key (only for metadata). */

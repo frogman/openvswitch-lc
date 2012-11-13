@@ -31,14 +31,10 @@
 #include "../lib/bf.h"
 #include "../lib/stat.h"
 
-#ifndef LC_ENABLE
-#define LC_ENABLE
-#endif
-
 struct ofpact;
 struct ofputil_flow_mod;
 struct simap;
-#ifdef LC_ENABLE
+#ifdef LC_ENABLE //defined in ofproto/ofproto.h
 struct bridge;
 #endif
 
