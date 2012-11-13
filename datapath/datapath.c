@@ -63,7 +63,7 @@
 #include "dp_dcm.h"
 
 #ifdef LC_ENABLE
-#define LC_DP_LOCAL_IP 0x0a010064; //10.1.0.100
+#define LC_DP_LOCAL_IP 0xc0a8390a; //192.168.57.10
 #endif
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,18) || \
