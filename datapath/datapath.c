@@ -309,6 +309,7 @@ void ovs_dp_detach_port(struct vport *p)
 /* Must be called with rcu_read_lock. */
 void ovs_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
 {
+    printk("ovs_dp_process_received_packet() start.\n");
 	struct datapath *dp = p->dp;
 	struct sw_flow *flow;
 	struct dp_stats_percpu *stats;
@@ -1676,6 +1677,7 @@ static int ovs_dp_cmd_new(struct sk_buff *skb, struct genl_info *info)
 	for (i = 0; i < DP_VPORT_HASH_BUCKETS; i++)
 		INIT_HLIST_HEAD(&dp->ports[i]);
 
+    printk("ovs_dp_cmd_new() start to init lc_group.\n");
 #ifdef LC_ENABLE /*init the lc_group, TODO*/
 	dp->gdt = bf_gdt_init(LC_GROUP_DFT_ID);
 	if (!dp->gdt) {
@@ -1685,6 +1687,7 @@ static int ovs_dp_cmd_new(struct sk_buff *skb, struct genl_info *info)
     bf_gdt_add_filter(dp->gdt,0,LC_BF_DFT_PORT_NO,1024); /*empty filter*/
     dp->local_ip = LC_DP_LOCAL_IP; //ip of network interface bonding on dp.
 #endif
+    printk("ovs_dp_cmd_new() end to init lc_group.\n");
 
 	/* Set up our datapath device. */
 	parms.name = nla_data(a[OVS_DP_ATTR_NAME]);

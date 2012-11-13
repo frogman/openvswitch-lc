@@ -28,7 +28,7 @@ struct simap;
 #define LC_MCAST_PORT 5000
 #endif
 
-#define LC_DP_NI_NAME "eth2"
+#define LC_DP_NI_NAME "eth2" //eth2 is utilized for dp's packets
 
 struct bridge;
 struct bloom_filter;
