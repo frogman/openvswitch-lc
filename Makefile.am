@@ -54,6 +54,7 @@ EXTRA_DIST = \
 	NOTICE \
 	PORTING \
 	README-gcov \
+	README.md \
 	REPORTING-BUGS \
 	SubmittingPatches \
 	WHY-OVS \
