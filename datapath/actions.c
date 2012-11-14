@@ -390,10 +390,12 @@ static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
 		switch (nla_type(a)) {
 		case OVS_ACTION_ATTR_OUTPUT:
 			prev_port = nla_get_u32(a);
+            pr_info("do_execute_actions() OUTPUT.\n");
 			break;
 
 		case OVS_ACTION_ATTR_USERSPACE:
 			output_userspace(dp, skb, a);
+            pr_info("do_execute_actions() USERSPACE.\n");
 			break;
 
 		case OVS_ACTION_ATTR_PUSH_VLAN:
@@ -408,6 +410,7 @@ static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
 
 		case OVS_ACTION_ATTR_SET:
 			err = execute_set_action(skb, nla_data(a));
+            pr_info("do_execute_actions() SET.\n");
 			break;
 
 		case OVS_ACTION_ATTR_SAMPLE:
@@ -455,6 +458,7 @@ static int loop_suppress(struct datapath *dp, struct sw_flow_actions *actions)
 /* Execute a list of actions against 'skb'. */
 int ovs_execute_actions(struct datapath *dp, struct sk_buff *skb)
 {
+    pr_info("ovs_execute_actions()\n");
 	struct sw_flow_actions *acts = rcu_dereference(OVS_CB(skb)->flow->sf_acts);
 	struct loop_counter *loop;
 	int error;

@@ -394,6 +394,7 @@ static int
 dpif_linux_port_add(struct dpif *dpif_, struct netdev *netdev,
                     uint16_t *port_nop)
 {
+    VLOG_INFO("dpif_linux_port_add()\n");
     struct dpif_linux *dpif = dpif_linux_cast(dpif_);
     const char *name = netdev_get_name(netdev);
     const char *type = netdev_get_type(netdev);
@@ -704,6 +705,7 @@ dpif_linux_init_flow_put(struct dpif *dpif_, const struct dpif_flow_put *put,
 static int
 dpif_linux_flow_put(struct dpif *dpif_, const struct dpif_flow_put *put)
 {
+    VLOG_INFO("dpif_linux_flow_put()\n");
     struct dpif_linux_flow request, reply;
     struct ofpbuf *buf;
     int error;
@@ -883,6 +885,7 @@ dpif_linux_execute__(int dp_ifindex, const struct dpif_execute *execute)
 static int
 dpif_linux_execute(struct dpif *dpif_, const struct dpif_execute *execute)
 {
+    VLOG_INFO("dpif_linux_execute()\n");
     struct dpif_linux *dpif = dpif_linux_cast(dpif_);
 
     return dpif_linux_execute__(dpif->dp_ifindex, execute);
@@ -926,6 +929,7 @@ dpif_linux_operate__(struct dpif *dpif_, struct dpif_op **ops, size_t n_ops)
 
         switch (op->type) {
         case DPIF_OP_FLOW_PUT:
+            VLOG_INFO("dpif_linux_operate() DPIF_OP_FLOW_PUT\n");
             put = &op->u.flow_put;
             dpif_linux_init_flow_put(dpif_, put, &flow);
             if (put->stats) {
@@ -936,6 +940,7 @@ dpif_linux_operate__(struct dpif *dpif_, struct dpif_op **ops, size_t n_ops)
             break;
 
         case DPIF_OP_FLOW_DEL:
+            VLOG_INFO("dpif_linux_operate() DPIF_OP_FLOW_DEL\n");
             del = &op->u.flow_del;
             dpif_linux_init_flow_del(dpif_, del, &flow);
             if (del->stats) {
@@ -946,6 +951,7 @@ dpif_linux_operate__(struct dpif *dpif_, struct dpif_op **ops, size_t n_ops)
             break;
 
         case DPIF_OP_EXECUTE:
+            VLOG_INFO("dpif_linux_operate() EXECUTE\n");
             execute = &op->u.execute;
             dpif_linux_encode_execute(dpif->dp_ifindex, execute,
                                       &aux->request);
@@ -1024,6 +1030,7 @@ dpif_linux_operate__(struct dpif *dpif_, struct dpif_op **ops, size_t n_ops)
 static void
 dpif_linux_operate(struct dpif *dpif, struct dpif_op **ops, size_t n_ops)
 {
+    VLOG_INFO("dpif_linux_operate()\n");
     while (n_ops > 0) {
         size_t chunk = MIN(n_ops, MAX_OPS);
         dpif_linux_operate__(dpif, ops, chunk);
@@ -1253,6 +1260,7 @@ dpif_linux_recv(struct dpif *dpif_, struct dpif_upcall *upcall,
                 if (in_port) {
                     update_sketch(ch, nl_attr_get_u32(in_port));
                 }
+                VLOG_INFO("dpif_linux_recv() success\n");
                 return 0;
             }
             if (error) {
@@ -1392,6 +1400,7 @@ int
 dpif_linux_vport_send(int dp_ifindex, uint32_t port_no,
                       const void *data, size_t size)
 {
+    VLOG_INFO("dpif_linux_vport_send()\n");
     struct ofpbuf actions, key, packet;
     struct odputil_keybuf keybuf;
     struct dpif_execute execute;

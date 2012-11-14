@@ -303,11 +303,13 @@ void ovs_dp_detach_port(struct vport *p)
 /* Must be called with rcu_read_lock. */
 void ovs_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
 {
+    pr_info("Received packet.\n");
 	struct datapath *dp = p->dp;
 	struct sw_flow *flow;
 	struct dp_stats_percpu *stats;
 	u64 *stats_counter;
 	int error;
+    unsigned int src, dst;
 
 	stats = per_cpu_ptr(dp->stats_percpu, smp_processor_id());
 
@@ -321,11 +323,15 @@ void ovs_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
 			kfree_skb(skb);
 			return;
 		}
+        src = key.ipv4.addr.src;
+        dst = key.ipv4.addr.dst;
+        pr_info("key.src=%u.%u.%u.%u, key.dst=%u.%u.%u.%u.\n",((unsigned char*)&src)[0],((unsigned char*)&src)[1],((unsigned char*)&src)[2],((unsigned char*)&src)[3],((unsigned char*)&dst)[0],((unsigned char*)&dst)[1],((unsigned char*)&dst)[2],((unsigned char*)&dst)[3]);
 
 		/* Look up flow. */
 		flow = ovs_flow_tbl_lookup(rcu_dereference(dp->table),
 					   &key, key_len);
 		if (unlikely(!flow)) {
+            pr_info("NO flow matched in dp->tbl, will send upcall.\n");
 			struct dp_upcall_info upcall;
 
 			upcall.cmd = OVS_PACKET_CMD_MISS;
@@ -337,6 +343,7 @@ void ovs_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
 			stats_counter = &stats->n_missed;
 			goto out;
 		}
+        pr_info("A flow matched in dp->tbl.\n");
 
 		OVS_CB(skb)->flow = flow;
 	}
@@ -736,6 +743,7 @@ static void clear_stats(struct sw_flow *flow)
 
 static int ovs_packet_cmd_execute(struct sk_buff *skb, struct genl_info *info)
 {
+    pr_info("ovs_packet_cmd_execute()\n");
 	struct ovs_header *ovs_header = info->userhdr;
 	struct nlattr **a = info->attrs;
 	struct sw_flow_actions *acts;
@@ -1005,6 +1013,7 @@ static struct sk_buff *ovs_flow_cmd_build_info(struct sw_flow *flow,
 
 static int ovs_flow_cmd_new_or_set(struct sk_buff *skb, struct genl_info *info)
 {
+    pr_info("ovs_flow_cmd_new_or_set()\n");
 	struct nlattr **a = info->attrs;
 	struct ovs_header *ovs_header = info->userhdr;
 	struct sw_flow_key key;
@@ -1023,6 +1032,9 @@ static int ovs_flow_cmd_new_or_set(struct sk_buff *skb, struct genl_info *info)
 	if (error)
 		goto error;
 
+    unsigned int src = key.ipv4.addr.src;
+    unsigned dst = key.ipv4.addr.dst;
+    pr_info("key.src=%u.%u.%u.%u, key.dst=%u.%u.%u.%u.\n",((unsigned char*)&src)[0],((unsigned char*)&src)[1],((unsigned char*)&src)[2],((unsigned char*)&src)[3],((unsigned char*)&dst)[0],((unsigned char*)&dst)[1],((unsigned char*)&dst)[2],((unsigned char*)&dst)[3]);
 	/* Validate actions. */
 	if (a[OVS_FLOW_ATTR_ACTIONS]) {
 		error = validate_actions(a[OVS_FLOW_ATTR_ACTIONS], &key,  0);
@@ -1379,6 +1391,7 @@ static struct datapath *lookup_datapath(struct net *net,
 
 static int ovs_dp_cmd_new(struct sk_buff *skb, struct genl_info *info)
 {
+    pr_info("ovs_dp_cmd_new()\n");
 	struct nlattr **a = info->attrs;
 	struct vport_parms parms;
 	struct sk_buff *reply;

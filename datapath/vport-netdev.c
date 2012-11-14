@@ -253,6 +253,7 @@ static void netdev_port_receive(struct vport *vport, struct sk_buff *skb)
 		kfree_skb(skb);
 		return;
 	}
+    pr_info("netdev_port_receive\n");
 
 	/* Make our own copy of the packet.  Otherwise we will mangle the
 	 * packet for anyone who came before us (e.g. tcpdump via AF_PACKET).

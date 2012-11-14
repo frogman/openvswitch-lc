@@ -1035,14 +1035,17 @@ dpif_operate(struct dpif *dpif, struct dpif_op **ops, size_t n_ops)
 
         switch (op->type) {
         case DPIF_OP_FLOW_PUT:
+            VLOG_INFO("dpif_operate() DPIF_OP_FLOW_PUT\n");
             op->error = dpif_flow_put__(dpif, &op->u.flow_put);
             break;
 
         case DPIF_OP_FLOW_DEL:
+            VLOG_INFO("dpif_operate() DPIF_OP_FLOW_DEL\n");
             op->error = dpif_flow_del__(dpif, &op->u.flow_del);
             break;
 
         case DPIF_OP_EXECUTE:
+            VLOG_INFO("dpif_operate() DPIF_OP_EXECUTE\n");
             op->error = dpif_execute__(dpif, &op->u.execute);
             break;
 
@@ -1094,7 +1097,8 @@ int
 dpif_recv(struct dpif *dpif, struct dpif_upcall *upcall, struct ofpbuf *buf)
 {
     int error = dpif->dpif_class->recv(dpif, upcall, buf);
-    if (!error && !VLOG_DROP_DBG(&dpmsg_rl)) {
+    //if (!error && !VLOG_DROP_DBG(&dpmsg_rl)) {
+    if (!error) {
         struct ds flow;
         char *packet;
 
@@ -1104,7 +1108,7 @@ dpif_recv(struct dpif *dpif, struct dpif_upcall *upcall, struct ofpbuf *buf)
         ds_init(&flow);
         odp_flow_key_format(upcall->key, upcall->key_len, &flow);
 
-        VLOG_DBG("%s: %s upcall:\n%s\n%s",
+        VLOG_DBG("dpif_recv() success %s: %s upcall:\n%s\n%s",
                  dpif_name(dpif), dpif_upcall_type_to_string(upcall->type),
                  ds_cstr(&flow), packet);
 

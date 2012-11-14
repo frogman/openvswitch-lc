@@ -2866,6 +2866,7 @@ handle_flow_miss_without_facet(struct flow_miss *miss,
                                struct rule_dpif *rule,
                                struct flow_miss_op *ops, size_t *n_ops)
 {
+    VLOG_INFO("handle_flow_miss_without_facet()\n");
     struct ofproto_dpif *ofproto = ofproto_dpif_cast(rule->up.ofproto);
     long long int now = time_msec();
     struct action_xlate_ctx ctx;
@@ -2918,6 +2919,7 @@ handle_flow_miss_with_facet(struct flow_miss *miss, struct facet *facet,
                             long long int now,
                             struct flow_miss_op *ops, size_t *n_ops)
 {
+    VLOG_INFO("handle_flow_miss_with_facet()\n");
     struct ofproto_dpif *ofproto = ofproto_dpif_cast(facet->rule->up.ofproto);
     enum subfacet_path want_path;
     struct subfacet *subfacet;
@@ -2992,6 +2994,7 @@ static void
 handle_flow_miss(struct ofproto_dpif *ofproto, struct flow_miss *miss,
                  struct flow_miss_op *ops, size_t *n_ops)
 {
+    VLOG_INFO("handle_flow_miss()\n");
     struct facet *facet;
     long long int now;
     uint32_t hash;
@@ -3093,6 +3096,7 @@ handle_miss_upcalls(struct ofproto_dpif *ofproto, struct dpif_upcall *upcalls,
         return;
     }
 
+    VLOG_INFO("handle_miss_upcalls()\n");
     /* Construct the to-do list.
      *
      * This just amounts to extracting the flow from each packet and sticking
@@ -4813,6 +4817,7 @@ compose_slow_path(const struct ofproto_dpif *ofproto, const struct flow *flow,
                   uint64_t *stub, size_t stub_size,
                   const struct nlattr **actionsp, size_t *actions_lenp)
 {
+    VLOG_INFO("compose_slow_path()\n");
     union user_action_cookie cookie;
     struct ofpbuf buf;
 

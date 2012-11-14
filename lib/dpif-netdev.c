@@ -407,6 +407,7 @@ static int
 dpif_netdev_port_add(struct dpif *dpif, struct netdev *netdev,
                      uint16_t *port_nop)
 {
+    VLOG_INFO("dpif_netdev_port_add()\n");
     struct dp_netdev *dp = get_dp_netdev(dpif);
     int port_no;
 
@@ -756,6 +757,7 @@ clear_stats(struct dp_netdev_flow *flow)
 static int
 dpif_netdev_flow_put(struct dpif *dpif, const struct dpif_flow_put *put)
 {
+    VLOG_INFO("dpif_netdev_flow_put()\n");
     struct dp_netdev *dp = get_dp_netdev(dpif);
     struct dp_netdev_flow *flow;
     struct flow key;
@@ -901,6 +903,7 @@ dpif_netdev_flow_dump_done(const struct dpif *dpif OVS_UNUSED, void *state_)
 static int
 dpif_netdev_execute(struct dpif *dpif, const struct dpif_execute *execute)
 {
+    VLOG_INFO("dpif_netdev_execute()\n");
     struct dp_netdev *dp = get_dp_netdev(dpif);
     struct ofpbuf copy;
     struct flow key;
@@ -961,6 +964,7 @@ static int
 dpif_netdev_recv(struct dpif *dpif, struct dpif_upcall *upcall,
                  struct ofpbuf *buf)
 {
+    VLOG_INFO("dpif_netdev_recv() \n");
     struct dp_netdev_queue *q = find_nonempty_queue(dpif);
     if (q) {
         struct dp_netdev_upcall *u = &q->upcalls[q->tail++ & QUEUE_MASK];
