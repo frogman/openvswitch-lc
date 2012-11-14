@@ -356,25 +356,27 @@ void ovs_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
         unsigned char *src_mac = (unsigned char*)key.eth.src;
         unsigned char *dst_mac = (unsigned char*)key.eth.dst;
 
-        if (unlikely(!flow)) { /*not found in local fwd table, means to remote*/
-#ifdef LC_ENABLE_
+        if (unlikely(!flow)) { /*not found in local fwd table, usually the 1st pkt.*/
+#ifdef LC_ENABLE
             pr_mac("no found in local tbl",src_mac, dst_mac);
-            if (!OVS_CB(skb)->encaped) { /*local vm pkt to remote, first check the bf-gdt*/
-                /*check the bf-gdt*/
+            if (!OVS_CB(skb)->encaped && OVS_CB(skb)->flow->key.eth.type == htons(ETH_P_IP)) { /*normal ip pkt from local host, first check the bf-gdt*/
                 pr_info("local vm to remote?\n");
                 memcpy(tmp_dst,dst_mac,6);
                 tmp_dst[6] = '\0';
                 bf = bf_gdt_check(dp->gdt,tmp_dst);
             }
-            if (!OVS_CB(skb)->encaped && likely(bf)) { //local vm pkt to remote sw and is in local bf-gdt
+            if (!OVS_CB(skb)->encaped && OVS_CB(skb)->flow->key.eth.type == htons(ETH_P_IP) && likely(bf)) { //local vm pkt to remote sw and is in local bf-gdt
                 pr_mac("found in local bf_gdt",src_mac, dst_mac);
+
+                flow = ovs_flow_alloc();
+                sw_flow_actions *acts = ovs_flow_actions_alloc(a[OVS_PACKET_ATTR_ACTIONS]);
                 flow = kmalloc(sizeof(struct sw_flow), GFP_ATOMIC);
-                flow->sf_acts = kmalloc(sizeof(struct sw_flow_actions)+sizeof(struct nlattr)+sizeof(u32), GFP_ATOMIC);
+                flow->sf_acts = kmalloc(sizeof(struct sw_flow_actions)+sizeof(struct nlattr)+2*sizeof(u32), GFP_ATOMIC);
                 memcpy(&(flow->key),&key,sizeof(struct sw_flow_key));
 
                 /*TODO: construct the action of sending to remote port*/
-                flow->sf_acts->actions_len = NLA_HDRLEN + 2*sizeof(int);
-                flow->sf_acts->actions[0].nla_len = NLA_HDRLEN + 2*sizeof(int); //len of the attr
+                flow->sf_acts->actions_len = NLA_HDRLEN + 2*sizeof(u32);
+                flow->sf_acts->actions[0].nla_len = NLA_HDRLEN + 2*sizeof(u32); //len of the attr
                 flow->sf_acts->actions[0].nla_type = OVS_ACTION_ATTR_REMOTE; //encapulate and send to remote sw
                 ((u32*)flow->sf_acts->actions)[1] = bf->port_no; //send through this port
                 ((u32*)flow->sf_acts->actions)[2] = bf->bf_id; //remote sw's ip is stored in bf->bf_id;
@@ -394,7 +396,7 @@ void ovs_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
 
             OVS_CB(skb)->flow = flow;
         } /*now each pkt has an associated flow. */
-#ifdef LC_ENABLE_
+#ifdef LC_ENABLE
     }
 #endif
 

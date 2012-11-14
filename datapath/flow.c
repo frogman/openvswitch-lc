@@ -187,7 +187,7 @@ void ovs_flow_used(struct sw_flow *flow, struct sk_buff *skb)
 	if ((flow->key.eth.type == htons(ETH_P_IP) ||
 	     flow->key.eth.type == htons(ETH_P_IPV6)) &&
 	    flow->key.ip.proto == IPPROTO_TCP &&
-	    likely(skb->len >= skb_transport_offset(skb) + sizeof(struct tcphdr))) {
+	    likely(skb->len >= skb_transport_offset(skb) + sizeof(struct tcphdr))) { //has tcp header
 		u8 *tcp = (u8 *)tcp_hdr(skb);
 		tcp_flags = *(tcp + TCP_FLAGS_OFFSET) & TCP_FLAG_MASK;
 	}
