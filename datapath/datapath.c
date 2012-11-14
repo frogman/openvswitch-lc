@@ -306,10 +306,22 @@ void ovs_dp_detach_port(struct vport *p)
 	ovs_vport_del(p);
 }
 
+static inline void pr_mac(char *info, unsigned char *src, unsigned char *dst)
+{
+    unsigned char tmp_src[7]; //store char format of the address
+    unsigned char tmp_dst[7]; //store char format of the address
+    tmp_src[6] = '\0';
+    tmp_dst[6] = '\0';
+    memcpy(tmp_src, src, 6);
+    memcpy(tmp_dst, dst, 6);
+    pr_info("%s: mac_src=%x:%x:%x:%x:%x:%x(%s), dst_src=%x:%x:%x:%x:%x:%x(%s)\n", info,
+            tmp_src[0],tmp_src[1],tmp_src[2],tmp_src[3], tmp_src[4],tmp_src[5],tmp_src,
+            tmp_dst[0],tmp_dst[1],tmp_dst[2],tmp_dst[3], tmp_dst[4],tmp_dst[5],tmp_dst);
+}
+
 /* Must be called with rcu_read_lock. */
 void ovs_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
 {
-    printk("KERN_WARNING ovs_dp_process_received_packet() start.\n");
 	struct datapath *dp = p->dp;
 	struct sw_flow *flow;
 	struct dp_stats_percpu *stats;
@@ -317,46 +329,45 @@ void ovs_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
 	int error;
 #ifdef LC_ENABLE
     struct bloom_filter *bf = NULL;
-    char tmp_dst[7]; /*store char format of the address*/
+    char tmp_dst[7]; //store char format of the address
 #endif
 
 	stats = per_cpu_ptr(dp->stats_percpu, smp_processor_id());
 
 #ifdef LC_ENABLE
-    if (OVS_CB(skb)->encaped) { /*remote pkt, do decapulation first.*/
+    if (OVS_CB(skb)->encaped) { //remote pkt, do decapulation first
         ovs_execute_decapulation(skb);
     }
 #endif
 
-	if (!OVS_CB(skb)->flow) { //no flow associated with the pkt, normal case
-		struct sw_flow_key key;
-		int key_len;
+    if (!OVS_CB(skb)->flow) { //no flow associated with the pkt, normal case
+        struct sw_flow_key key;
+        int key_len;
 
-		/* Extract flow from 'skb' into 'key'. */
-		error = ovs_flow_extract(skb, p->port_no, &key, &key_len);
-		if (unlikely(error)) {
-			kfree_skb(skb);
-			return;
-		}
+        /* Extract flow from 'skb' into 'key'. */
+        error = ovs_flow_extract(skb, p->port_no, &key, &key_len);
+        if (unlikely(error)) {
+            kfree_skb(skb);
+            return;
+        }
 
-		/* Look up in local table. */
+        /* Look up in local table. */
         flow = ovs_flow_tbl_lookup(rcu_dereference(dp->table), &key, key_len);
-        printk(KERN_WARNING "just lookup flow.\n");
-        //unsigned char *src_ip = (unsigned char*)(htonl(key.ipv4.addr.src));
-        //unsigned char *dst_ip = (unsigned char*)(htonl(key.ipv4.addr.dst));
-        printk(KERN_WARNING "just get the src_ip and dst_ip.\n");
+        unsigned char *src_mac = (unsigned char*)key.eth.src;
+        unsigned char *dst_mac = (unsigned char*)key.eth.dst;
 
         if (unlikely(!flow)) { /*not found in local fwd table, means to remote*/
-#ifdef LC_ENABLE
+#ifdef LC_ENABLE_
+            pr_mac("no found in local tbl",src_mac, dst_mac);
             if (!OVS_CB(skb)->encaped) { /*local vm pkt to remote, first check the bf-gdt*/
                 /*check the bf-gdt*/
-                sprintf(tmp_dst,"%x",key.ipv4.addr.dst);
+                pr_info("local vm to remote?\n");
+                memcpy(tmp_dst,dst_mac,6);
                 tmp_dst[6] = '\0';
                 bf = bf_gdt_check(dp->gdt,tmp_dst);
             }
-            //printk("[datapath] no flow found (src_ip=%d.%d.%d.%d, dst_ip=%d.%d.%d.%d) in local tbl.\n",src_ip[0],src_ip[1],src_ip[2],src_ip[3],dst_ip[0],dst_ip[1],dst_ip[2],dst_ip[3]);
             if (!OVS_CB(skb)->encaped && likely(bf)) { //local vm pkt to remote sw and is in local bf-gdt
-                //printk("[datapath] found flow (src_ip=%d.%d.%d.%d, dst_ip=%d.%d.%d.%d) in bf_gdt.\n",src_ip[0],src_ip[1],src_ip[2],src_ip[3],dst_ip[0],dst_ip[1],dst_ip[2],dst_ip[3]);
+                pr_mac("found in local bf_gdt",src_mac, dst_mac);
                 flow = kmalloc(sizeof(struct sw_flow), GFP_ATOMIC);
                 flow->sf_acts = kmalloc(sizeof(struct sw_flow_actions)+sizeof(struct nlattr)+sizeof(u32), GFP_ATOMIC);
                 memcpy(&(flow->key),&key,sizeof(struct sw_flow_key));
@@ -365,11 +376,11 @@ void ovs_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
                 flow->sf_acts->actions_len = NLA_HDRLEN + 2*sizeof(int);
                 flow->sf_acts->actions[0].nla_len = NLA_HDRLEN + 2*sizeof(int); //len of the attr
                 flow->sf_acts->actions[0].nla_type = OVS_ACTION_ATTR_REMOTE; //encapulate and send to remote sw
-                ((u32*)flow->sf_acts->actions)[1] = bf->port_no; //send through this port, actually, we only have one phy port connected.
+                ((u32*)flow->sf_acts->actions)[1] = bf->port_no; //send through this port
                 ((u32*)flow->sf_acts->actions)[2] = bf->bf_id; //remote sw's ip is stored in bf->bf_id;
             } else { /* Not in local table. Not in bf-gdt yet or from remote sw, then send to ovsd using upcall */
 #endif
-                //printk("[datapath] no flow found (src_ip=%d.%d.%d.%d, dst_ip=%d.%d.%d.%d), and will send OVS_PACKET_CMD_MISS.\n",src_ip[0],src_ip[1],src_ip[2],src_ip[3],dst_ip[0],dst_ip[1],dst_ip[2],dst_ip[3]);
+                pr_mac("no found in local bf_gdt, will send upcall",src_mac, dst_mac);
                 struct dp_upcall_info upcall;
                 upcall.cmd = OVS_PACKET_CMD_MISS;
                 upcall.key = &key;
@@ -383,24 +394,26 @@ void ovs_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
 
             OVS_CB(skb)->flow = flow;
         } /*now each pkt has an associated flow. */
+#ifdef LC_ENABLE_
     }
+#endif
 
-    stats_counter = &stats->n_hit;
-    ovs_flow_used(OVS_CB(skb)->flow, skb);
-
-    /*run corresponding actions.*/
-    ovs_execute_actions(dp, skb);
+        stats_counter = &stats->n_hit;
+        ovs_flow_used(OVS_CB(skb)->flow, skb);
+        /*run corresponding actions.*/
+        ovs_execute_actions(dp, skb);
 
 out:
-    /* Update datapath statistics. */
-    u64_stats_update_begin(&stats->sync);
-    (*stats_counter)++;
-    u64_stats_update_end(&stats->sync);
+        /* Update datapath statistics. */
+        u64_stats_update_begin(&stats->sync);
+        (*stats_counter)++;
+        u64_stats_update_end(&stats->sync);
+
 #ifdef LC_ENABLE
-    if (likely(bf)){ //in bf-gdt
-        if(flow->sf_acts) kfree(flow->sf_acts);
-        if(flow)  kfree(flow);
-    }
+        if (likely(bf)){ //in bf-gdt
+            if(flow->sf_acts) kfree(flow->sf_acts);
+            if(flow)  kfree(flow);
+        }
 #endif
 }
 
@@ -416,7 +429,7 @@ static struct genl_family dp_packet_genl_family = {
 #ifdef LC_ENABLE
 
 static const struct nla_policy bf_gdt_policy[OVS_BF_GDT_ATTR_MAX + 1] = {
-	[OVS_BF_GDT_ATTR_BF] = { .type = NLA_NESTED },
+    [OVS_BF_GDT_ATTR_BF] = { .type = NLA_NESTED },
 };
 
 /**
@@ -438,22 +451,22 @@ static int ovs_bf_gdt_cmd_new_or_set(struct sk_buff *skb, struct genl_info *info
 {
     //TODO
     printk("[BF_GDT] Received bf_gdt_cmd_new_or_set nlmsg from userspace.\n");
-	struct nlattr **a = info->attrs;
-	struct ovs_header *ovs_header = info->userhdr;
-	struct bloom_filter bf;
-	struct datapath *dp;
-	int ret;
-	int bf_len;
+    struct nlattr **a = info->attrs;
+    struct ovs_header *ovs_header = info->userhdr;
+    struct bloom_filter bf;
+    struct datapath *dp;
+    int ret;
+    int bf_len;
 
-	/* Extract bf. */
-	if (!a[OVS_BF_GDT_ATTR_BF])
-		goto error;
+    /* Extract bf. */
+    if (!a[OVS_BF_GDT_ATTR_BF])
+        goto error;
     memcpy(&bf, nla_data(a[OVS_BF_GDT_ATTR_BF]),sizeof bf);
     printk("[DP] ovs_bf_gdt_cmd_new_or_set(): Received bf_gdt nlmsg from userspace: bf_id=%u.\n",bf.bf_id);
 
-	dp = get_dp(sock_net(skb->sk), ovs_header->dp_ifindex);
-	if (!dp)
-		goto error;
+    dp = get_dp(sock_net(skb->sk), ovs_header->dp_ifindex);
+    if (!dp)
+        goto error;
     ret = bf_gdt_update_filter(dp->gdt, &bf);
     return ret;
 
@@ -467,34 +480,34 @@ error:
 static int ovs_bf_gdt_cmd_get(struct sk_buff *skb, struct genl_info *info)
 {
     return 0;
-	struct nlattr **a = info->attrs;
-	struct ovs_header *ovs_header = info->userhdr;
-	unsigned int bf_id;
-	struct sk_buff *reply;
-	struct datapath *dp;
-	int err;
+    struct nlattr **a = info->attrs;
+    struct ovs_header *ovs_header = info->userhdr;
+    unsigned int bf_id;
+    struct sk_buff *reply;
+    struct datapath *dp;
+    int err;
     struct bf_gdt *gdt;
-	int bf_id_len;
+    int bf_id_len;
 
-	if (!a[OVS_BF_GDT_ATTR_KEY])
-		return -EINVAL;
-	err = ovs_flow_from_nlattrs(&bf_id, &bf_id_len, a[OVS_BF_GDT_ATTR_KEY]);
+    if (!a[OVS_BF_GDT_ATTR_KEY])
+        return -EINVAL;
+    err = ovs_flow_from_nlattrs(&bf_id, &bf_id_len, a[OVS_BF_GDT_ATTR_KEY]);
     bf_id_len= 4;
     bf_id = nla_get_u32(a[OVS_BF_GDT_ATTR_KEY]);
-	if (err)
-		return err;
+    if (err)
+        return err;
 
-	dp = get_dp(sock_net(skb->sk), ovs_header->dp_ifindex);
-	if (!dp)
-		return -ENODEV;
+    dp = get_dp(sock_net(skb->sk), ovs_header->dp_ifindex);
+    if (!dp)
+        return -ENODEV;
 
-	gdt = genl_dereference(dp->gdt);
-	
-	//reply = ovs_flow_cmd_build_info(flow, dp, info->snd_pid, info->snd_seq, OVS_BF_GDT_CMD_NEW);
-	if (IS_ERR(reply))
-		return PTR_ERR(reply);
+    gdt = genl_dereference(dp->gdt);
 
-	return genlmsg_reply(reply, info);
+    //reply = ovs_flow_cmd_build_info(flow, dp, info->snd_pid, info->snd_seq, OVS_BF_GDT_CMD_NEW);
+    if (IS_ERR(reply))
+        return PTR_ERR(reply);
+
+    return genlmsg_reply(reply, info);
 }
 
 static int flush_bf_gdt(struct datapath *dp)

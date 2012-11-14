@@ -444,10 +444,11 @@ int ovs_vport_get_options(const struct vport *vport, struct sk_buff *skb)
 #ifdef LC_ENABLE
 /**
  * Get the Protocol field in the ip header.
+ * if not an valid ip packet, return -1;
  */
 int ovs_vport_get_ip_proto(struct sk_buff *skb)
 {
-    if (!skb) {
+    if (!skb || skb->protocol != htons(ETH_P_IP)) {
         return -1;
     }
     struct iphdr *ip_header;

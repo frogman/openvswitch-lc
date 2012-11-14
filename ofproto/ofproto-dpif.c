@@ -3163,9 +3163,10 @@ handle_miss_upcalls(struct ofproto_dpif *ofproto, struct dpif_upcall *upcalls,
 #ifdef LC_ENABLE
             char src_mac[7];
             src_mac[6] = '\0';
-            memcpy(src_mac,miss->flow.dl_src,6);
+            memcpy(src_mac, miss->flow.dl_src,6);
             bridge_update_local_bf(ofproto->up.br, src_mac);
-            VLOG_INFO("[ovsd] handle_miss_upcalls(): Add mac_src=%s to local bf_gdt",src_mac);
+            VLOG_INFO("[ovsd] handle_miss_upcalls(): Add mac_src=%x:%x:%x:%x:%x:%x to local bf_gdt",
+                    src_mac[0],src_mac[1],src_mac[2],src_mac[3],src_mac[4],src_mac[5]);
 #endif
             n_misses++;
         } else {

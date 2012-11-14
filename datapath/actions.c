@@ -350,6 +350,7 @@ static int sample(struct datapath *dp, struct sk_buff *skb,
  */
 static int do_remote_encapulation(struct datapath *dp, struct sk_buff *skb, unsigned int dst_ip)
 {
+    return 0;
 
     /*put new vlan hdr*/
     if (!__remote_encapulation(dp, skb, dst_ip)) 
@@ -365,6 +366,8 @@ static int do_remote_encapulation(struct datapath *dp, struct sk_buff *skb, unsi
 
 static int do_remote_decapulation(struct sk_buff *skb)
 {
+    return 0;
+
     if (!__remote_decapulation(skb)) 
         return -ENOMEM;
     /*TODO: should calculate right sum here.*/

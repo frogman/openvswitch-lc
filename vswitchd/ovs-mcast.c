@@ -27,6 +27,8 @@
 
 VLOG_DEFINE_THIS_MODULE(vswitchd);
 
+#define SEND_DELAY 5
+
 struct dpif_dp_stats;
 pthread_mutex_t mutex;
 //extern static int bridge_update_bf_gdt(const struct bridge *br, struct bloom_filter *bf);
@@ -69,6 +71,7 @@ void mc_send(struct mc_send_arg* arg)
     /* prepare message.*/
     msg->gid = arg->gdt->gid;
 
+    /*stat information.*/
     bridge_get_stat(arg->br,&s);
     msg->s.num = 1;
     msg->s.entry[0].src_sw_id = arg->local_id;
@@ -77,6 +80,7 @@ void mc_send(struct mc_send_arg* arg)
 
     /* send the data to the address:port */
     while (!*arg->stop) {
+        VLOG_INFO("send mcast out: starting.\n");
         bf = bf_gdt_find_filter(arg->gdt,arg->local_id); //find local bf.
         if (bf) {//found matched bf
             pthread_mutex_lock (&mutex);
@@ -85,12 +89,13 @@ void mc_send(struct mc_send_arg* arg)
             ret = sendto(sock_id,msg,sizeof(struct mcast_msg),0,(struct sockaddr *)&addr, len);
             if (ret <0) {
                 perror("sendto error");
-            }  else {
+            } 
+            //else {
                 //VLOG_INFO("Send mcast msg to %s:%u with gid=%u,bf_id=0x%x,local_id=0x%x\n", inet_ntoa(addr.sin_addr.s_addr), ntohs(addr.sin_port),msg->gid,msg->bf.bf_id,msg->s.entry[0].src_sw_id);
-                continue;
-            }
+            //}
         }
-        sleep(5);
+        VLOG_INFO("send mcast out, finish.\n");
+        sleep(SEND_DELAY);
     }
 
     if(msg) free(msg);
@@ -150,10 +155,9 @@ void mc_recv(struct mc_recv_arg* arg)
             continue;
         }
         //VLOG_INFO("[%d] Receive mcast msg from %s:%d gid=%u, bf_id=0x%x, local_id=0x%x.\n", count, inet_ntoa(sender.sin_addr.s_addr), ntohs(sender.sin_port),msg->gid,msg->bf.bf_id,msg->s.entry[0].src_sw_id);
-        if (msg->gid != arg->gdt->gid){
-            //VLOG_WARN("group %u received mcast msg from other group %u\n",arg->gdt->gid,msg->gid);
-            continue;
-        }
+        /*if (msg->gid != arg->gdt->gid){
+            VLOG_WARN("group %u received mcast msg from other group %u\n",arg->gdt->gid,msg->gid);
+        }*/
 
         pthread_mutex_lock (&mutex);
         ret = bf_gdt_update_filter(arg->gdt,&msg->bf); //update remote bfs into local bf-gdt
@@ -162,8 +166,7 @@ void mc_recv(struct mc_recv_arg* arg)
             //VLOG_INFO("received new bf content from the mcast msg, should update the bf_gdt on dp.");
             bridge_update_bf_gdt_to_dp(arg->br, &msg->bf);
         } else {
-            //VLOG_INFO("no new bf content, should ignore.");
-            continue;
+            VLOG_INFO("no new bf content, should ignore.");
         }
         count ++;
         if(arg->is_DDCM) {
