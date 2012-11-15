@@ -431,7 +431,8 @@ static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
     int rem;
     unsigned int remote_ip;
 
-    for (a = attr, rem = len; rem > 0; a = nla_next(a, &rem)) { /*nla_for_each_attr*/
+    /*nla_for_each_attr*/
+    for (a = attr, rem = len; rem > 0; a = nla_next(a, &rem)) { 
         int err = 0;
 
         if (prev_port != -1) {
@@ -448,7 +449,7 @@ static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
             case OVS_ACTION_ATTR_REMOTE: //TODO: print to test here.
                 prev_port = *((unsigned int *)nla_data(a)); //port_no
                 remote_ip = *(((unsigned int *)nla_data(a)+1)); //remote ip
-                printk(">>>Receive remote cmd from ovsd, oport=%d, ip=%x\n",prev_port,remote_ip);
+                printk(">>>[datapath]Receive remote cmd from ovsd, oport=%u, ip=0x%x\n",prev_port,remote_ip);
                 do_remote_encapulation(dp,skb,remote_ip); //encapulate with new l2 and l3 header
                 break;
 #endif

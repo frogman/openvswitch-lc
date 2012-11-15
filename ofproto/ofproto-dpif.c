@@ -3161,10 +3161,10 @@ handle_miss_upcalls(struct ofproto_dpif *ofproto, struct dpif_upcall *upcalls,
             miss->upcall_type = upcall->type;
             list_init(&miss->packets);
 #ifdef LC_ENABLE
-            char src_mac[7];
-            src_mac[6] = '\0';
+            unsigned char src_mac[7];
             memcpy(src_mac, miss->flow.dl_src,6);
-            bridge_update_local_bf(ofproto->up.br, src_mac);
+            src_mac[6] = '\0';
+            //bridge_update_local_bf(ofproto->up.br, src_mac);
             VLOG_INFO("[ovsd] handle_miss_upcalls(): Add mac_src=%x:%x:%x:%x:%x:%x to local bf_gdt",
                     src_mac[0],src_mac[1],src_mac[2],src_mac[3],src_mac[4],src_mac[5]);
 #endif
@@ -3300,6 +3300,7 @@ handle_upcalls(struct ofproto_dpif *ofproto, unsigned int max_batch)
             break;
 
         case SFLOW_UPCALL:
+            VLOG_INFO("[ovsd] Received SFLOW_UPCALL from dp.");
             if (ofproto->sflow) {
                 handle_sflow_upcall(ofproto, upcall);
             }
@@ -3307,6 +3308,7 @@ handle_upcalls(struct ofproto_dpif *ofproto, unsigned int max_batch)
             break;
 
         case BAD_UPCALL:
+            VLOG_INFO("[ovsd] Received BAD_UPCALL from dp.");
             ofpbuf_uninit(buf);
             break;
         }

@@ -306,7 +306,7 @@ void ovs_dp_detach_port(struct vport *p)
 	ovs_vport_del(p);
 }
 
-static inline void pr_mac(char *info, unsigned char *src, unsigned char *dst)
+static inline void pr_mac(char *info, unsigned char *src, unsigned char *dst, unsigned short type)
 {
     unsigned char tmp_src[7]; //store char format of the address
     unsigned char tmp_dst[7]; //store char format of the address
@@ -314,9 +314,9 @@ static inline void pr_mac(char *info, unsigned char *src, unsigned char *dst)
     tmp_dst[6] = '\0';
     memcpy(tmp_src, src, 6);
     memcpy(tmp_dst, dst, 6);
-    pr_info("%s: mac_src=%x:%x:%x:%x:%x:%x(%s), dst_src=%x:%x:%x:%x:%x:%x(%s)\n", info,
-            tmp_src[0],tmp_src[1],tmp_src[2],tmp_src[3], tmp_src[4],tmp_src[5],tmp_src,
-            tmp_dst[0],tmp_dst[1],tmp_dst[2],tmp_dst[3], tmp_dst[4],tmp_dst[5],tmp_dst);
+    pr_info("%s: mac_src=%x:%x:%x:%x:%x:%x, dst_src=%x:%x:%x:%x:%x:%x, type=0x%x\n", info,
+            tmp_src[0],tmp_src[1],tmp_src[2],tmp_src[3], tmp_src[4],tmp_src[5],
+            tmp_dst[0],tmp_dst[1],tmp_dst[2],tmp_dst[3], tmp_dst[4],tmp_dst[5], type);
 }
 
 /* Must be called with rcu_read_lock. */
@@ -350,39 +350,51 @@ void ovs_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
             kfree_skb(skb);
             return;
         }
+        unsigned char *src_mac = (unsigned char*)key.eth.src;
+        unsigned char *dst_mac = (unsigned char*)key.eth.dst;
+        unsigned short type = ntohs(key.eth.type);
+        if (unlikely(type == 0x86dd)) { //TODO: do not support ipv6 now.
+            kfree_skb(skb);
+            return;
+        }
 
         /* Look up in local table. */
         flow = ovs_flow_tbl_lookup(rcu_dereference(dp->table), &key, key_len);
-        unsigned char *src_mac = (unsigned char*)key.eth.src;
-        unsigned char *dst_mac = (unsigned char*)key.eth.dst;
 
         if (unlikely(!flow)) { /*not found in local fwd table, usually the 1st pkt.*/
-#ifdef LC_ENABLE
-            pr_mac("no found in local tbl",src_mac, dst_mac);
-            if (!OVS_CB(skb)->encaped && OVS_CB(skb)->flow->key.eth.type == htons(ETH_P_IP)) { /*normal ip pkt from local host, first check the bf-gdt*/
+#ifdef LC_ENABLE_
+            pr_mac("no found in local tbl",src_mac, dst_mac, type);
+            /*ip pkt from local host*/
+            if (!OVS_CB(skb)->encaped 
+                    && OVS_CB(skb)->flow->key.eth.type==htons(ETH_P_IP)) { 
                 pr_info("local vm to remote?\n");
                 memcpy(tmp_dst,dst_mac,6);
                 tmp_dst[6] = '\0';
                 bf = bf_gdt_check(dp->gdt,tmp_dst);
             }
-            if (!OVS_CB(skb)->encaped && OVS_CB(skb)->flow->key.eth.type == htons(ETH_P_IP) && likely(bf)) { //local vm pkt to remote sw and is in local bf-gdt
-                pr_mac("found in local bf_gdt",src_mac, dst_mac);
+            /*local_to_remote pkt, and in local bf-gdt. */
+            if (!OVS_CB(skb)->encaped 
+                    && OVS_CB(skb)->flow->key.eth.type == htons(ETH_P_IP) 
+                    && likely(bf)) {
+                pr_mac("found in local bf_gdt,",src_mac, dst_mac,type);
+                pr_info("will send to port %u with remote_ip 0x%x\n",
+                        bf->port_no, bf->bf_id);
+                struct nlattr *action = kmalloc(sizeof(struct nlattr)+8, GFP_ATOMIC);
+                action->nla_len = NLA_HDRLEN + 2*sizeof(u32);
+                action->nla_type = OVS_ACTION_ATTR_REMOTE;
+                ((u32*)nla_data(actions))[0] = bf->port_no; //outport
+                ((u32*)nla_data(actions))[1] = bf->bf_id; //remote sw's ip
 
                 flow = ovs_flow_alloc();
-                sw_flow_actions *acts = ovs_flow_actions_alloc(a[OVS_PACKET_ATTR_ACTIONS]);
-                flow = kmalloc(sizeof(struct sw_flow), GFP_ATOMIC);
-                flow->sf_acts = kmalloc(sizeof(struct sw_flow_actions)+sizeof(struct nlattr)+2*sizeof(u32), GFP_ATOMIC);
-                memcpy(&(flow->key),&key,sizeof(struct sw_flow_key));
-
-                /*TODO: construct the action of sending to remote port*/
-                flow->sf_acts->actions_len = NLA_HDRLEN + 2*sizeof(u32);
-                flow->sf_acts->actions[0].nla_len = NLA_HDRLEN + 2*sizeof(u32); //len of the attr
-                flow->sf_acts->actions[0].nla_type = OVS_ACTION_ATTR_REMOTE; //encapulate and send to remote sw
-                ((u32*)flow->sf_acts->actions)[1] = bf->port_no; //send through this port
-                ((u32*)flow->sf_acts->actions)[2] = bf->bf_id; //remote sw's ip is stored in bf->bf_id;
-            } else { /* Not in local table. Not in bf-gdt yet or from remote sw, then send to ovsd using upcall */
+                if (IS_ERR(flow)) {
+                    goto out;
+                }
+                flow->sf_acts = ovs_flow_actions_alloc(action);
+                flow->sf_acts->actions_len = NLA_ALIGN(action->nla_len);
+                kfree(action);
+            } else { /* Not in local table. Not in bf-gdt yet, then send to ovsd*/
 #endif
-                pr_mac("no found in local bf_gdt, will send upcall",src_mac, dst_mac);
+                pr_mac("no found in local, will send upcall",src_mac, dst_mac, type);
                 struct dp_upcall_info upcall;
                 upcall.cmd = OVS_PACKET_CMD_MISS;
                 upcall.key = &key;
@@ -396,7 +408,7 @@ void ovs_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
 
             OVS_CB(skb)->flow = flow;
         } /*now each pkt has an associated flow. */
-#ifdef LC_ENABLE
+#ifdef LC_ENABLE_
     }
 #endif
 
@@ -412,9 +424,8 @@ out:
         u64_stats_update_end(&stats->sync);
 
 #ifdef LC_ENABLE
-        if (likely(bf)){ //in bf-gdt
-            if(flow->sf_acts) kfree(flow->sf_acts);
-            if(flow)  kfree(flow);
+        if (likely(bf)){ //match bf-gdt
+            ovs_flow_put(flow);
         }
 #endif
 }
@@ -451,8 +462,6 @@ static struct genl_family dp_bf_gdt_genl_family = {
  */
 static int ovs_bf_gdt_cmd_new_or_set(struct sk_buff *skb, struct genl_info *info)
 {
-    //TODO
-    printk("[BF_GDT] Received bf_gdt_cmd_new_or_set nlmsg from userspace.\n");
     struct nlattr **a = info->attrs;
     struct ovs_header *ovs_header = info->userhdr;
     struct bloom_filter bf;
@@ -464,11 +473,11 @@ static int ovs_bf_gdt_cmd_new_or_set(struct sk_buff *skb, struct genl_info *info
     if (!a[OVS_BF_GDT_ATTR_BF])
         goto error;
     memcpy(&bf, nla_data(a[OVS_BF_GDT_ATTR_BF]),sizeof bf);
-    printk("[DP] ovs_bf_gdt_cmd_new_or_set(): Received bf_gdt nlmsg from userspace: bf_id=%u.\n",bf.bf_id);
 
     dp = get_dp(sock_net(skb->sk), ovs_header->dp_ifindex);
     if (!dp)
         goto error;
+    printk("[DP] ovs_bf_gdt_cmd_new_or_set(): Received bf_gdt nlmsg from userspace: bf_id=0x%x, will update bf_gdt.\n",bf.bf_id);
     ret = bf_gdt_update_filter(dp->gdt, &bf);
     return ret;
 
