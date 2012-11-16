@@ -80,7 +80,6 @@ void mc_send(struct mc_send_arg* arg)
 
     /* send the data to the address:port */
     while (!*arg->stop) {
-        VLOG_INFO("send mcast out: starting.\n");
         bf = bf_gdt_find_filter(arg->gdt,arg->local_id); //find local bf.
         if (bf) {//found matched bf
             pthread_mutex_lock (&mutex);
@@ -90,11 +89,10 @@ void mc_send(struct mc_send_arg* arg)
             if (ret <0) {
                 perror("sendto error");
             } 
-            //else {
-                //VLOG_INFO("Send mcast msg to %s:%u with gid=%u,bf_id=0x%x,local_id=0x%x\n", inet_ntoa(addr.sin_addr.s_addr), ntohs(addr.sin_port),msg->gid,msg->bf.bf_id,msg->s.entry[0].src_sw_id);
-            //}
+            else {
+                VLOG_INFO("Send mcast msg to %s:%u with gid=%u,bf_id=0x%x,local_id=0x%x\n", inet_ntoa(addr.sin_addr.s_addr), ntohs(addr.sin_port),msg->gid,msg->bf.bf_id,msg->s.entry[0].src_sw_id);
+            }
         }
-        VLOG_INFO("send mcast out, finish.\n");
         sleep(SEND_DELAY);
     }
 
@@ -163,11 +161,12 @@ void mc_recv(struct mc_recv_arg* arg)
         ret = bf_gdt_update_filter(arg->gdt,&msg->bf); //update remote bfs into local bf-gdt
         pthread_mutex_unlock (&mutex);
         if(ret > 0) {//sth changed in gdt with msg
-            //VLOG_INFO("received new bf content from the mcast msg, should update the bf_gdt on dp.");
+            VLOG_INFO("received new bf content from the mcast msg, should update the bf_gdt on dp.");
             bridge_update_bf_gdt_to_dp(arg->br, &msg->bf);
-        } else {
-            VLOG_INFO("no new bf content, should ignore.");
-        }
+        } 
+        //else {
+            //VLOG_INFO("no new bf content, should ignore.");
+        //}
         count ++;
         if(arg->is_DDCM) {
             continue; //TODO: update the local stat and report to controller here.

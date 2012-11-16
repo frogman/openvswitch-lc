@@ -306,7 +306,7 @@ void ovs_dp_detach_port(struct vport *p)
 	ovs_vport_del(p);
 }
 
-static inline void pr_mac(char *info, unsigned char *src, unsigned char *dst, unsigned short type)
+static inline void pr_mac(const char *info, unsigned char *src, unsigned char *dst, unsigned short type)
 {
     unsigned char tmp_src[7]; //store char format of the address
     unsigned char tmp_dst[7]; //store char format of the address
@@ -329,7 +329,7 @@ void ovs_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
 	int error;
 #ifdef LC_ENABLE
     struct bloom_filter *bf = NULL;
-    char tmp_dst[7]; //store char format of the address
+    char tmp_dst[6]; //store char format of the address
 #endif
 
 	stats = per_cpu_ptr(dp->stats_percpu, smp_processor_id());
@@ -350,35 +350,42 @@ void ovs_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
             kfree_skb(skb);
             return;
         }
-        unsigned char *src_mac = (unsigned char*)key.eth.src;
-        unsigned char *dst_mac = (unsigned char*)key.eth.dst;
-        unsigned short type = ntohs(key.eth.type);
-        if (unlikely(type == 0x86dd)) { //TODO: do not support ipv6 now.
+        if (unlikely(ntohs(key.eth.type) == 0x86dd)) { //TODO: do not support ipv6 now.
             kfree_skb(skb);
             return;
         }
 
+#ifdef DEBUG
+        unsigned char *src_mac = (unsigned char*)key.eth.src;
+        unsigned char *dst_mac = (unsigned char*)key.eth.dst;
+        unsigned short type = ntohs(key.eth.type);
+#endif
         /* Look up in local table. */
         flow = ovs_flow_tbl_lookup(rcu_dereference(dp->table), &key, key_len);
 
         if (unlikely(!flow)) { /*not found in local fwd table, usually the 1st pkt.*/
 #ifdef LC_ENABLE_
+#ifdef DEBUG
             pr_mac("no found in local tbl",src_mac, dst_mac, type);
+#endif
             /*ip pkt from local host*/
             if (!OVS_CB(skb)->encaped 
                     && OVS_CB(skb)->flow->key.eth.type==htons(ETH_P_IP)) { 
+#ifdef DEBUG
                 pr_info("local vm to remote?\n");
+#endif
                 memcpy(tmp_dst,dst_mac,6);
-                tmp_dst[6] = '\0';
                 bf = bf_gdt_check(dp->gdt,tmp_dst);
             }
             /*local_to_remote pkt, and in local bf-gdt. */
             if (!OVS_CB(skb)->encaped 
                     && OVS_CB(skb)->flow->key.eth.type == htons(ETH_P_IP) 
                     && likely(bf)) {
+#ifdef DEBUG
                 pr_mac("found in local bf_gdt,",src_mac, dst_mac,type);
                 pr_info("will send to port %u with remote_ip 0x%x\n",
                         bf->port_no, bf->bf_id);
+#endif
                 struct nlattr *action = kmalloc(sizeof(struct nlattr)+8, GFP_ATOMIC);
                 action->nla_len = NLA_HDRLEN + 2*sizeof(u32);
                 action->nla_type = OVS_ACTION_ATTR_REMOTE;
@@ -394,7 +401,9 @@ void ovs_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
                 kfree(action);
             } else { /* Not in local table. Not in bf-gdt yet, then send to ovsd*/
 #endif
-                pr_mac("no found in local, will send upcall",src_mac, dst_mac, type);
+#ifdef DEBUG
+                pr_mac("no found in tbl/gdt, will send upcall",src_mac, dst_mac, type);
+#endif
                 struct dp_upcall_info upcall;
                 upcall.cmd = OVS_PACKET_CMD_MISS;
                 upcall.key = &key;
@@ -1069,6 +1078,22 @@ static int ovs_packet_cmd_execute(struct sk_buff *skb, struct genl_info *info)
 	flow->hash = ovs_flow_hash(&flow->key, key_len);
 
 	acts = ovs_flow_actions_alloc(a[OVS_PACKET_ATTR_ACTIONS]);
+#ifdef DEBUG
+    pr_mac("ovs_packet_cmd_execute()",eth->h_source,eth->h_dest,ntohs(eth->h_proto));
+    switch (acts->actions[0].nla_type) {
+        case OVS_ACTION_ATTR_OUTPUT:
+            pr_info("action = output to port %u\n", acts->actions[1]);
+            break;
+        case OVS_ACTION_ATTR_USERSPACE:
+            pr_info("action = output to userspace\n");
+            break;
+        case OVS_ACTION_ATTR_REMOTE:
+            pr_info("action = output to remote, port=%u, ip=0x%x\n",acts->actions[1],acts->actions[2]);
+            break;
+        default:
+        pr_info("unknown action type %u\n",acts->actions[1].nla_type);
+    }
+#endif
 	err = PTR_ERR(acts);
 	if (IS_ERR(acts))
 		goto err_flow_put;
@@ -1295,6 +1320,16 @@ static int ovs_flow_cmd_new_or_set(struct sk_buff *skb, struct genl_info *info)
 	if (error)
 		goto error;
 
+#ifdef DEBUG
+	if (info->genlhdr->cmd == OVS_FLOW_CMD_NEW) {
+        pr_mac("ovs_flow_cmd_new_or_set(): dp receive flow_new cmd",key.eth.src,key.eth.dst,ntohs(key.eth.type));
+    }else if (info->genlhdr->cmd == OVS_FLOW_CMD_SET) {
+        pr_mac("ovs_flow_cmd_new_or_set(): dp receive flow_set cmd",key.eth.src,key.eth.dst,ntohs(key.eth.type));
+    } else {
+        pr_info("ovs_flow_cmd_new_or_set(): dp receive INVALID flow_new_or_set cmd.\n");
+    }
+#endif
+
 	/* Validate actions. */
 	if (a[OVS_FLOW_ATTR_ACTIONS]) {
 		error = validate_actions(a[OVS_FLOW_ATTR_ACTIONS], &key,  0);
@@ -1312,7 +1347,7 @@ static int ovs_flow_cmd_new_or_set(struct sk_buff *skb, struct genl_info *info)
 
 	table = genl_dereference(dp->table);
 	flow = ovs_flow_tbl_lookup(table, &key, key_len);
-	if (!flow) {
+	if (!flow) { //no same flow existed already
 		struct sw_flow_actions *acts;
 
 		/* Bail out if we're not allowed to create a new flow. */
@@ -1343,90 +1378,121 @@ static int ovs_flow_cmd_new_or_set(struct sk_buff *skb, struct genl_info *info)
 
 		/* Obtain actions. */
 		acts = ovs_flow_actions_alloc(a[OVS_FLOW_ATTR_ACTIONS]);
-		error = PTR_ERR(acts);
-		if (IS_ERR(acts))
-			goto error_free_flow;
-		rcu_assign_pointer(flow->sf_acts, acts);
+#ifdef DEBUG
+        switch (acts->actions[0].nla_type) {
+            case OVS_ACTION_ATTR_OUTPUT:
+                pr_info("action = output to port %u\n", acts->actions[1]);
+                break;
+            case OVS_ACTION_ATTR_USERSPACE:
+                pr_info("action = output to userspace\n");
+                break;
+            case OVS_ACTION_ATTR_REMOTE:
+                pr_info("action = output to remote, port=%u, ip=0x%x\n",acts->actions[1],acts->actions[2]);
+                break;
+            default:
+                pr_info("unknown action type %u\n",acts->actions[1].nla_type);
+        }
+#endif
+        error = PTR_ERR(acts);
+        if (IS_ERR(acts))
+            goto error_free_flow;
+        rcu_assign_pointer(flow->sf_acts, acts);
 
-		/* Put flow in bucket. */
-		flow->hash = ovs_flow_hash(&key, key_len);
-		ovs_flow_tbl_insert(table, flow);
+        /* Put flow in bucket. */
+        flow->hash = ovs_flow_hash(&key, key_len);
+        ovs_flow_tbl_insert(table, flow);
 
-		reply = ovs_flow_cmd_build_info(flow, dp, info->snd_pid,
-						info->snd_seq,
-						OVS_FLOW_CMD_NEW);
-	} else {
-		/* We found a matching flow. */
-		struct sw_flow_actions *old_acts;
-		struct nlattr *acts_attrs;
+        reply = ovs_flow_cmd_build_info(flow, dp, info->snd_pid,
+                info->snd_seq,
+                OVS_FLOW_CMD_NEW);
+    } else {
+        /* We found a matching flow. */
+        struct sw_flow_actions *old_acts;
+        struct nlattr *acts_attrs;
 
-		/* Bail out if we're not allowed to modify an existing flow.
-		 * We accept NLM_F_CREATE in place of the intended NLM_F_EXCL
-		 * because Generic Netlink treats the latter as a dump
-		 * request.  We also accept NLM_F_EXCL in case that bug ever
-		 * gets fixed.
-		 */
-		error = -EEXIST;
-		if (info->genlhdr->cmd == OVS_FLOW_CMD_NEW &&
-		    info->nlhdr->nlmsg_flags & (NLM_F_CREATE | NLM_F_EXCL))
-			goto error;
+        /* Bail out if we're not allowed to modify an existing flow.
+         * We accept NLM_F_CREATE in place of the intended NLM_F_EXCL
+         * because Generic Netlink treats the latter as a dump
+         * request.  We also accept NLM_F_EXCL in case that bug ever
+         * gets fixed.
+         */
+        error = -EEXIST;
+        if (info->genlhdr->cmd == OVS_FLOW_CMD_NEW &&
+                info->nlhdr->nlmsg_flags & (NLM_F_CREATE | NLM_F_EXCL))
+            goto error;
 
-		/* Update actions. */
-		old_acts = rcu_dereference_protected(flow->sf_acts,
-						     lockdep_genl_is_held());
-		acts_attrs = a[OVS_FLOW_ATTR_ACTIONS];
-		if (acts_attrs &&
-		   (old_acts->actions_len != nla_len(acts_attrs) ||
-		   memcmp(old_acts->actions, nla_data(acts_attrs),
-			  old_acts->actions_len))) {
-			struct sw_flow_actions *new_acts;
+        /* Update actions. */
+        old_acts = rcu_dereference_protected(flow->sf_acts,
+                lockdep_genl_is_held());
+        acts_attrs = a[OVS_FLOW_ATTR_ACTIONS];
+        if (acts_attrs &&
+                (old_acts->actions_len != nla_len(acts_attrs) ||
+                 memcmp(old_acts->actions, nla_data(acts_attrs),
+                     old_acts->actions_len))) {
+            struct sw_flow_actions *new_acts;
 
-			new_acts = ovs_flow_actions_alloc(acts_attrs);
-			error = PTR_ERR(new_acts);
-			if (IS_ERR(new_acts))
-				goto error;
+            new_acts = ovs_flow_actions_alloc(acts_attrs);
 
-			rcu_assign_pointer(flow->sf_acts, new_acts);
-			ovs_flow_deferred_free_acts(old_acts);
-		}
+            error = PTR_ERR(new_acts);
+            if (IS_ERR(new_acts))
+                goto error;
+#ifdef DEBUG
+        switch (new_acts->actions[0].nla_type) {
+            case OVS_ACTION_ATTR_OUTPUT:
+                pr_info("action = output to port %u\n", new_acts->actions[1]);
+                break;
+            case OVS_ACTION_ATTR_USERSPACE:
+                pr_info("action = output to userspace\n");
+                break;
+            case OVS_ACTION_ATTR_REMOTE:
+                pr_info("action = output to remote, port=%u, ip=0x%x\n",new_acts->actions[1],new_acts->actions[2]);
+                break;
+            default:
+                pr_info("unknown action type %u\n",new_acts->actions[1].nla_type);
+        }
+#endif
 
-		reply = ovs_flow_cmd_build_info(flow, dp, info->snd_pid,
-					       info->snd_seq, OVS_FLOW_CMD_NEW);
+            rcu_assign_pointer(flow->sf_acts, new_acts);
+            ovs_flow_deferred_free_acts(old_acts);
+        }
 
-		/* Clear stats. */
-		if (a[OVS_FLOW_ATTR_CLEAR]) {
-			spin_lock_bh(&flow->lock);
-			clear_stats(flow);
-			spin_unlock_bh(&flow->lock);
-		}
-	}
+        reply = ovs_flow_cmd_build_info(flow, dp, info->snd_pid,
+                info->snd_seq, OVS_FLOW_CMD_NEW);
 
-	if (!IS_ERR(reply))
-		genl_notify(reply, genl_info_net(info), info->snd_pid,
-			   ovs_dp_flow_multicast_group.id, info->nlhdr,
-			   GFP_KERNEL);
-	else
-		netlink_set_err(GENL_SOCK(sock_net(skb->sk)), 0,
-				ovs_dp_flow_multicast_group.id,	PTR_ERR(reply));
-	return 0;
+        /* Clear stats. */
+        if (a[OVS_FLOW_ATTR_CLEAR]) {
+            spin_lock_bh(&flow->lock);
+            clear_stats(flow);
+            spin_unlock_bh(&flow->lock);
+        }
+    }
+
+    if (!IS_ERR(reply))
+        genl_notify(reply, genl_info_net(info), info->snd_pid,
+                ovs_dp_flow_multicast_group.id, info->nlhdr,
+                GFP_KERNEL);
+    else
+        netlink_set_err(GENL_SOCK(sock_net(skb->sk)), 0,
+                ovs_dp_flow_multicast_group.id,	PTR_ERR(reply));
+    return 0;
 
 error_free_flow:
-	ovs_flow_put(flow);
+    ovs_flow_put(flow);
 error:
-	return error;
+    return error;
 }
 
 static int ovs_flow_cmd_get(struct sk_buff *skb, struct genl_info *info)
 {
-	struct nlattr **a = info->attrs;
-	struct ovs_header *ovs_header = info->userhdr;
-	struct sw_flow_key key;
-	struct sk_buff *reply;
-	struct sw_flow *flow;
-	struct datapath *dp;
-	struct flow_table *table;
-	int err;
-	int key_len;
+    struct nlattr **a = info->attrs;
+    struct ovs_header *ovs_header = info->userhdr;
+    struct sw_flow_key key;
+    struct sk_buff *reply;
+    struct sw_flow *flow;
+    struct datapath *dp;
+    struct flow_table *table;
+    int err;
+    int key_len;
 
 	if (!a[OVS_FLOW_ATTR_KEY])
 		return -EINVAL;
@@ -1478,6 +1544,10 @@ static int ovs_flow_cmd_del(struct sk_buff *skb, struct genl_info *info)
 	flow = ovs_flow_tbl_lookup(table, &key, key_len);
 	if (!flow)
 		return -ENOENT;
+
+#ifdef DEBUG
+    pr_mac("ovs_flow_cmd_del(): dp receive flow_del cmd",key.eth.src,key.eth.dst,ntohs(key.eth.type));
+#endif
 
 	reply = ovs_flow_cmd_alloc_info(flow);
 	if (!reply)

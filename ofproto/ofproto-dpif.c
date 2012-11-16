@@ -2867,6 +2867,7 @@ handle_flow_miss_common(struct rule_dpif *rule,
          *
          * See the top-level comment in fail-open.c for more information.
          */
+        VLOG_INFO("handle_flow_miss_common() FAIL_OPEN MOD, try sending PACKET_IN msg to controller.\n");
         send_packet_in_miss(ofproto, packet, flow);
     }
 }
@@ -3039,14 +3040,26 @@ handle_flow_miss(struct ofproto_dpif *ofproto, struct flow_miss *miss,
     hash = miss->hmap_node.hash;
 
     facet = facet_lookup_valid(ofproto, &miss->flow, hash);
+    unsigned char src_mac[7], dst_mac[7];
+    memcpy(src_mac, miss->flow.dl_src,6);
+    memcpy(dst_mac, miss->flow.dl_dst,6);
+    src_mac[6] = '\0';
+    dst_mac[6] = '\0';
+    VLOG_INFO("[ovsd] handle_flow_miss(): src_mac=%x:%x:%x:%x:%x:%x,dst_mac=%x:%x:%x:%x:%x:%x\n",
+            src_mac[0],src_mac[1],src_mac[2],src_mac[3],src_mac[4],src_mac[5],
+            dst_mac[0],dst_mac[1],dst_mac[2],dst_mac[3],dst_mac[4],dst_mac[5]);
     if (!facet) {
+        VLOG_INFO("there's no facet for the flow.\n");
         struct rule_dpif *rule = rule_dpif_lookup(ofproto, &miss->flow);
+        //the rule includes sending to controller
 
         if (!flow_miss_should_make_facet(ofproto, miss, hash)) {
+            VLOG_INFO("should NOT make facet, will call handle_flow_miss_without_facet().\n");
             handle_flow_miss_without_facet(miss, rule, ops, n_ops);
             return;
         }
 
+        VLOG_INFO("should make facet, will call handle_flow_miss_with_facet().\n");
         facet = facet_create(rule, &miss->flow, hash);
         now = facet->used;
     } else {
@@ -3151,6 +3164,7 @@ handle_miss_upcalls(struct ofproto_dpif *ofproto, struct dpif_upcall *upcalls,
         if (miss->key_fitness == ODP_FIT_ERROR) { //invalid, then try next upcall
             continue;
         }
+        /*extract upcall->packet information into miss->flow*/
         flow_extract(upcall->packet, miss->flow.skb_priority,
                      miss->flow.tun_id, miss->flow.in_port, &miss->flow);
 
@@ -3163,15 +3177,19 @@ handle_miss_upcalls(struct ofproto_dpif *ofproto, struct dpif_upcall *upcalls,
             miss->key_len = upcall->key_len;
             miss->upcall_type = upcall->type;
             list_init(&miss->packets);
-#ifdef LC_ENABLE
-            unsigned char src_mac[7];
-            memcpy(src_mac, miss->flow.dl_src,6);
-            src_mac[6] = '\0';
-            //bridge_update_local_bf(ofproto->up.br, src_mac);
-            VLOG_INFO("[ovsd] handle_miss_upcalls(): Add mac_src=%x:%x:%x:%x:%x:%x to local bf_gdt",
-                    src_mac[0],src_mac[1],src_mac[2],src_mac[3],src_mac[4],src_mac[5]);
-#endif
             n_misses++;
+#ifdef LC_ENABLE
+            unsigned char src_mac[6];
+            memcpy(src_mac, miss->flow.dl_src,6);
+#ifdef DEBUG
+            unsigned char dst_mac[6];
+            memcpy(dst_mac, miss->flow.dl_dst,6);
+            VLOG_INFO("[ovsd] handle_miss_upcalls(): src_mac=%x:%x:%x:%x:%x:%x,dst_mac=%x:%x:%x:%x:%x:%x, type=0x%x",
+                    src_mac[0],src_mac[1],src_mac[2],src_mac[3],src_mac[4],src_mac[5],
+                    dst_mac[0],dst_mac[1],dst_mac[2],dst_mac[3],dst_mac[4],dst_mac[5], ntohs(miss->flow.dl_type));
+#endif
+            bridge_update_local_bf(ofproto->up.br, src_mac);
+#endif
         } else {
             miss = existing_miss;
         }
@@ -3190,6 +3208,7 @@ handle_miss_upcalls(struct ofproto_dpif *ofproto, struct dpif_upcall *upcalls,
     for (i = 0; i < n_ops; i++) {
         dpif_ops[i] = &flow_miss_ops[i].dpif_op;
     }
+    /*operation to dp: flow_put, flow_del, packet_execute*/
     dpif_operate(ofproto->dpif, dpif_ops, n_ops);
 
     /* Free memory and update facets. */
@@ -4590,6 +4609,7 @@ subfacet_update_stats(struct subfacet *subfacet,
 
 
 /* find out matched rule in ofproto_dpif->up.tables[].cls.
+ * if no found, return miss_rule, means to send to controller.
  */
 
 static struct rule_dpif *
@@ -4852,6 +4872,8 @@ static void xlate_normal(struct action_xlate_ctx *);
  * path.  (This is purely informational: it allows a human viewing "ovs-dpctl
  * dump-flows" output to see why a flow is in the slow path.)
  *
+ * "slow path" means per-packet processing.
+ *
  * The 'stub_size' bytes in 'stub' will be used to store the action.
  * 'stub_size' must be large enough for the action.
  *
@@ -5046,6 +5068,60 @@ compose_output_action(struct action_xlate_ctx *ctx, uint16_t ofp_port)
     compose_output_action__(ctx, ofp_port, true);
 }
 
+#ifdef LC_ENABLE
+/**
+ * compose remote action, stored in ctx->odp_actions.
+ */
+static void
+compose_remote_action__(struct action_xlate_ctx *ctx, uint16_t ofp_port, uint32_t ip,
+                        bool check_stp)
+{
+    const struct ofport_dpif *ofport = get_ofp_port(ctx->ofproto, ofp_port);
+    uint16_t odp_port = ofp_port_to_odp_port(ofp_port);
+    ovs_be16 flow_vlan_tci = ctx->flow.vlan_tci;
+    uint8_t flow_nw_tos = ctx->flow.nw_tos;
+    uint16_t out_port;
+
+    if (ofport) {
+        struct priority_to_dscp *pdscp;
+
+        if (ofport->up.pp.config & OFPUTIL_PC_NO_FWD
+            || (check_stp && !stp_forward_in_state(ofport->stp_state))) {
+            return;
+        }
+
+        pdscp = get_priority(ofport, ctx->flow.skb_priority);
+        if (pdscp) {
+            ctx->flow.nw_tos &= ~IP_DSCP_MASK;
+            ctx->flow.nw_tos |= pdscp->dscp;
+        }
+    } else {
+        /* We may not have an ofport record for this port, but it doesn't hurt
+         * to allow forwarding to it anyhow.  Maybe such a port will appear
+         * later and we're pre-populating the flow table.  */
+    }
+
+    out_port = vsp_realdev_to_vlandev(ctx->ofproto, odp_port,
+                                      ctx->flow.vlan_tci);
+    if (out_port != odp_port) {
+        ctx->flow.vlan_tci = htons(0);
+    }
+    commit_odp_actions(&ctx->flow, &ctx->base_flow, ctx->odp_actions); //write to odp_actions
+    nl_msg_put_u64(ctx->odp_actions, OVS_ACTION_ATTR_REMOTE, ((uint64_t)out_port<<32)+ip); //add output port,ip
+
+    ctx->sflow_odp_port = odp_port;
+    ctx->sflow_n_outputs++;
+    ctx->nf_output_iface = ofp_port;
+    ctx->flow.vlan_tci = flow_vlan_tci;
+    ctx->flow.nw_tos = flow_nw_tos;
+}
+static void
+compose_remote_action(struct action_xlate_ctx *ctx, uint16_t ofp_port, uint32_t ip)
+{
+    compose_remote_action__(ctx, ofp_port, ip, true);
+}
+#endif
+
 static void
 xlate_table_action(struct action_xlate_ctx *ctx,
                    uint16_t in_port, uint8_t table_id)
@@ -5170,6 +5246,12 @@ execute_controller_action(struct action_xlate_ctx *ctx, int len,
 
         eth_pop_vlan(packet);
         eh = packet->l2;
+#ifdef DEBUG
+        VLOG_INFO("execute_controller_action() src=%x:%x:%x:%x:%x:%x, dst=%x:%x:%x:%x:%x:%x, type=0x%x\n",
+                eh->eth_src[0],eh->eth_src[1],eh->eth_src[2],eh->eth_src[3],eh->eth_src[4],eh->eth_src[5],
+                eh->eth_dst[0],eh->eth_dst[1],eh->eth_dst[2],eh->eth_dst[3],eh->eth_dst[4],eh->eth_dst[5],
+                ntohs(eh->eth_type));
+#endif
 
         /* If the Ethernet type is less than ETH_TYPE_MIN, it's likely an 802.2
          * LLC frame.  Calculating the Ethernet type of these frames is more
@@ -5212,6 +5294,7 @@ execute_controller_action(struct action_xlate_ctx *ctx, int len,
     pin.send_len = len;
     flow_get_metadata(&ctx->flow, &pin.fmd);
 
+    /*send packet_in to controller.*/
     connmgr_send_packet_in(ctx->ofproto->up.connmgr, &pin);
     ofpbuf_delete(packet);
 }
@@ -5286,6 +5369,29 @@ xlate_output_action(struct action_xlate_ctx *ctx,
         ctx->nf_output_iface = NF_OUT_MULTI;
     }
 }
+
+#ifdef LC_ENABLE
+static void
+xlate_remote_action(struct action_xlate_ctx *ctx,
+                    uint16_t port, uint32_t ip, uint16_t max_len)
+{
+    uint16_t prev_nf_output_iface = ctx->nf_output_iface;
+
+    ctx->nf_output_iface = NF_OUT_DROP;
+    if (port != ctx->flow.in_port) {
+        compose_remote_action(ctx, port,ip);
+    }
+
+    if (prev_nf_output_iface == NF_OUT_FLOOD) {
+        ctx->nf_output_iface = NF_OUT_FLOOD;
+    } else if (ctx->nf_output_iface == NF_OUT_DROP) {
+        ctx->nf_output_iface = prev_nf_output_iface;
+    } else if (prev_nf_output_iface != NF_OUT_DROP &&
+               ctx->nf_output_iface != NF_OUT_FLOOD) {
+        ctx->nf_output_iface = NF_OUT_MULTI;
+    }
+}
+#endif
 
 static void
 xlate_output_reg_action(struct action_xlate_ctx *ctx,
@@ -5476,6 +5582,7 @@ may_receive(const struct ofport_dpif *port, struct action_xlate_ctx *ctx)
 
 /**
  * Translate the elements of ofpacts into ctx.
+ * if action is to controller, execute it.
  */
 static void
 do_xlate_actions(const struct ofpact *ofpacts, size_t ofpacts_len,
@@ -5508,6 +5615,11 @@ do_xlate_actions(const struct ofpact *ofpacts, size_t ofpacts_len,
             xlate_output_action(ctx, ofpact_get_OUTPUT(a)->port,
                                 ofpact_get_OUTPUT(a)->max_len);
             break;
+#ifdef LC_ENABLE
+        case OFPACT_REMOTE:
+            xlate_remote_action(ctx, ofpact_get_REMOTE(a)->port,
+                    ofpact_get_REMOTE(a)->ip, ofpact_get_REMOTE(a)->max_len);
+#endif
 
         case OFPACT_CONTROLLER:
             controller = ofpact_get_CONTROLLER(a);

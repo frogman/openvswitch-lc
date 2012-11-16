@@ -246,6 +246,10 @@ void vlog_usage(void);
             VLL_INFO,                                     /* min_level */ \
         };
 
+#ifndef DEBUG
+#define DEBUG
+#endif
+
 #ifdef  __cplusplus
 }
 #endif

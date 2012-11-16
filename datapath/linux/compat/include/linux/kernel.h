@@ -59,4 +59,8 @@
 #define DIV_ROUND_UP(n, d) (((n) + (d) - 1) / (d))
 #endif
 
+#ifndef DEBUG
+#define DEBUG
+#endif
+
 #endif /* linux/kernel.h */

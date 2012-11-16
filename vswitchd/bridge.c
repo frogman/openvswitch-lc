@@ -1318,16 +1318,18 @@ void bridge_get_stat(const struct bridge *br, struct stat_base *s)
 /**
  * add a new local host's src_mac into local bf.
  */
-int bridge_update_local_bf(const struct bridge *br, char *src_mac)
+int bridge_update_local_bf(const struct bridge *br, unsigned char *src_mac)
 {
     if (!br || !br->gdt || !src_mac)
         return 0;
 
     struct bloom_filter*bf = bf_gdt_find_filter(br->gdt,br->local_id); //local bf not existed yet.
+    VLOG_INFO("1\n");
 
     if (!bf) {/*no local bf existed.*/
         bf = bf_gdt_add_filter(br->gdt, br->local_id,LC_BF_DFT_PORT_NO, LC_BF_DFT_LEN);
     }
+    VLOG_INFO("2\n");
 
     if (!bf) {/*create failed.*/
         return NULL;
