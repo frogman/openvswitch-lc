@@ -2844,7 +2844,10 @@ init_flow_miss_execute_op(struct flow_miss *miss, struct ofpbuf *packet,
 }
 
 /* Helper for handle_flow_miss_without_facet() and
- * handle_flow_miss_with_facet(). */
+ * handle_flow_miss_with_facet().
+ * when in fail-open mode and controller connected,
+ * send pkt to controller.
+ */
 static void
 handle_flow_miss_common(struct rule_dpif *rule,
                         struct ofpbuf *packet, const struct flow *flow)
@@ -4586,7 +4589,8 @@ subfacet_update_stats(struct subfacet *subfacet,
 
 
 
-/* Rules. */
+/* find out matched rule in ofproto_dpif->up.tables[].cls.
+ */
 
 static struct rule_dpif *
 rule_dpif_lookup(struct ofproto_dpif *ofproto, const struct flow *flow)
@@ -4989,6 +4993,9 @@ fix_sflow_action(struct action_xlate_ctx *ctx)
                          ctx->sflow_odp_port, ctx->sflow_n_outputs, cookie);
 }
 
+/**
+ * compose output action, stored in ctx->odp_actions.
+ */
 static void
 compose_output_action__(struct action_xlate_ctx *ctx, uint16_t ofp_port,
                         bool check_stp)
@@ -5023,8 +5030,8 @@ compose_output_action__(struct action_xlate_ctx *ctx, uint16_t ofp_port,
     if (out_port != odp_port) {
         ctx->flow.vlan_tci = htons(0);
     }
-    commit_odp_actions(&ctx->flow, &ctx->base_flow, ctx->odp_actions);
-    nl_msg_put_u32(ctx->odp_actions, OVS_ACTION_ATTR_OUTPUT, out_port);
+    commit_odp_actions(&ctx->flow, &ctx->base_flow, ctx->odp_actions); //write to odp_actions
+    nl_msg_put_u32(ctx->odp_actions, OVS_ACTION_ATTR_OUTPUT, out_port); //add output port
 
     ctx->sflow_odp_port = odp_port;
     ctx->sflow_n_outputs++;
