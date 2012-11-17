@@ -21,6 +21,7 @@
 
 /* only for userspace compatibility */
 #ifndef __KERNEL__
+typedef unsigned int u64;
 typedef unsigned int u32;
 typedef unsigned short u16;
 typedef unsigned char u8;
@@ -33,7 +34,7 @@ typedef unsigned char u8;
 typedef unsigned int (*hashfunc_t)(const char *);
 
 struct bloom_filter{
-    u32 bf_id; /*id, should be the id of the switch, or the ip address of the ovsd.*/
+    u32 bf_id; /*id, should be the id of the switch, or the ip of the dp.*/
     u32 len; /*bit length of the bit array*/
     u16 port_no; /*the port this bf comes in the mcast message.*/
     u8 array[128]; /*the bit array, defaultly 1024 bit*/

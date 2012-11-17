@@ -57,7 +57,7 @@
 
 #ifdef LC_ENABLE
 #include "../lib/stat.h"
-extern int bridge_update_local_bf(const struct bridge *br, char *src_mac);
+extern int bridge_update_local_bf(const struct bridge *br, const char *src_mac);
 #endif
 
 VLOG_DEFINE_THIS_MODULE(ofproto_dpif);
@@ -3040,26 +3040,40 @@ handle_flow_miss(struct ofproto_dpif *ofproto, struct flow_miss *miss,
     hash = miss->hmap_node.hash;
 
     facet = facet_lookup_valid(ofproto, &miss->flow, hash);
-    unsigned char src_mac[7], dst_mac[7];
+#ifdef DEBUG
+    unsigned char src_mac[6], dst_mac[6];
+    unsigned char src_ip[4], dst_ip[4];
     memcpy(src_mac, miss->flow.dl_src,6);
     memcpy(dst_mac, miss->flow.dl_dst,6);
-    src_mac[6] = '\0';
-    dst_mac[6] = '\0';
-    VLOG_INFO("[ovsd] handle_flow_miss(): src_mac=%x:%x:%x:%x:%x:%x,dst_mac=%x:%x:%x:%x:%x:%x\n",
+    VLOG_INFO("[ovsd] handle_flow_miss(): L2=(%x:%x:%x:%x:%x:%x -> %x:%x:%x:%x:%x:%x, type=0x%x)\n",
             src_mac[0],src_mac[1],src_mac[2],src_mac[3],src_mac[4],src_mac[5],
-            dst_mac[0],dst_mac[1],dst_mac[2],dst_mac[3],dst_mac[4],dst_mac[5]);
+            dst_mac[0],dst_mac[1],dst_mac[2],dst_mac[3],dst_mac[4],dst_mac[5],ntohs(miss->flow.dl_type));
+    if (ntohs(miss->flow.dl_type) == 0x0800) {//ip pkt
+        memcpy(src_ip, src_ip,4);
+        memcpy(dst_ip, dst_ip,4);
+        VLOG_INFO("[ovsd] handle_flow_miss(): L3=(%u.%u.%u.%u -> %u.%u.%u.%u, type=0x%x)\n",
+            src_ip[0],src_ip[1],src_ip[2],src_ip[3], dst_ip[0],dst_ip[1],dst_ip[2],dst_ip[3],
+            miss->flow.nw_proto);
+    }
+#endif
     if (!facet) {
+#ifdef DEBUG
         VLOG_INFO("there's no facet for the flow.\n");
+#endif
         struct rule_dpif *rule = rule_dpif_lookup(ofproto, &miss->flow);
         //the rule includes sending to controller
 
         if (!flow_miss_should_make_facet(ofproto, miss, hash)) {
+#ifdef DEBUG
             VLOG_INFO("should NOT make facet, will call handle_flow_miss_without_facet().\n");
+#endif
             handle_flow_miss_without_facet(miss, rule, ops, n_ops);
             return;
         }
 
-        VLOG_INFO("should make facet, will call handle_flow_miss_with_facet().\n");
+#ifdef DEBUG
+        VLOG_INFO("make facet, then call handle_flow_miss_with_facet().\n");
+#endif
         facet = facet_create(rule, &miss->flow, hash);
         now = facet->used;
     } else {
@@ -3184,7 +3198,7 @@ handle_miss_upcalls(struct ofproto_dpif *ofproto, struct dpif_upcall *upcalls,
 #ifdef DEBUG
             unsigned char dst_mac[6];
             memcpy(dst_mac, miss->flow.dl_dst,6);
-            VLOG_INFO("[ovsd] handle_miss_upcalls(): src_mac=%x:%x:%x:%x:%x:%x,dst_mac=%x:%x:%x:%x:%x:%x, type=0x%x",
+            VLOG_INFO("[ovsd] handle_miss_upcalls(): L2=(%x:%x:%x:%x:%x:%x -> %x:%x:%x:%x:%x:%x, type=0x%x)",
                     src_mac[0],src_mac[1],src_mac[2],src_mac[3],src_mac[4],src_mac[5],
                     dst_mac[0],dst_mac[1],dst_mac[2],dst_mac[3],dst_mac[4],dst_mac[5], ntohs(miss->flow.dl_type));
 #endif

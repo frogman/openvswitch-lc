@@ -90,7 +90,7 @@ void mc_send(struct mc_send_arg* arg)
                 perror("sendto error");
             } 
             else {
-                VLOG_INFO("Send mcast msg to %s:%u with gid=%u,bf_id=0x%x,local_id=0x%x\n", inet_ntoa(addr.sin_addr.s_addr), ntohs(addr.sin_port),msg->gid,msg->bf.bf_id,msg->s.entry[0].src_sw_id);
+                VLOG_INFO("Send mcast msg to %s:%u, gid=%u,bf_id=0x%x,local_id=0x%x\n", inet_ntoa(addr.sin_addr.s_addr), ntohs(addr.sin_port),msg->gid,msg->bf.bf_id,msg->s.entry[0].src_sw_id);
             }
         }
         sleep(SEND_DELAY);

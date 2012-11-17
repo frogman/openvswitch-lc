@@ -137,8 +137,10 @@ int bf_destroy(struct bloom_filter *bf)
  */
 int bf_add(struct bloom_filter *bf, const char *s)
 {
-    u32 i;
+    if (!bf)
+        return -1;
 
+    u32 i;
     for(i=0; i<bf->nfuncs; ++i) {
         SETBIT(bf->array, bf->funcs[i](s)%bf->len);
     }

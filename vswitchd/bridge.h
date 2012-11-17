@@ -46,7 +46,7 @@ void bridge_get_memory_usage(struct simap *usage);
 #ifdef LC_ENABLE
 int bridge_update_bf_gdt_to_dp(const struct bridge *br, struct bloom_filter *bf);
 void bridge_get_stat(const struct bridge *br, struct stat_base *s);
-int bridge_update_local_bf(const struct bridge *br, unsigned char *src_mac);
+int bridge_update_local_bf(const struct bridge *br, const unsigned char *src_mac);
 #endif
 
 #endif /* bridge.h */

@@ -449,7 +449,9 @@ static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
             case OVS_ACTION_ATTR_REMOTE: //TODO: print to test here.
                 prev_port = *((unsigned int *)nla_data(a)); //port_no
                 remote_ip = *(((unsigned int *)nla_data(a)+1)); //remote ip
-                printk(">>>[datapath]Receive remote cmd from ovsd, oport=%u, ip=0x%x\n",prev_port,remote_ip);
+#ifdef DEBUG
+                pr_info(">>>DP will execute remote cmd, encap first: oport=%u, ip=0x%x\n",prev_port,remote_ip);
+#endif
                 do_remote_encapulation(dp,skb,remote_ip); //encapulate with new l2 and l3 header
                 break;
 #endif

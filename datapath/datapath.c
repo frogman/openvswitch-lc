@@ -63,7 +63,7 @@
 #include "dp_dcm.h"
 
 #ifdef LC_ENABLE
-#define LC_DP_LOCAL_IP 0xc0a8390a; //192.168.57.10
+const unsigned int LC_DP_LOCAL_IP=0xc0a8390a; //192.168.57.10
 #endif
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,18) || \
@@ -308,15 +308,9 @@ void ovs_dp_detach_port(struct vport *p)
 
 static inline void pr_mac(const char *info, unsigned char *src, unsigned char *dst, unsigned short type)
 {
-    unsigned char tmp_src[7]; //store char format of the address
-    unsigned char tmp_dst[7]; //store char format of the address
-    tmp_src[6] = '\0';
-    tmp_dst[6] = '\0';
-    memcpy(tmp_src, src, 6);
-    memcpy(tmp_dst, dst, 6);
-    pr_info("%s: mac_src=%x:%x:%x:%x:%x:%x, dst_src=%x:%x:%x:%x:%x:%x, type=0x%x\n", info,
-            tmp_src[0],tmp_src[1],tmp_src[2],tmp_src[3], tmp_src[4],tmp_src[5],
-            tmp_dst[0],tmp_dst[1],tmp_dst[2],tmp_dst[3], tmp_dst[4],tmp_dst[5], type);
+    pr_info("%s: L2=(%x:%x:%x:%x:%x:%x -> %x:%x:%x:%x:%x:%x, type=0x%x)\n", info,
+            src[0],src[1],src[2],src[3], src[4],src[5],
+            dst[0],dst[1],dst[2],dst[3], dst[4],dst[5], type);
 }
 
 /* Must be called with rcu_read_lock. */
@@ -329,13 +323,13 @@ void ovs_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
 	int error;
 #ifdef LC_ENABLE
     struct bloom_filter *bf = NULL;
-    char tmp_dst[6]; //store char format of the address
 #endif
 
 	stats = per_cpu_ptr(dp->stats_percpu, smp_processor_id());
 
 #ifdef LC_ENABLE
     if (OVS_CB(skb)->encaped) { //remote pkt, do decapulation first
+        pr_info("DP process_received_packet(): Received REMOTE pkt, decap first.\n");
         ovs_execute_decapulation(skb);
     }
 #endif
@@ -356,6 +350,9 @@ void ovs_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
         }
 
 #ifdef DEBUG
+        if (!OVS_CB(skb)->encaped) {
+            pr_info("DP process_received_packet(): Received LOCAL pkt.\n");
+        }
         unsigned char *src_mac = (unsigned char*)key.eth.src;
         unsigned char *dst_mac = (unsigned char*)key.eth.dst;
         unsigned short type = ntohs(key.eth.type);
@@ -364,35 +361,31 @@ void ovs_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
         flow = ovs_flow_tbl_lookup(rcu_dereference(dp->table), &key, key_len);
 
         if (unlikely(!flow)) { /*not found in local fwd table, usually the 1st pkt.*/
-#ifdef LC_ENABLE_
+#ifdef LC_ENABLE
 #ifdef DEBUG
-            pr_mac("no found in local tbl",src_mac, dst_mac, type);
+            pr_mac("NO found in local tbl",src_mac, dst_mac, type);
 #endif
             /*ip pkt from local host*/
-            if (!OVS_CB(skb)->encaped 
-                    && OVS_CB(skb)->flow->key.eth.type==htons(ETH_P_IP)) { 
-#ifdef DEBUG
-                pr_info("local vm to remote?\n");
-#endif
-                memcpy(tmp_dst,dst_mac,6);
-                bf = bf_gdt_check(dp->gdt,tmp_dst);
+            if (!OVS_CB(skb)->encaped) {
+                bf_gdt_add_item(dp->gdt,LC_DP_LOCAL_IP,(unsigned char*)key.eth.dst);
+                bf = bf_gdt_check(dp->gdt,(unsigned char*)key.eth.dst);
             }
             /*local_to_remote pkt, and in local bf-gdt. */
-            if (!OVS_CB(skb)->encaped 
-                    && OVS_CB(skb)->flow->key.eth.type == htons(ETH_P_IP) 
-                    && likely(bf)) {
+            if (!OVS_CB(skb)->encaped && likely(bf)) {
 #ifdef DEBUG
-                pr_mac("found in local bf_gdt,",src_mac, dst_mac,type);
-                pr_info("will send to port %u with remote_ip 0x%x\n",
-                        bf->port_no, bf->bf_id);
+                pr_mac("Found in local bf_gdt,",src_mac, dst_mac,type);
+                pr_info("will send REMOTE cmd: port=%u, ip=0x%x\n", bf->port_no, bf->bf_id);
 #endif
-                struct nlattr *action = kmalloc(sizeof(struct nlattr)+8, GFP_ATOMIC);
-                action->nla_len = NLA_HDRLEN + 2*sizeof(u32);
+                u64 payload = (((u64)bf->port_no)<<32)+bf->bf_id;
+                struct nlattr *action = kmalloc(NLA_HDRLEN+NLA_ALIGN(sizeof(payload)), GFP_ATOMIC);
+                action->nla_len = NLA_HDRLEN + sizeof(payload);
                 action->nla_type = OVS_ACTION_ATTR_REMOTE;
-                ((u32*)nla_data(actions))[0] = bf->port_no; //outport
-                ((u32*)nla_data(actions))[1] = bf->bf_id; //remote sw's ip
+                memcpy(nla_data(action), &payload, sizeof(payload));
+                //((u32*)nla_data(action))[0] = bf->port_no; //outport
+                //((u32*)nla_data(action))[1] = bf->bf_id; //remote sw's ip
 
                 flow = ovs_flow_alloc();
+                return;
                 if (IS_ERR(flow)) {
                     goto out;
                 }
@@ -402,7 +395,7 @@ void ovs_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
             } else { /* Not in local table. Not in bf-gdt yet, then send to ovsd*/
 #endif
 #ifdef DEBUG
-                pr_mac("no found in tbl/gdt, will send upcall",src_mac, dst_mac, type);
+                pr_mac("NO found in tbl/gdt, will send upcall",src_mac, dst_mac, type);
 #endif
                 struct dp_upcall_info upcall;
                 upcall.cmd = OVS_PACKET_CMD_MISS;
@@ -413,29 +406,29 @@ void ovs_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
                 consume_skb(skb);
                 stats_counter = &stats->n_missed;
                 goto out;
+#ifdef LC_ENABLE
             }
-
-            OVS_CB(skb)->flow = flow;
-        } /*now each pkt has an associated flow. */
-#ifdef LC_ENABLE_
-    }
 #endif
+        }//if(!flow)
+        OVS_CB(skb)->flow = flow;
+    } /*now each pkt has an associated flow. */
 
-        stats_counter = &stats->n_hit;
-        ovs_flow_used(OVS_CB(skb)->flow, skb);
-        /*run corresponding actions.*/
-        ovs_execute_actions(dp, skb);
+    stats_counter = &stats->n_hit;
+    ovs_flow_used(OVS_CB(skb)->flow, skb);
+
+    /*run corresponding actions.*/
+    //ovs_execute_actions(dp, skb);
 
 out:
-        /* Update datapath statistics. */
-        u64_stats_update_begin(&stats->sync);
-        (*stats_counter)++;
-        u64_stats_update_end(&stats->sync);
+    /* Update datapath statistics. */
+    u64_stats_update_begin(&stats->sync);
+    (*stats_counter)++;
+    u64_stats_update_end(&stats->sync);
 
 #ifdef LC_ENABLE
-        if (likely(bf)){ //match bf-gdt
-            ovs_flow_put(flow);
-        }
+    if (likely(bf)){ //match bf-gdt
+        ovs_flow_put(flow);
+    }
 #endif
 }
 
@@ -1779,7 +1772,7 @@ static int ovs_dp_cmd_new(struct sk_buff *skb, struct genl_info *info)
 		err = -ENOMEM;
 		goto err_destroy_percpu;
     }
-    bf_gdt_add_filter(dp->gdt,0,LC_BF_DFT_PORT_NO,LC_BF_DFT_LEN); /*empty filter*/
+    bf_gdt_add_filter(dp->gdt,LC_DP_LOCAL_IP,LC_BF_DFT_PORT_NO,LC_BF_DFT_LEN); /*empty filter*/
     dp->local_ip = LC_DP_LOCAL_IP; //ip of network interface bonding on dp.
 #endif
 

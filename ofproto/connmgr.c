@@ -1350,6 +1350,9 @@ void
 connmgr_send_packet_in(struct connmgr *mgr,
                        const struct ofputil_packet_in *pin)
 {
+#ifdef DEBUG
+    VLOG_INFO("connmgr_send_packet_in()");
+#endif
     struct ofconn *ofconn;
 
     LIST_FOR_EACH (ofconn, node, &mgr->all_conns) {

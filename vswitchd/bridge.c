@@ -1318,7 +1318,7 @@ void bridge_get_stat(const struct bridge *br, struct stat_base *s)
 /**
  * add a new local host's src_mac into local bf.
  */
-int bridge_update_local_bf(const struct bridge *br, unsigned char *src_mac)
+int bridge_update_local_bf(const struct bridge *br, const unsigned char *src_mac)
 {
     if (!br || !br->gdt || !src_mac)
         return 0;

@@ -202,8 +202,14 @@ int bf_gdt_destroy(struct bf_gdt *gdt)
  */
 int bf_gdt_add_item(struct bf_gdt *gdt, u32 bf_id, const char *s)
 {
+    u32 i=0;
+    struct bloom_filter *bf = NULL;
     if (gdt && gdt->bf_array) {
-        return bf_add(gdt->bf_array[bf_id],s);
+        for(i=0; i<gdt->nbf; ++i) {
+            bf = gdt->bf_array[i];
+            if(bf->bf_id == bf_id) 
+                return bf_add(bf,s);
+        }
     }
 
     return 0;
