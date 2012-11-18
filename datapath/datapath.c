@@ -376,22 +376,22 @@ void ovs_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
                 pr_mac("Found in local bf_gdt,",src_mac, dst_mac,type);
                 pr_info("will send REMOTE cmd: port=%u, ip=0x%x\n", bf->port_no, bf->bf_id);
 #endif
-                u64 payload = (((u64)bf->port_no)<<32)+bf->bf_id;
-                struct nlattr *action = kmalloc(NLA_HDRLEN+NLA_ALIGN(sizeof(payload)), GFP_ATOMIC);
-                action->nla_len = NLA_HDRLEN + sizeof(payload);
-                action->nla_type = OVS_ACTION_ATTR_REMOTE;
-                memcpy(nla_data(action), &payload, sizeof(payload));
-                //((u32*)nla_data(action))[0] = bf->port_no; //outport
-                //((u32*)nla_data(action))[1] = bf->bf_id; //remote sw's ip
 
-                flow = ovs_flow_alloc();
-                return;
+                flow = kmalloc(sizeof(struct sw_flow), GFP_ATOMIC);
                 if (IS_ERR(flow)) {
                     goto out;
                 }
-                flow->sf_acts = ovs_flow_actions_alloc(action);
-                flow->sf_acts->actions_len = NLA_ALIGN(action->nla_len);
-                kfree(action);
+                spin_lock_init(&flow->lock);
+                atomic_set(&flow->refcnt, 1);
+                flow->sf_acts = NULL;
+                flow->dead = false;
+                u64 payload = (((u64)bf->port_no)<<32)+bf->bf_id;
+                flow->sf_acts = kmalloc(sizeof(struct sw_flow_actions)+NLA_HDRLEN+NLA_ALIGN(sizeof(payload)), GFP_ATOMIC);
+                flow->sf_acts->actions_len = NLA_HDRLEN + NLA_ALIGN(sizeof(payload));
+                struct nlattr *action = flow->sf_acts->actions;
+                action->nla_len = NLA_HDRLEN + sizeof(payload);
+                action->nla_type = OVS_ACTION_ATTR_REMOTE;
+                memcpy(nla_data(action), &payload, sizeof(payload));
             } else { /* Not in local table. Not in bf-gdt yet, then send to ovsd*/
 #endif
 #ifdef DEBUG
@@ -417,7 +417,7 @@ void ovs_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
     ovs_flow_used(OVS_CB(skb)->flow, skb);
 
     /*run corresponding actions.*/
-    //ovs_execute_actions(dp, skb);
+    ovs_execute_actions(dp, skb);
 
 out:
     /* Update datapath statistics. */
@@ -427,7 +427,13 @@ out:
 
 #ifdef LC_ENABLE
     if (likely(bf)){ //match bf-gdt
-        ovs_flow_put(flow);
+        if(flow) {
+            if (atomic_dec_and_test(&flow->refcnt)) {
+                if (flow->sf_acts)
+                    kfree(flow->sf_acts);
+                kfree(flow);
+            }
+        }
     }
 #endif
 }

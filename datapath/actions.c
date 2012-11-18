@@ -273,6 +273,7 @@ static int set_tcp(struct sk_buff *skb, const struct ovs_key_tcp *tcp_port_key)
  */
 static int do_output(struct datapath *dp, struct sk_buff *skb, int out_port)
 {
+    pr_info("DP do_output(): will send out pkt through port=%u\n",out_port);
 	struct vport *vport;
 
 	if (unlikely(!skb))
@@ -345,22 +346,27 @@ static int sample(struct datapath *dp, struct sk_buff *skb,
 }
 
 #ifdef LC_ENABLE
+#ifndef ETH_IP_HLEN
+#define ETH_IP_HLEN 2
+#endif
+#ifndef IP_HLEN
+#define IP_HLEN 20
+#endif
 /**
  * Add a encapulation header.
  */
 static int do_remote_encapulation(struct datapath *dp, struct sk_buff *skb, unsigned int dst_ip)
 {
-    return 0;
-
+#ifdef DEBUG
+    pr_info("DP do_remote_encapulation()\n");
+#endif
     /*put new vlan hdr*/
     if (!__remote_encapulation(dp, skb, dst_ip)) 
         return -ENOMEM;
 
     /*TODO: should make sure to calculate right sum here.*/
     if (get_ip_summed(skb) == OVS_CSUM_COMPLETE)
-        skb->csum = csum_add(skb->csum, csum_partial(skb->data
-                    + ETH_HLEN, VLAN_HLEN, 0));
-
+        skb->csum = csum_add(skb->csum, csum_partial(skb->data, ETH_IP_HLEN+ETH_HLEN+IP_HLEN, 0));
     return 0;
 }
 
@@ -370,10 +376,6 @@ static int do_remote_decapulation(struct sk_buff *skb)
 
     if (!__remote_decapulation(skb)) 
         return -ENOMEM;
-    /*TODO: should calculate right sum here.*/
-    if (get_ip_summed(skb) == OVS_CSUM_COMPLETE)
-        skb->csum = csum_add(skb->csum, csum_partial(skb->data
-                    + ETH_HLEN, VLAN_HLEN, 0));
 
     return 0;
 }
@@ -430,6 +432,9 @@ static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
     const struct nlattr *a;
     int rem;
     unsigned int remote_ip;
+#ifdef LC_ENABLE
+    uint64_t payload;
+#endif
 
     /*nla_for_each_attr*/
     for (a = attr, rem = len; rem > 0; a = nla_next(a, &rem)) { 
@@ -447,8 +452,9 @@ static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
 
 #ifdef LC_ENABLE
             case OVS_ACTION_ATTR_REMOTE: //TODO: print to test here.
-                prev_port = *((unsigned int *)nla_data(a)); //port_no
-                remote_ip = *(((unsigned int *)nla_data(a)+1)); //remote ip
+                payload = nla_get_u64(a);
+                remote_ip = payload & 0xffffffff; //remote_ip
+                prev_port = (payload >>32) & 0xffffffff; //port_no
 #ifdef DEBUG
                 pr_info(">>>DP will execute remote cmd, encap first: oport=%u, ip=0x%x\n",prev_port,remote_ip);
 #endif
