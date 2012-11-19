@@ -27,28 +27,22 @@ typedef unsigned short u16;
 typedef unsigned char u8;
 #endif
 
+//#include "openflow/openflow.h"
+
 #ifndef LC_BF_DFT_LEN
 #define LC_BF_DFT_LEN 1024
 #endif
 
-#ifndef LC_BF_DFT_ID
 #define LC_BF_DFT_ID 0xc0a8390a //local ip: 192.168.57.10
-#endif
-
-#ifndef LC_BF_LOCAL_PORT_NO
-#define LC_BF_LOCAL_PORT_NO 0 //local port
-#endif
-
-#ifndef LC_BF_DFT_PORT_NO
-#define LC_BF_DFT_PORT_NO 1 //remote port
-#endif
+#define LC_BF_LOCAL_PORT 0xfffe //local port OFPP_LOCAL
+#define LC_BF_REMOTE_PORT 1 //remote port
 
 typedef unsigned int (*hashfunc_t)(const char *);
 
 struct bloom_filter{
     u32 bf_id; /*id, should be the id of the switch, or the ip of the dp.*/
     u32 len; /*bit length of the bit array*/
-    u16 port_no; /*the port send out, should be LC_BF_DFT_PORT_NO.*/
+    u16 port_no; /*the port send out, should be LC_BF_REMOTE_PORT.*/
     u8 array[128]; /*the bit array, defaultly 1024 bit*/
     u32 nfuncs; /*number of hash functions*/
     hashfunc_t *funcs; /*hash functions array*/

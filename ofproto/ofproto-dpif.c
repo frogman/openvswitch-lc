@@ -3200,11 +3200,17 @@ handle_miss_upcalls(struct ofproto_dpif *ofproto, struct dpif_upcall *upcalls,
 #ifdef DEBUG
             unsigned char dst_mac[6];
             memcpy(dst_mac, miss->flow.dl_dst,6);
-            VLOG_INFO("[ovsd] handle_miss_upcalls(): L2=(%x:%x:%x:%x:%x:%x -> %x:%x:%x:%x:%x:%x, type=0x%x), and will update local bf-gdt.",
+            VLOG_INFO("[ovsd] handle_miss_upcalls(): L2=(%x:%x:%x:%x:%x:%x -> %x:%x:%x:%x:%x:%x, type=0x%x)",
                     src_mac[0],src_mac[1],src_mac[2],src_mac[3],src_mac[4],src_mac[5],
                     dst_mac[0],dst_mac[1],dst_mac[2],dst_mac[3],dst_mac[4],dst_mac[5], ntohs(miss->flow.dl_type));
 #endif
-            bridge_update_local_bf(ofproto->up.br, src_mac);
+            if(bridge_update_local_bf(ofproto->up.br, src_mac)<0){
+                VLOG_WARN("Failed to update local bf-gdt.");
+            }else{
+#ifdef DEBUG
+                VLOG_INFO("updated local bf-gdt.");
+#endif
+            }
 #endif
         } else {
             miss = existing_miss;

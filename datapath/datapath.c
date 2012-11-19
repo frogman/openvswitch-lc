@@ -1784,11 +1784,11 @@ static int ovs_dp_cmd_new(struct sk_buff *skb, struct genl_info *info)
 		err = -ENOMEM;
 		goto err_destroy_percpu;
     }
-    bf_gdt_add_filter(dp->gdt,LC_DP_LOCAL_IP,LC_BF_LOCAL_PORT_NO,LC_BF_DFT_LEN); /*empty local filter*/
+    bf_gdt_add_filter(dp->gdt,LC_DP_LOCAL_IP,LC_BF_LOCAL_PORT,LC_BF_DFT_LEN); /*empty local filter*/
     /*debug*/
-    bf_gdt_add_filter(dp->gdt,0xc0a83a0a,LC_BF_DFT_PORT_NO,LC_BF_DFT_LEN); /*empty remote filter*/
-    unsigned char tmp_dst[] = {0x0a,0x00,0x27,0x00,0x00,0x01};
-    bf_gdt_add_item(dp->gdt,0xc0a83a0a,tmp_dst);
+    //bf_gdt_add_filter(dp->gdt,0xc0a83a0a,LC_BF_REMOTE_PORT,LC_BF_DFT_LEN); /*empty remote filter*/
+    //unsigned char tmp_dst[] = {0x0a,0x00,0x27,0x00,0x00,0x01};
+    //bf_gdt_add_item(dp->gdt,0xc0a83a0a,tmp_dst);
     /*debug*/
 #endif
 
