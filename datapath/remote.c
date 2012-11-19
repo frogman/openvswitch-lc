@@ -101,5 +101,6 @@ int __remote_decapulation(struct sk_buff *skb)
         return -1;
     }
     skb_pull(skb, ETH_IP_HLEN);
+    memcpy(skb->data, eth, 2*ETH_ALEN); //change to right mac header.
     return 0;
 }
