@@ -402,7 +402,7 @@ void ovs_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
             } else { /* Not in local table. Not in bf-gdt yet, then send to ovsd*/
 #endif
 #ifdef DEBUG
-                pr_mac("NO found in tbl/gdt, will send upcall\n");
+                pr_info("NO found in tbl/gdt, will send upcall\n");
 #endif
                 struct dp_upcall_info upcall;
                 upcall.cmd = OVS_PACKET_CMD_MISS;
