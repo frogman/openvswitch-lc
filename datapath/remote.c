@@ -60,8 +60,8 @@ int __remote_encapulation(struct datapath *dp, struct sk_buff *skb, int dst_ip)
     iph->protocol = LC_REMOTE_IP_PROTO;
     iph->saddr=htonl(dp->local_ip);
     iph->daddr=htonl(dst_ip);
+    iph->check=0; //MUST be set to 0 first.
     iph->check=ip_fast_csum((unsigned char *)iph,iph->ihl); //csum here
-    pr_info("ip checksum=0x%x\n",iph->check);
 
     /*add new ethernet header*/
     eth = (struct ethhdr *)skb_push(skb,ETH_HLEN);
