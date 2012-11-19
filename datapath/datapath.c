@@ -376,7 +376,7 @@ void ovs_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
                 }
                 bf = bf_gdt_check(dp->gdt,(unsigned char*)key.eth.dst);
                 if(bf) { //DEBUG
-                    bf->bf_id = 0xc0a8390a; //192.168.57.10
+                    bf->bf_id = 0xc0a83a0a; //192.168.58.10
                 }
             }
             /*local_to_remote pkt, and in local bf-gdt. */
