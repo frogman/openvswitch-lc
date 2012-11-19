@@ -370,12 +370,12 @@ void ovs_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
             pr_mac("NO found flow in local tbl",src_mac, dst_mac, type);
 #endif
             /*ip pkt from local host*/
-            if (!OVS_CB(skb)->encaped && ntohs(key.eth.type)!=0x0806) {
-                bf_gdt_add_item(dp->gdt,LC_DP_LOCAL_IP,(unsigned char*)key.eth.dst); 
+            if (!OVS_CB(skb)->encaped && ntohs(key.eth.type)!=0x0806) {//ignore broadcast pkt
+                //bf_gdt_add_item(dp->gdt,LC_DP_LOCAL_IP,(unsigned char*)key.eth.dst); 
                 bf = bf_gdt_check(dp->gdt,(unsigned char*)key.eth.dst);
-                if(bf) { //DEBUG
-                    bf->bf_id = 0xc0a83a0a; //192.168.58.10
-                }
+                //if(bf) { //DEBUG
+                    //bf->bf_id = 0xc0a8390a; //192.168.57.10
+                //}
             }
             /*local_to_remote pkt, and in local bf-gdt. */
             if (!OVS_CB(skb)->encaped && likely(bf)) {
