@@ -153,15 +153,15 @@ void mc_recv(struct mc_recv_arg* arg)
             continue;
         }
         //VLOG_INFO("[%d] Receive mcast msg from %s:%d gid=%u, bf_id=0x%x, local_id=0x%x.\n", count, inet_ntoa(sender.sin_addr.s_addr), ntohs(sender.sin_port),msg->gid,msg->bf.bf_id,msg->s.entry[0].src_sw_id);
-        /*if (msg->gid != arg->gdt->gid){
-            VLOG_WARN("group %u received mcast msg from other group %u\n",arg->gdt->gid,msg->gid);
-        }*/
+        if (msg->gid != arg->gdt->gid){
+            VLOG_WARN("WARNING: group %u received mcast msg from other group %u\n",arg->gdt->gid,msg->gid);
+        }
 
         pthread_mutex_lock (&mutex);
         ret = bf_gdt_update_filter(arg->gdt,&msg->bf); //update remote bfs into local bf-gdt
         pthread_mutex_unlock (&mutex);
         if(ret > 0) {//sth changed in gdt with msg
-            VLOG_INFO("received new bf content from the mcast msg, should update the bf_gdt on dp.");
+            VLOG_INFO("received new bf from 0x%x, will update dp's bf_gdt.",msg->bf.bf_id);
             bridge_update_bf_gdt_to_dp(arg->br, &msg->bf);
         } 
         //else {
