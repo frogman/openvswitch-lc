@@ -103,8 +103,5 @@ int __remote_decapulation(struct sk_buff *skb)
     }
     skb_pull(skb, ETH_IP_HLEN);
     memcpy(skb->data, eth, 2*ETH_ALEN); //change to right mac header.
-#ifdef DEBUG
-    pr_info("ICMP type=0x%x\n",icmp_hdr(skb)->type);
-#endif
     return 0;
 }
