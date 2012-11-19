@@ -31,6 +31,10 @@ typedef unsigned char u8;
 #define LC_BF_DFT_LEN 1024
 #endif
 
+#ifndef LC_BF_DFT_ID
+#define LC_BF_DFT_ID 0xc0a83a0a //192.168.58.10
+#endif
+
 typedef unsigned int (*hashfunc_t)(const char *);
 
 struct bloom_filter{

@@ -27,7 +27,6 @@ openvswitch_sources = \
 	vport-internal_dev.c \
 	vport-netdev.c \
 	vport-patch.c \
-	dp_dcm.c \
 	lc_group.c \
 	bf.c \
 	bf-gdt.c \
@@ -47,7 +46,6 @@ openvswitch_headers = \
 	vport-generic.h \
 	vport-internal_dev.h \
 	vport-netdev.h \
-	dp_dcm.h \
 	lc_group.h \
 	bf.h \
 	bf-gdt.h \

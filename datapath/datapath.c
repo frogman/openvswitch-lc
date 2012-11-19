@@ -60,10 +60,9 @@
 #include "vlan.h"
 #include "tunnel.h"
 #include "vport-internal_dev.h"
-#include "dp_dcm.h"
 
 #ifdef LC_ENABLE
-const unsigned int LC_DP_LOCAL_IP=0xc0a8390a; //192.168.57.10
+#define LC_DP_LOCAL_IP LC_BF_DFT_ID
 #endif
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,18) || \
@@ -332,6 +331,7 @@ void ovs_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
         pr_info("DP process_received_packet(): Received REMOTE pkt, decap first.\n");
         error = ovs_execute_decapulation(skb);
         if(unlikely(error < 0)) {
+            pr_info("DP process_received_packet(): DECAP FAILURE.\n");
             kfree_skb(skb);
             return;
         }
@@ -376,7 +376,7 @@ void ovs_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
                 }
                 bf = bf_gdt_check(dp->gdt,(unsigned char*)key.eth.dst);
                 if(bf) { //DEBUG
-                    bf->bf_id = 0xc0a83a0a; //192.168.58.10
+                    bf->bf_id = 0xc0a8390a; //192.168.57.10
                 }
             }
             /*local_to_remote pkt, and in local bf-gdt. */

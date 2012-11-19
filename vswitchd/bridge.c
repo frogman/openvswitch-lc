@@ -2440,8 +2440,8 @@ bridge_lc_init(struct bridge *br)
 {
     VLOG_INFO("%s bridge_lc_init(): init bf-gdt and mcast args.\n",br->name);
     br->gdt = bf_gdt_init(LC_GROUP_DFT_ID);
-    br->local_id = get_local_ip(LC_DP_NI_NAME);
-    br->local_id = (192<<24)+(168<<16)+(57<<8)+10; //TODO: must be manually set on each sw.
+    //br->local_id = get_local_ip(LC_DP_NI_NAME);
+    br->local_id = LC_BF_DFT_ID; //Must be manually set on each sw.
     VLOG_INFO("%s bridge_lc_init(): get local ip =0x%x(%u.%u.%u.%u).\n",br->name,br->local_id,((unsigned char *)&br->local_id)[3],((unsigned char *)&br->local_id)[2],((unsigned char *)&br->local_id)[1],((unsigned char *)&br->local_id)[0]);
     br->send_arg.group_ip = inet_addr(LC_MCAST_GROUP_IP)+br->gdt->gid;
     br->send_arg.port = LC_MCAST_GROUP_PORT;
