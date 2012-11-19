@@ -78,17 +78,25 @@ int __remote_encapulation(struct datapath *dp, struct sk_buff *skb, int dst_ip)
  */
 int __remote_decapulation(struct sk_buff *skb)
 {
-    struct ethhdr *eth = (struct ethhdr *)skb_pull(skb,ETH_HLEN);
+	skb_reset_mac_header(skb);
+    struct ethhdr *eth = eth_hdr(skb);
+    skb_pull(skb,skb->mac_len);
     if (eth->h_proto != htons(ETH_P_IP)) {
 #ifdef DEBUG
-        pr_info("__remote_decapulation() no ip proto existed?\n");
+        pr_info("__remote_decapulation() no IP existed? proto=0x%x\n", eth->h_proto);
 #endif
         return -1;
+    } else {
+#ifdef DEBUG
+        pr_info("__remote_decapulation() FOUND IP, proto=0x%x\n", eth->h_proto);
+#endif
     }
-    struct iphdr *iph = (struct iphdr *)skb_pull(skb,IP_HLEN);
+	skb_reset_network_header(skb);
+    struct iphdr *iph = ip_hdr(skb);
+    skb_pull(skb,IP_HLEN);
     if( iph->protocol != LC_REMOTE_IP_PROTO) {
 #ifdef DEBUG
-        pr_info("__remote_decapulation() not etherip header?\n");
+        pr_info("__remote_decapulation() not ETHERIP header? proto=0x%x\n",iph->protocol);
 #endif
         return -1;
     }

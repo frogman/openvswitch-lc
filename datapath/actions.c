@@ -375,14 +375,14 @@ static int do_remote_decapulation(struct sk_buff *skb)
 #ifdef DEBUG
     pr_info("DP do_remote_decapulation()\n");
 #endif
-    if (!__remote_decapulation(skb)) 
-        return -1;
-
-    return 0;
+    return __remote_decapulation(skb);
 }
 
 int ovs_execute_decapulation(struct sk_buff *skb)
 {
+    if (!skb)
+        return -1;
+
     return do_remote_decapulation(skb);
 }
 #endif
