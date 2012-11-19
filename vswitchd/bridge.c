@@ -2460,6 +2460,7 @@ bridge_lc_init(struct bridge *br)
     *br->recv_arg.stop = false;
     br->recv_arg.gdt = br->gdt;
     br->recv_arg.br = br;
+    br->recv_arg.local_id = br->local_id;
     VLOG_INFO("%s bridge_lc_init() done.\n",br->name);
     bridge_start_mcast(br);
 }
