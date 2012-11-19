@@ -3202,6 +3202,7 @@ handle_miss_upcalls(struct ofproto_dpif *ofproto, struct dpif_upcall *upcalls,
                     src_mac[0],src_mac[1],src_mac[2],src_mac[3],src_mac[4],src_mac[5],
                     dst_mac[0],dst_mac[1],dst_mac[2],dst_mac[3],dst_mac[4],dst_mac[5], ntohs(miss->flow.dl_type));
 #endif
+            VLOG_INFO("local vm's mac will be updated to bf_gdt\n");
             bridge_update_local_bf(ofproto->up.br, src_mac);
 #endif
         } else {
