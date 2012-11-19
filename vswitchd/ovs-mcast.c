@@ -112,7 +112,7 @@ void mc_recv(struct mc_recv_arg* arg)
     struct sockaddr_in addr, sender;
     struct ip_mreq ipmr;
     socklen_t len;
-    int i,ret;
+    int ret;
     int count;
     struct mcast_msg *msg = malloc(sizeof(struct mcast_msg));
 
@@ -162,6 +162,7 @@ void mc_recv(struct mc_recv_arg* arg)
 
         pthread_mutex_lock (&mutex);
         ret = bf_gdt_update_filter(arg->gdt,&msg->bf); //update remote bfs into local bf-gdt
+        msg->bf.port_no = LC_BF_DFT_PORT_NO;
         pthread_mutex_unlock (&mutex);
         if(ret > 0) {//sth changed in gdt with msg
             VLOG_INFO("received new bf from 0x%x, will update dp's bf_gdt.",msg->bf.bf_id);

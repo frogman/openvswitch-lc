@@ -35,12 +35,20 @@ typedef unsigned char u8;
 #define LC_BF_DFT_ID 0xc0a8390a //192.168.57.10
 #endif
 
+#ifndef LC_BF_LOCAL_PORT_NO
+#define LC_BF_LOCAL_PORT_NO 0
+#endif
+
+#ifndef LC_BF_DFT_PORT_NO
+#define LC_BF_DFT_PORT_NO 1
+#endif
+
 typedef unsigned int (*hashfunc_t)(const char *);
 
 struct bloom_filter{
     u32 bf_id; /*id, should be the id of the switch, or the ip of the dp.*/
     u32 len; /*bit length of the bit array*/
-    u16 port_no; /*the port this bf comes in the mcast message.*/
+    u16 port_no; /*the port send out, should be LC_BF_DFT_PORT_NO.*/
     u8 array[128]; /*the bit array, defaultly 1024 bit*/
     u32 nfuncs; /*number of hash functions*/
     hashfunc_t *funcs; /*hash functions array*/

@@ -748,7 +748,7 @@ bf_gdt_update(struct ofproto *ofproto_, struct bloom_filter *bf_)
 {
     struct ofproto_dpif *ofproto = ofproto_dpif_cast(ofproto_);
     int error;
-    error = dpif_bf_gdt_put(ofproto->dpif, DPIF_BP_CREATE, bf_, sizeof(struct bloom_filter));
+    error = dpif_bf_gdt_put(ofproto->dpif, DPIF_BF_CREATE, bf_, sizeof(struct bloom_filter));
     return error;
 }
 #endif

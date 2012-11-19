@@ -967,8 +967,8 @@ dpif_bf_gdt_put__(struct dpif *dpif, const struct dpif_bf_gdt_put *put)
     int error;
 
     COVERAGE_INC(dpif_bf_gdt_put);
-    assert(!(put->flags & ~(DPIF_BP_CREATE | DPIF_BP_MODIFY
-                            | DPIF_BP_ZERO_STATS)));
+    assert(!(put->flags & ~(DPIF_BF_CREATE | DPIF_BF_MODIFY
+                            | DPIF_BF_ZERO_STATS)));
 
     error = dpif->dpif_class->bf_gdt_put(dpif, put);
     //log_flow_put_message(dpif, put, error);

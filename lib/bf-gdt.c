@@ -129,16 +129,6 @@ struct bloom_filter *bf_gdt_find_filter(struct bf_gdt *gdt, u32 bf_id)
 }
 
 /**
- * get the remote port.
- * @return: return the corresponding dp domain remote port.
- */
-unsigned int get_remote_port()
-{
-    //actually, there should be only one port (port 0) for remote networks.
-    return 0;
-}
-
-/**
  * Update a remote bloom_filter into the given gdt
  * @param gdt: the gdt to update
  * @param bf: the new bloom_filter
@@ -151,8 +141,6 @@ int bf_gdt_update_filter(struct bf_gdt *gdt, struct bloom_filter *bf)
     }
     int ret = -1;
     struct bloom_filter *matched_bf = bf_gdt_find_filter(gdt,bf->bf_id);
-    unsigned int port_no = get_remote_port();
-    bf->port_no = port_no;
     if(matched_bf) {//find matched.
         if(memcmp(matched_bf,bf,sizeof(struct bloom_filter))==0) {//equal, no change
             ret = -1;

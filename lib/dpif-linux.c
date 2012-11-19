@@ -930,14 +930,14 @@ dpif_linux_init_bf_gdt_put(struct dpif *dpif_, const struct dpif_bf_gdt_put *put
     struct dpif_linux *dpif = dpif_linux_cast(dpif_);
 
     dpif_linux_bf_gdt_init(request); //alloc a dpif_linux_bf_gdt
-    request->cmd = (put->flags & DPIF_BP_CREATE
+    request->cmd = (put->flags & DPIF_BF_CREATE
                     ? OVS_BF_GDT_CMD_NEW : OVS_BF_GDT_CMD_SET);
     request->dp_ifindex = dpif->dp_ifindex;
     /* Attibutions. */
     request->bf = put->bf;
     request->bf_len = put->bf_len;
     /*nlmsg flags*/
-    request->nlmsg_flags = put->flags & DPIF_BP_MODIFY ? 0 : NLM_F_CREATE;
+    request->nlmsg_flags = put->flags & DPIF_BF_MODIFY ? 0 : NLM_F_CREATE;
 }
 
 /**

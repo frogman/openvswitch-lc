@@ -207,9 +207,9 @@ struct dpif_flow_del {
 #ifdef LC_ENABLE //defined in linux/openvswitch.h
 
 enum dpif_bf_gdt_put_flags {
-    DPIF_BP_CREATE = 1 << 0,    /* Allow creating a new bf. */
-    DPIF_BP_MODIFY = 1 << 1,    /* Allow modifying an existing bf. */
-    DPIF_BP_ZERO_STATS = 1 << 2 /* Zero the stats of an existing flow. */
+    DPIF_BF_CREATE = 1 << 0,    /* Allow creating a new bf. */
+    DPIF_BF_MODIFY = 1 << 1,    /* Allow modifying an existing bf. */
+    DPIF_BF_ZERO_STATS = 1 << 2 /* Zero the stats of an existing flow. */
 };
 
 struct dpif_bf_gdt_put {

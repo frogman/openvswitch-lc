@@ -472,6 +472,7 @@ static struct genl_family dp_bf_gdt_genl_family = {
     SET_NETNSOK
 };
 
+
 /**
  * Update the local bf-gdt according to the received nlmsg from ovsd.
  */
@@ -495,9 +496,8 @@ static int ovs_bf_gdt_cmd_new_or_set(struct sk_buff *skb, struct genl_info *info
     printk("[DP] ovs_bf_gdt_cmd_new_or_set(): Received bf_gdt nlmsg from userspace: bf_id=0x%x, will update bf_gdt.\n",bf.bf_id);
     ret = bf_gdt_update_filter(dp->gdt, &bf);
     return ret;
-
 error:
-    return 0;
+    return -1;
 }
 
 /**
