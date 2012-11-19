@@ -83,12 +83,12 @@ int __remote_decapulation(struct sk_buff *skb)
     skb_pull(skb,skb->mac_len);
     if (eth->h_proto != htons(ETH_P_IP)) {
 #ifdef DEBUG
-        pr_info("__remote_decapulation() no IP existed? proto=0x%x\n", eth->h_proto);
+        pr_info("__remote_decapulation() no IP existed? proto=0x%x\n", ntohs(eth->h_proto));
 #endif
         return -1;
     } else {
 #ifdef DEBUG
-        pr_info("__remote_decapulation() FOUND IP, proto=0x%x\n", eth->h_proto);
+        pr_info("__remote_decapulation() FOUND IP, proto=0x%x\n", ntohs(eth->h_proto));
 #endif
     }
 	skb_reset_network_header(skb);
