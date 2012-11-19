@@ -53,7 +53,7 @@ int __remote_encapulation(struct datapath *dp, struct sk_buff *skb, int dst_ip)
     iph->ihl=5;
     iph->version=4;
     iph->tos=0;
-    iph->tot_len = htons(sizeof(struct iphdr)+skb->len);
+    iph->tot_len = htons(skb->len);
     iph->id = htonl(0);
     iph->frag_off = 0;
     iph->ttl = 255;
@@ -85,5 +85,12 @@ int __remote_decapulation(struct sk_buff *skb)
         return -1;
     }
     struct iphdr *iph = (struct iphdr *)skb_pull(skb,IP_HLEN);
+    if( iph->protocol != LC_REMOTE_IP_PROTO) {
+#ifdef DEBUG
+        pr_info("__remote_decapulation() not etherip header?\n");
+#endif
+        return -1;
+    }
+    skb_pull(skb, ETH_IP_HLEN);
     return 0;
 }

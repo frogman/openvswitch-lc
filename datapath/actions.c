@@ -362,20 +362,21 @@ static int do_remote_encapulation(struct datapath *dp, struct sk_buff *skb, unsi
 #endif
     /*put new vlan hdr*/
     if (!__remote_encapulation(dp, skb, dst_ip)) 
-        return -ENOMEM;
+        return -1;
 
     /*TODO: should make sure to calculate right sum here.*/
     if (get_ip_summed(skb) == OVS_CSUM_COMPLETE)
-        skb->csum = csum_add(skb->csum, csum_partial(skb->data, ETH_IP_HLEN+ETH_HLEN+IP_HLEN, 0));
+        skb->csum = csum_add(skb->csum, csum_partial(skb->data, ETH_HLEN+IP_HLEN+ETH_IP_HLEN, 0));
     return 0;
 }
 
 static int do_remote_decapulation(struct sk_buff *skb)
 {
-    return 0;
-
+#ifdef DEBUG
+    pr_info("DP do_remote_decapulation()\n");
+#endif
     if (!__remote_decapulation(skb)) 
-        return -ENOMEM;
+        return -1;
 
     return 0;
 }

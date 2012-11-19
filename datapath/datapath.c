@@ -330,7 +330,11 @@ void ovs_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
 #ifdef LC_ENABLE
     if (OVS_CB(skb)->encaped) { //remote pkt, do decapulation first
         pr_info("DP process_received_packet(): Received REMOTE pkt, decap first.\n");
-        ovs_execute_decapulation(skb);
+        error = ovs_execute_decapulation(skb);
+        if(unlikely(error < 0)) {
+            kfree_skb(skb);
+            return;
+        }
     }
 #endif
 
@@ -367,8 +371,13 @@ void ovs_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
 #endif
             /*ip pkt from local host*/
             if (!OVS_CB(skb)->encaped) {
-                bf_gdt_add_item(dp->gdt,LC_DP_LOCAL_IP,(unsigned char*)key.eth.dst);
+                if (ntohs(key.eth.type)!=0x0806) {//DEBUG:
+                    bf_gdt_add_item(dp->gdt,LC_DP_LOCAL_IP,(unsigned char*)key.eth.dst); 
+                }
                 bf = bf_gdt_check(dp->gdt,(unsigned char*)key.eth.dst);
+                if(bf) { //DEBUG
+                    bf->bf_id = 0xc0a83a0a; //192.168.58.10
+                }
             }
             /*local_to_remote pkt, and in local bf-gdt. */
             if (!OVS_CB(skb)->encaped && likely(bf)) {
