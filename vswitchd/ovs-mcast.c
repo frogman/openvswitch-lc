@@ -89,9 +89,9 @@ void mc_send(struct mc_send_arg* arg)
             if (ret <0) {
                 perror("sendto error");
             } 
-            else {
-                VLOG_INFO("Send mcast msg to %s:%u, gid=%u,bf_id=0x%x,local_id=0x%x\n", inet_ntoa(addr.sin_addr.s_addr), ntohs(addr.sin_port),msg->gid,msg->bf.bf_id,msg->s.entry[0].src_sw_id);
-            }
+            //else {
+            //    VLOG_INFO("Send mcast msg to %s:%u, gid=%u,bf_id=0x%x\n", inet_ntoa(addr.sin_addr.s_addr), ntohs(addr.sin_port),msg->gid,msg->bf.bf_id);
+            //}
         }
         sleep(SEND_DELAY);
     }
@@ -155,6 +155,9 @@ void mc_recv(struct mc_recv_arg* arg)
         //VLOG_INFO("[%d] Receive mcast msg from %s:%d gid=%u, bf_id=0x%x, local_id=0x%x.\n", count, inet_ntoa(sender.sin_addr.s_addr), ntohs(sender.sin_port),msg->gid,msg->bf.bf_id,msg->s.entry[0].src_sw_id);
         if (msg->gid != arg->gdt->gid){
             VLOG_WARN("WARNING: group %u received mcast msg from other group %u\n",arg->gdt->gid,msg->gid);
+        }
+        if (msg->bf.bf_id == arg->local_id){//from local switch
+            continue;
         }
 
         pthread_mutex_lock (&mutex);
