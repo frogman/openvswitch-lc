@@ -19,7 +19,7 @@
 #include <linux/if_vlan.h>
 #include <linux/if_ether.h>
 #include <linux/skbuff.h>
-#include <asm/checksum_32.h>
+#include <net/checksum.h>
 
 #include "datapath.h"
 #include "remote.h"
@@ -46,7 +46,7 @@ int __remote_encapulation(struct datapath *dp, struct sk_buff *skb, int dst_ip)
 
     /*add new eth_ip header*/
     skb_push(skb,ETH_IP_HLEN);
-    memset(skb->data,0,ETH_IP_HLEN);
+    *((unsigned short*)(skb->data)) = 0x3;
 
     /*add new ip header*/
     iph = (struct iphdr *)skb_push(skb,IP_HLEN);
@@ -60,7 +60,8 @@ int __remote_encapulation(struct datapath *dp, struct sk_buff *skb, int dst_ip)
     iph->protocol = LC_REMOTE_IP_PROTO;
     iph->saddr=htonl(dp->local_ip);
     iph->daddr=htonl(dst_ip);
-    iph->check=ip_fast_csum(iph,iph->ihl); //csum here
+    iph->check=ip_fast_csum((unsigned char *)iph,iph->ihl); //csum here
+    pr_info("ip checksum=0x%x\n",iph->check);
 
     /*add new ethernet header*/
     eth = (struct ethhdr *)skb_push(skb,ETH_HLEN);

@@ -360,11 +360,11 @@ static int do_remote_encapulation(struct datapath *dp, struct sk_buff *skb, unsi
 #ifdef DEBUG
     pr_info("DP do_remote_encapulation()\n");
 #endif
-    /*put new vlan hdr*/
+    /*put new ether+ip+ether_ip hdr*/
     if (!__remote_encapulation(dp, skb, dst_ip)) 
         return -1;
 
-    /*TODO: should make sure to calculate right sum here.*/
+    /*calculate right sum here.*/
     if (get_ip_summed(skb) == OVS_CSUM_COMPLETE)
         skb->csum = csum_add(skb->csum, csum_partial(skb->data, ETH_HLEN+IP_HLEN+ETH_IP_HLEN, 0));
     return 0;

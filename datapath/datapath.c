@@ -371,7 +371,7 @@ void ovs_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
 #endif
             /*ip pkt from local host*/
             if (!OVS_CB(skb)->encaped) {
-                if (ntohs(key.eth.type)!=0x0806) {//DEBUG:
+                if (ntohs(key.eth.type)!=0x0806) {//DEBUG:arp pkts
                     bf_gdt_add_item(dp->gdt,LC_DP_LOCAL_IP,(unsigned char*)key.eth.dst); 
                 }
                 bf = bf_gdt_check(dp->gdt,(unsigned char*)key.eth.dst);
