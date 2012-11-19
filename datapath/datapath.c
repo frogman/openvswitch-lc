@@ -367,7 +367,7 @@ void ovs_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
         if (unlikely(!flow)) { /*not found in local fwd table, usually the 1st pkt.*/
 #ifdef LC_ENABLE
 #ifdef DEBUG
-            pr_mac("NO found in local tbl",src_mac, dst_mac, type);
+            pr_mac("NO found flow in local tbl",src_mac, dst_mac, type);
 #endif
             /*ip pkt from local host*/
             if (!OVS_CB(skb)->encaped && ntohs(key.eth.type)!=0x0806) {
@@ -380,7 +380,7 @@ void ovs_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
             /*local_to_remote pkt, and in local bf-gdt. */
             if (!OVS_CB(skb)->encaped && likely(bf)) {
 #ifdef DEBUG
-                pr_mac("Found in local bf_gdt,",src_mac, dst_mac,type);
+                pr_info("Found in local bf_gdt\n");
                 pr_info("will send REMOTE cmd: port=%u, ip=0x%x\n", bf->port_no, bf->bf_id);
 #endif
 
@@ -402,7 +402,7 @@ void ovs_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
             } else { /* Not in local table. Not in bf-gdt yet, then send to ovsd*/
 #endif
 #ifdef DEBUG
-                pr_mac("NO found in tbl/gdt, will send upcall",src_mac, dst_mac, type);
+                pr_mac("NO found in tbl/gdt, will send upcall\n");
 #endif
                 struct dp_upcall_info upcall;
                 upcall.cmd = OVS_PACKET_CMD_MISS;

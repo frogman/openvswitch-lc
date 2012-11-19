@@ -19,6 +19,7 @@
 #include <linux/if_vlan.h>
 #include <linux/if_ether.h>
 #include <linux/skbuff.h>
+#include <linux/icmp.h>
 #include <net/checksum.h>
 
 #include "datapath.h"
@@ -88,7 +89,7 @@ int __remote_decapulation(struct sk_buff *skb)
         return -1;
     } else {
 #ifdef DEBUG
-        pr_info("__remote_decapulation() FOUND IP, proto=0x%x\n", ntohs(eth->h_proto));
+        pr_info("__remote_decapulation() FOUND IP\n");
 #endif
     }
 	skb_reset_network_header(skb);
@@ -102,5 +103,8 @@ int __remote_decapulation(struct sk_buff *skb)
     }
     skb_pull(skb, ETH_IP_HLEN);
     memcpy(skb->data, eth, 2*ETH_ALEN); //change to right mac header.
+#ifdef DEBUG
+    pr_info("ICMP type=0x%x\n",icmp_hdr(skb)->type);
+#endif
     return 0;
 }
