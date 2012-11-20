@@ -6662,6 +6662,9 @@ packet_remote(struct ofproto *ofproto_, struct ofpbuf *packet,
            const struct flow *flow,
            const struct ofpact *ofpacts, size_t ofpacts_len)
 {
+#ifdef DEBUG
+        VLOG_INFO("packet_remote().");
+#endif
     struct ofproto_dpif *ofproto = ofproto_dpif_cast(ofproto_);
     enum ofperr error;
 

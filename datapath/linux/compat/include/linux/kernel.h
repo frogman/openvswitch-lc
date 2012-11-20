@@ -60,7 +60,7 @@
 #endif
 
 #ifndef DEBUG
-#define DEBUG
+//#define DEBUG
 #endif
 
 #endif /* linux/kernel.h */

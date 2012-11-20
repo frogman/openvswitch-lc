@@ -2167,6 +2167,9 @@ exit:
 static enum ofperr
 handle_packet_remote(struct ofconn *ofconn, const struct ofp_header *oh)
 {
+#ifdef DEBUG
+        VLOG_INFO("handle_packet_remote() from controller.");
+#endif
     struct ofproto *p = ofconn_get_ofproto(ofconn);
     struct ofputil_packet_remote pr;
     struct ofpbuf *payload;
@@ -3815,6 +3818,9 @@ handle_openflow__(struct ofconn *ofconn, const struct ofpbuf *msg)
         return handle_set_config(ofconn, oh);
 
     case OFPTYPE_PACKET_OUT:
+#ifdef DEBUG
+        VLOG_INFO("handle pkt_out from controller.");
+#endif
         return handle_packet_out(ofconn, oh);
 
     case OFPTYPE_PORT_MOD:
@@ -3910,6 +3916,9 @@ handle_openflow(struct ofconn *ofconn, struct ofpbuf *ofp_msg)
 {
     int error = handle_openflow__(ofconn, ofp_msg);
     if (error && error != OFPROTO_POSTPONE) {
+#ifdef DEBUG
+        VLOG_INFO("handle_openflow__ error.");
+#endif
         ofconn_send_error(ofconn, ofp_msg->data, error);
     }
     COVERAGE_INC(ofproto_recv_openflow);
