@@ -1086,13 +1086,13 @@ static int ovs_packet_cmd_execute(struct sk_buff *skb, struct genl_info *info)
     pr_mac("ovs_packet_cmd_execute()",eth->h_source,eth->h_dest,ntohs(eth->h_proto));
     switch (acts->actions[0].nla_type) {
         case OVS_ACTION_ATTR_OUTPUT:
-            pr_info("action = output to port %u\n", acts->actions[1]);
+            pr_info("action = output to port %u\n", nla_data(acts->actions));
             break;
         case OVS_ACTION_ATTR_USERSPACE:
             pr_info("action = output to userspace\n");
             break;
         case OVS_ACTION_ATTR_REMOTE:
-            pr_info("action = output to remote, port=%u, ip=0x%x\n",acts->actions[1],acts->actions[2]);
+            pr_info("action = output to remote, port=%u, ip=0x%x\n",nla_data(acts->actions)&0xffffffff,(nla_data(acts->actions)>>32)&0xffffffff);
             break;
         default:
         pr_info("unknown action type %u\n",acts->actions[1].nla_type);
@@ -1385,13 +1385,13 @@ static int ovs_flow_cmd_new_or_set(struct sk_buff *skb, struct genl_info *info)
 #ifdef DEBUG
         switch (acts->actions[0].nla_type) {
             case OVS_ACTION_ATTR_OUTPUT:
-                pr_info("action = output to port %u\n", acts->actions[1]);
+                pr_info("action = output to port %u\n", nla_data(acts->actions));
                 break;
             case OVS_ACTION_ATTR_USERSPACE:
                 pr_info("action = output to userspace\n");
                 break;
             case OVS_ACTION_ATTR_REMOTE:
-                pr_info("action = output to remote, port=%u, ip=0x%x\n",acts->actions[1],acts->actions[2]);
+                pr_info("action = output to remote, port=%u, ip=0x%x\n",nla_data(acts->actions)&0xffffffff,(nla_data(acts->actions)>>32)&0xffffffff);
                 break;
             default:
                 pr_info("unknown action type %u\n",acts->actions[1].nla_type);
@@ -1443,13 +1443,13 @@ static int ovs_flow_cmd_new_or_set(struct sk_buff *skb, struct genl_info *info)
 #ifdef DEBUG
         switch (new_acts->actions[0].nla_type) {
             case OVS_ACTION_ATTR_OUTPUT:
-                pr_info("action = output to port %u\n", new_acts->actions[1]);
+                pr_info("action = output to port %u\n", nla_data(new_acts->actions));
                 break;
             case OVS_ACTION_ATTR_USERSPACE:
                 pr_info("action = output to userspace\n");
                 break;
             case OVS_ACTION_ATTR_REMOTE:
-                pr_info("action = output to remote, port=%u, ip=0x%x\n",new_acts->actions[1],new_acts->actions[2]);
+                pr_info("action = output to remote, port=%u, ip=0x%x\n",nla_data(new_acts->actions)&0xffffffff,(nla_data(new_acts->actions)>>32)&0xffffffff);
                 break;
             default:
                 pr_info("unknown action type %u\n",new_acts->actions[1].nla_type);
