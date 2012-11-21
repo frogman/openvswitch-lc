@@ -2867,7 +2867,9 @@ handle_flow_miss_common(struct rule_dpif *rule,
          *
          * See the top-level comment in fail-open.c for more information.
          */
+#ifdef DEBUG
         VLOG_INFO("handle_flow_miss_common() FAIL_OPEN MOD, try sending PACKET_IN msg to controller.\n");
+#endif
         send_packet_in_miss(ofproto, packet, flow);
     }
 }
@@ -3198,11 +3200,10 @@ handle_miss_upcalls(struct ofproto_dpif *ofproto, struct dpif_upcall *upcalls,
 #ifdef DEBUG
             unsigned char dst_mac[6];
             memcpy(dst_mac, miss->flow.dl_dst,6);
-            VLOG_INFO("[ovsd] handle_miss_upcalls(): L2=(%x:%x:%x:%x:%x:%x -> %x:%x:%x:%x:%x:%x, type=0x%x)",
+            VLOG_INFO("[ovsd] handle_miss_upcalls(): L2=(%x:%x:%x:%x:%x:%x -> %x:%x:%x:%x:%x:%x, type=0x%x), and will update local bf-gdt.",
                     src_mac[0],src_mac[1],src_mac[2],src_mac[3],src_mac[4],src_mac[5],
                     dst_mac[0],dst_mac[1],dst_mac[2],dst_mac[3],dst_mac[4],dst_mac[5], ntohs(miss->flow.dl_type));
 #endif
-            VLOG_INFO("local vm's mac will be updated to bf_gdt\n");
             bridge_update_local_bf(ofproto->up.br, src_mac);
 #endif
         } else {
@@ -3332,12 +3333,16 @@ handle_upcalls(struct ofproto_dpif *ofproto, unsigned int max_batch)
 
         switch (classify_upcall(upcall)) {
         case MISS_UPCALL: /* Handle it later. */
+#ifdef DEBUG
             VLOG_INFO("[ovsd] Received MISS_UPCALL from dp.");
+#endif
             n_misses++;
             break;
 
         case SFLOW_UPCALL:
+#ifdef DEBUG
             VLOG_INFO("[ovsd] Received SFLOW_UPCALL from dp.");
+#endif
             if (ofproto->sflow) {
                 handle_sflow_upcall(ofproto, upcall);
             }
@@ -3345,7 +3350,9 @@ handle_upcalls(struct ofproto_dpif *ofproto, unsigned int max_batch)
             break;
 
         case BAD_UPCALL:
+#ifdef DEBUG
             VLOG_INFO("[ovsd] Received BAD_UPCALL from dp.");
+#endif
             ofpbuf_uninit(buf);
             break;
         }

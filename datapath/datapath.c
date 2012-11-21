@@ -328,10 +328,12 @@ void ovs_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
 
 #ifdef LC_ENABLE
     if (OVS_CB(skb)->encaped) { //remote pkt, do decapulation first
+#ifdef DEBUG
         pr_info("DP process_received_packet(): Received REMOTE pkt, decap first.\n");
+#endif
         error = ovs_execute_decapulation(skb);
         if(unlikely(error < 0)) {
-            pr_info("DP process_received_packet(): DECAP FAILURE.\n");
+            pr_warning("DP process_received_packet(): DECAP FAILURE.\n");
             kfree_skb(skb);
             return;
         }
