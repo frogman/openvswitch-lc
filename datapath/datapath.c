@@ -370,12 +370,8 @@ void ovs_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
             pr_mac("NO found flow in local tbl",src_mac, dst_mac, type);
 #endif
             /*ip pkt from local host*/
-            if (!OVS_CB(skb)->encaped && ntohs(key.eth.type)!=0x0806) {//ignore broadcast pkt
-                //bf_gdt_add_item(dp->gdt,LC_DP_LOCAL_IP,(unsigned char*)key.eth.dst); 
-                bf = bf_gdt_check(dp->gdt,(unsigned char*)key.eth.dst);
-                //if(bf) { //DEBUG
-                    //bf->bf_id = 0xc0a8390a; //192.168.57.10
-                //}
+            if (!OVS_CB(skb)->encaped && key.eth.type!=htons(0x0806)) {//ignore local arp pkt
+                bf = bf_gdt_check(dp->gdt,(unsigned char*)key.eth.dst); //host in bf_gdt?
             }
             /*local_to_remote pkt, and in local bf-gdt. */
             if (!OVS_CB(skb)->encaped && likely(bf)) {
@@ -1780,13 +1776,18 @@ static int ovs_dp_cmd_new(struct sk_buff *skb, struct genl_info *info)
 		INIT_HLIST_HEAD(&dp->ports[i]);
 
 #ifdef LC_ENABLE /*init the lc_group, TODO*/
+    dp->local_ip = LC_DP_LOCAL_IP; //ip of network interface bonding on dp.
 	dp->gdt = bf_gdt_init(LC_GROUP_DFT_ID);
 	if (!dp->gdt) {
 		err = -ENOMEM;
 		goto err_destroy_percpu;
     }
-    bf_gdt_add_filter(dp->gdt,LC_DP_LOCAL_IP,LC_BF_DFT_PORT_NO,LC_BF_DFT_LEN); /*empty filter*/
-    dp->local_ip = LC_DP_LOCAL_IP; //ip of network interface bonding on dp.
+    bf_gdt_add_filter(dp->gdt,LC_DP_LOCAL_IP,LC_BF_LOCAL_PORT_NO,LC_BF_DFT_LEN); /*empty local filter*/
+    /*debug*/
+    bf_gdt_add_filter(dp->gdt,0xc0a83a0a,LC_BF_DFT_PORT_NO,LC_BF_DFT_LEN); /*empty remote filter*/
+    unsigned char tmp_dst[] = {0x0a,0x00,0x27,0x00,0x00,0x01};
+    bf_gdt_add_item(dp->gdt,0xc0a83a0a,tmp_dst);
+    /*debug*/
 #endif
 
 	/* Set up our datapath device. */
