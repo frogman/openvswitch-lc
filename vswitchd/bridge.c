@@ -1317,20 +1317,22 @@ void bridge_get_stat(const struct bridge *br, struct stat_base *s)
 }
 /**
  * add a new local host's src_mac into local bf.
+ * @return: 0 if succeed.
  */
 int bridge_update_local_bf(const struct bridge *br, const unsigned char *src_mac)
 {
     if (!br || !br->gdt || !src_mac)
-        return 0;
+        return -1;
 
     struct bloom_filter*bf = bf_gdt_find_filter(br->gdt,br->local_id); //local bf not existed yet.
 
     if (!bf) {/*no local bf existed.*/
-        bf = bf_gdt_add_filter(br->gdt, br->local_id,LC_BF_DFT_PORT_NO, LC_BF_DFT_LEN);
+        bf = bf_gdt_add_filter(br->gdt, br->local_id,LC_BF_REMOTE_PORT, LC_BF_DFT_LEN);
     }
 
     if (!bf) {/*create failed.*/
-        return NULL;
+        VLOG_WARN("create new local bf failed.");
+        return -1;
     }
     return bf_gdt_add_item(br->gdt,bf->bf_id,src_mac);
 }
@@ -2451,7 +2453,7 @@ bridge_lc_init(struct bridge *br)
     br->send_arg.local_id = br->local_id;
 
     /*create local bf.*/
-    bf_gdt_add_filter(br->gdt,br->local_id,LC_BF_LOCAL_PORT_NO,LC_BF_DFT_LEN);
+    bf_gdt_add_filter(br->gdt,br->local_id,LC_BF_LOCAL_PORT,LC_BF_DFT_LEN);
 
     br->recv_arg.group_ip = inet_addr(LC_MCAST_GROUP_IP)+br->gdt->gid;
     br->recv_arg.port = LC_MCAST_GROUP_PORT;

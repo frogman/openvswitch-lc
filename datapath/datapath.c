@@ -1086,13 +1086,13 @@ static int ovs_packet_cmd_execute(struct sk_buff *skb, struct genl_info *info)
     pr_mac("ovs_packet_cmd_execute()",eth->h_source,eth->h_dest,ntohs(eth->h_proto));
     switch (acts->actions[0].nla_type) {
         case OVS_ACTION_ATTR_OUTPUT:
-            pr_info("action = output to port %u\n", acts->actions[1]);
+            pr_info("action = output to port %u\n", nla_get_u32(acts->actions));
             break;
         case OVS_ACTION_ATTR_USERSPACE:
             pr_info("action = output to userspace\n");
             break;
         case OVS_ACTION_ATTR_REMOTE:
-            pr_info("action = output to remote, port=%u, ip=0x%x\n",acts->actions[1],acts->actions[2]);
+            pr_info("action = output to remote, port=%u, ip=0x%x\n",nla_get_u64(acts->actions)&0xffffffff,(nla_get_u64(acts->actions)>>32)&0xffffffff);
             break;
         default:
         pr_info("unknown action type %u\n",acts->actions[1].nla_type);
@@ -1385,13 +1385,13 @@ static int ovs_flow_cmd_new_or_set(struct sk_buff *skb, struct genl_info *info)
 #ifdef DEBUG
         switch (acts->actions[0].nla_type) {
             case OVS_ACTION_ATTR_OUTPUT:
-                pr_info("action = output to port %u\n", acts->actions[1]);
+                pr_info("action = output to port %u\n", nla_get_u32(acts->actions));
                 break;
             case OVS_ACTION_ATTR_USERSPACE:
                 pr_info("action = output to userspace\n");
                 break;
             case OVS_ACTION_ATTR_REMOTE:
-                pr_info("action = output to remote, port=%u, ip=0x%x\n",acts->actions[1],acts->actions[2]);
+                pr_info("action = output to remote, port=%u, ip=0x%x\n",nla_get_u64(acts->actions)&0xffffffff,(nla_get_u64(acts->actions)>>32)&0xffffffff);
                 break;
             default:
                 pr_info("unknown action type %u\n",acts->actions[1].nla_type);
@@ -1443,13 +1443,13 @@ static int ovs_flow_cmd_new_or_set(struct sk_buff *skb, struct genl_info *info)
 #ifdef DEBUG
         switch (new_acts->actions[0].nla_type) {
             case OVS_ACTION_ATTR_OUTPUT:
-                pr_info("action = output to port %u\n", new_acts->actions[1]);
+                pr_info("action = output to port %u\n", nla_get_u32(new_acts->actions));
                 break;
             case OVS_ACTION_ATTR_USERSPACE:
                 pr_info("action = output to userspace\n");
                 break;
             case OVS_ACTION_ATTR_REMOTE:
-                pr_info("action = output to remote, port=%u, ip=0x%x\n",new_acts->actions[1],new_acts->actions[2]);
+                pr_info("action = output to remote, port=%u, ip=0x%x\n",nla_get_u64(new_acts->actions)&0xffffffff,(nla_get_u64(new_acts->actions)>>32)&0xffffffff);
                 break;
             default:
                 pr_info("unknown action type %u\n",new_acts->actions[1].nla_type);
@@ -1778,17 +1778,17 @@ static int ovs_dp_cmd_new(struct sk_buff *skb, struct genl_info *info)
 		INIT_HLIST_HEAD(&dp->ports[i]);
 
 #ifdef LC_ENABLE /*init the lc_group, TODO*/
-   dp->local_ip = LC_DP_LOCAL_IP; //ip of network interface bonding on dp.
+    dp->local_ip = LC_DP_LOCAL_IP; //ip of network interface bonding on dp.
 	dp->gdt = bf_gdt_init(LC_GROUP_DFT_ID);
 	if (!dp->gdt) {
 		err = -ENOMEM;
 		goto err_destroy_percpu;
     }
-    bf_gdt_add_filter(dp->gdt,LC_DP_LOCAL_IP,LC_BF_DFT_PORT_NO,LC_BF_DFT_LEN); /*empty filter*/
+    bf_gdt_add_filter(dp->gdt,LC_DP_LOCAL_IP,LC_BF_LOCAL_PORT,LC_BF_DFT_LEN); /*empty local filter*/
     /*debug*/
-    bf_gdt_add_filter(dp->gdt,0xc0a8390a,LC_BF_DFT_PORT_NO,LC_BF_DFT_LEN); /*empty remote filter*/
-    unsigned char tmp_dst[] = {0x0a,0x00,0x27,0x00,0x00,0x02};
-    bf_gdt_add_item(dp->gdt,0xc0a8390a,tmp_dst);
+    //bf_gdt_add_filter(dp->gdt,0xc0a83a0a,LC_BF_REMOTE_PORT,LC_BF_DFT_LEN); /*empty remote filter*/
+    //unsigned char tmp_dst[] = {0x0a,0x00,0x27,0x00,0x00,0x01};
+    //bf_gdt_add_item(dp->gdt,0xc0a83a0a,tmp_dst);
     /*debug*/
 #endif
 

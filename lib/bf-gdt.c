@@ -187,6 +187,7 @@ int bf_gdt_destroy(struct bf_gdt *gdt)
  * @param gdt: the bf_gdt to update
  * @param bf_id: the dp's content updated
  * @param s: the string to add
+ * @return 0 if successfully.
  */
 int bf_gdt_add_item(struct bf_gdt *gdt, u32 bf_id, const char *s)
 {
@@ -200,7 +201,7 @@ int bf_gdt_add_item(struct bf_gdt *gdt, u32 bf_id, const char *s)
         }
     }
 
-    return 0;
+    return -1;
 }
 
 /**
