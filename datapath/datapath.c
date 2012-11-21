@@ -328,10 +328,12 @@ void ovs_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
 
 #ifdef LC_ENABLE
     if (OVS_CB(skb)->encaped) { //remote pkt, do decapulation first
+#ifdef DEBUG
         pr_info("DP process_received_packet(): Received REMOTE pkt, decap first.\n");
+#endif
         error = ovs_execute_decapulation(skb);
         if(unlikely(error < 0)) {
-            pr_info("DP process_received_packet(): DECAP FAILURE.\n");
+            pr_warning("DP process_received_packet(): DECAP FAILURE.\n");
             kfree_skb(skb);
             return;
         }
@@ -370,8 +372,8 @@ void ovs_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
             pr_mac("NO found flow in local tbl",src_mac, dst_mac, type);
 #endif
             /*ip pkt from local host*/
-            if (!OVS_CB(skb)->encaped && key.eth.type!=htons(0x0806)) {//ignore broadcast pkt
-                bf = bf_gdt_check(dp->gdt,(unsigned char*)key.eth.dst);
+            if (!OVS_CB(skb)->encaped && key.eth.type!=htons(0x0806)) {//ignore local arp pkt
+                bf = bf_gdt_check(dp->gdt,(unsigned char*)key.eth.dst); //host in bf_gdt?
             }
             /*local_to_remote pkt, and in local bf-gdt. */
             if (!OVS_CB(skb)->encaped && likely(bf)) {

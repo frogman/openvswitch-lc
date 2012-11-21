@@ -36,11 +36,11 @@ typedef unsigned char u8;
 #endif
 
 #ifndef LC_BF_LOCAL_PORT_NO
-#define LC_BF_LOCAL_PORT_NO 0
+#define LC_BF_LOCAL_PORT_NO 0 //local port
 #endif
 
 #ifndef LC_BF_DFT_PORT_NO
-#define LC_BF_DFT_PORT_NO 1
+#define LC_BF_DFT_PORT_NO 1 //remote port
 #endif
 
 typedef unsigned int (*hashfunc_t)(const char *);

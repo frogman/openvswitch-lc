@@ -508,7 +508,9 @@ void ovs_vport_receive(struct vport *vport, struct sk_buff *skb)
  */
 int ovs_vport_send(struct vport *vport, struct sk_buff *skb)
 {
+#ifdef DEBUG
     pr_info("DP ovs_vport_send(): will send out pkt\n");
+#endif
 	int sent = vport->ops->send(vport, skb);
 
 	if (likely(sent)) {

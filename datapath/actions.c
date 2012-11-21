@@ -273,7 +273,9 @@ static int set_tcp(struct sk_buff *skb, const struct ovs_key_tcp *tcp_port_key)
  */
 static int do_output(struct datapath *dp, struct sk_buff *skb, int out_port)
 {
+#ifdef DEBUG
     pr_info("DP do_output(): will send out pkt through port=%u\n",out_port);
+#endif
 	struct vport *vport;
 
 	if (unlikely(!skb))
