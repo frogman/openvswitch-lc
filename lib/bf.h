@@ -32,7 +32,7 @@ typedef unsigned char u8;
 #endif
 
 #ifndef LC_BF_DFT_ID
-#define LC_BF_DFT_ID 0xc0a8390a //192.168.57.10
+#define LC_BF_DFT_ID 0xc0a83a0a //local ip: 192.168.58.10
 #endif
 
 #ifndef LC_BF_LOCAL_PORT_NO
