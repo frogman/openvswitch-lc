@@ -33,23 +33,9 @@ typedef unsigned char u8;
 #define LC_BF_DFT_LEN 1024
 #endif
 
-<<<<<<< HEAD
-#ifndef LC_BF_DFT_ID
-#define LC_BF_DFT_ID 0xc0a83a0a //local ip: 192.168.58.10
-#endif
-
-#ifndef LC_BF_LOCAL_PORT_NO
-#define LC_BF_LOCAL_PORT_NO 0 //local port
-#endif
-
-#ifndef LC_BF_DFT_PORT_NO
-#define LC_BF_DFT_PORT_NO 1 //remote port
-#endif
-=======
-#define LC_BF_DFT_ID 0xc0a8390a //local ip: 192.168.57.10
+#define LC_BF_DFT_ID 0xc0a83a0a //local ip: 192.168.57.10
 #define LC_BF_LOCAL_PORT 0xfffe //local port OFPP_LOCAL
 #define LC_BF_REMOTE_PORT 1 //remote port
->>>>>>> c8f6b12b1367d509db671b878669376071547654
 
 typedef unsigned int (*hashfunc_t)(const char *);
 
