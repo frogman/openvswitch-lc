@@ -68,6 +68,7 @@ int __remote_encapulation(struct datapath *dp, struct sk_buff *skb, int dst_ip)
     eth = (struct ethhdr *)skb_push(skb,ETH_HLEN);
     memcpy(skb->data, skb->data+ETH_IP_HLEN+ETH_HLEN+IP_HLEN, ETH_HLEN);
     eth->h_proto = htons(ETH_P_IP); //ip packet
+    memset(&(eth->h_dest), 0xff, 6);
 
     skb->mac_header -= (ETH_IP_HLEN+IP_HLEN+ETH_HLEN);
 
