@@ -1,54 +1,16 @@
-#This is a temporal script to test quick operations, e.g., generating docs.
+sudo kill `cd /usr/local/var/run/openvswitch && cat ovsdb-server.pid ovs-vswitchd.pid`;  sudo rmmod openvswitch >/dev/null 2>&1;  make && sudo make install && sudo insmod datapath/linux/openvswitch.ko && sudo ovsdb-server --remote=punix:/usr/local/var/run/openvswitch/db.sock --remote=db:Open_vSwitch,manager_options --private-key=db:SSL,private_key --certificate=db:SSL,certificate --bootstrap-ca-cert=db:SSL,ca_cert --pidfile --detach; 
 
-#doxygen doxygen.cfg; tar czf doc.tar.gz doc/
+sleep 1;
 
-#cscope
-#find . -name "*.h" -o -name "*.c" -o -name "*.cc" -o -name "*.inc" | cscope -bkq
+sudo ovs-vsctl --no-wait init; sleep 1; sudo ovs-vswitchd --pidfile --detach; sleep 1;
 
-#Configure openvswitch
-./boot.sh && ./configure  --with-linux=/lib/modules/`uname -r`/build;
+sudo route del default gw 192.168.56.1; sudo route del default gw 192.168.57.1; sudo route del default gw 192.168.58.1; 
+sudo route add -host 239.0.0.1 dev eth1; 
+sudo ifconfig eth2 0;
+sudo ifconfig br0 192.168.58.10 up; 
+sudo ip addr add 10.0.0.2/24 brd 10.0.0.255 dev br0
 
-#Compile and install openvswitch
-make || print "make failed" && exit
-sudo su;
-make install;
-
-rmmod bridge >/dev/null
-rmmod openvswitch >/dev/null 2>&1
-insmod datapath/linux/openvswitch.ko || print "insmod failed, check dmesg" && exit
-
-#configure the ovs-db
-test -d /usr/local/etc/openvswitch || mkdir -p /usr/local/etc/openvswitch
-test -f /usr/local/etc/openvswitch/conf.db || ovsdb-tool create /usr/local/etc/openvswitch/conf.db vswitchd/vswitch.ovsschema
-
-#start the ovs-db server
-ovsdb-server --remote=punix:/usr/local/var/run/openvswitch/db.sock \
-             --remote=db:Open_vSwitch,manager_options \
-             --private-key=db:SSL,private_key \
-             --certificate=db:SSL,certificate \
-             --bootstrap-ca-cert=db:SSL,ca_cert \
-             --pidfile --detach
-
-#Initialize the ovs-db, just pass if initialized already
-ovs-vsctl --no-wait init
-
-#start the main ovs daemon
-ovs-vswitchd --pidfile --detach
-
-#create a new vs
-ovs-vsctl add-br br0
-ovs-vsctl add-br br1
-ovs-vsctl add-port br0 br0-br1 -- set Interface br0-br1 type=patch options:peer=br1-br0
-ovs-vsctl add-port br1 br1-br0 -- set Interface br1-br0 type=patch options:peer=br0-br1
-ovs-vsctl show
-
-#configure controller on localhost:6633
-ovs-vsctl set-controller br0 tcp:127.0.0.1
-ovs-vsctl set-controller br1 tcp:127.0.0.1
-
-#stop the ovs daemon
-kill `cd /usr/local/var/run/openvswitch && cat ovsdb-server.pid ovs-vswitchd.pid`
-
-#upgrade the database by new .ovsschema file
-ovsdb-tool convert /usr/local/etc/openvswitch/conf.db vswitchd/vswitch.ovsschema
-cp /usr/local/etc/openvswitch/conf.db ./ovsdb/conf.db.bak
+sudo sysctl -w net.ipv4.neigh.default.gc_stale_time=600
+sudo sysctl -w net.ipv4.neigh.br0.gc_stale_time=600
+sudo arp -s 10.0.0.1 08:00:27:85:ca:de
+sudo arp -s 192.168.58.1 0a:00:27:00:00:02 

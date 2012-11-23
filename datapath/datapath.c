@@ -1787,7 +1787,7 @@ static int ovs_dp_cmd_new(struct sk_buff *skb, struct genl_info *info)
     bf_gdt_add_filter(dp->gdt,LC_DP_LOCAL_IP,LC_BF_LOCAL_PORT,LC_BF_DFT_LEN); /*empty local filter*/
     /*debug*/
     bf_gdt_add_filter(dp->gdt,0xc0a8390a,LC_BF_REMOTE_PORT,LC_BF_DFT_LEN); /*empty remote filter*/
-    unsigned char tmp_dst[] = {0x08,0x00,0x27,0x85,0xca,0xd8};
+    unsigned char tmp_dst[] = {0x08,0x00,0x27,0x85,0xca,0xde}; //remote hosts
     bf_gdt_add_item(dp->gdt,0xc0a8390a,tmp_dst);
     /*debug*/
 #endif

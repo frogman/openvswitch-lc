@@ -32,6 +32,7 @@
 #define IP_HLEN 20
 #endif
 
+static const char gw_mac[]={0x0a,0x00,0x27,0x00,0x00,0x02};//mac of the core routable network gw
 /**
  * add new mac header and ip header.
  */
@@ -68,7 +69,7 @@ int __remote_encapulation(struct datapath *dp, struct sk_buff *skb, int dst_ip)
     eth = (struct ethhdr *)skb_push(skb,ETH_HLEN);
     memcpy(skb->data, skb->data+ETH_IP_HLEN+ETH_HLEN+IP_HLEN, ETH_HLEN);
     eth->h_proto = htons(ETH_P_IP); //ip packet
-    memset(&(eth->h_dest), 0xff, 6);
+    memcpy(&(eth->h_dest),gw_mac,ETH_ALEN);
 
     skb->mac_header -= (ETH_IP_HLEN+IP_HLEN+ETH_HLEN);
 
