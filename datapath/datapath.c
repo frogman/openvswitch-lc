@@ -354,6 +354,10 @@ void ovs_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
             kfree_skb(skb);
             return;
         }
+        if (unlikely(ntohs(key.eth.type) != 0x0806 && ntohs(key.eth.type) != 0x0800)) {
+            kfree_skb(skb);
+            return;
+        }
 
         if (unlikely(ntohs(key.eth.type) != 0x0806 && ntohs(key.eth.type) != 0x0800)) { 
             kfree_skb(skb);
