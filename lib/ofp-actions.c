@@ -58,7 +58,6 @@ remote_from_openflow10(const struct ofp10_action_remote *oar,
     remote = ofpact_put_OUTPUT(out);
     remote->port = ntohs(oar->port);
     remote->ip = ntohs(oar->ip);
-    remote->max_len = ntohs(oar->max_len);
 
     return ofputil_check_output_port(remote->port, OFPP_MAX);
 }

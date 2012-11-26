@@ -5401,7 +5401,7 @@ xlate_output_action(struct action_xlate_ctx *ctx,
 #ifdef LC_ENABLE
 static void
 xlate_remote_action(struct action_xlate_ctx *ctx,
-                    uint16_t port, uint32_t ip, uint16_t max_len)
+                    uint16_t port, uint32_t ip)
 {
     uint16_t prev_nf_output_iface = ctx->nf_output_iface;
 
@@ -5646,7 +5646,7 @@ do_xlate_actions(const struct ofpact *ofpacts, size_t ofpacts_len,
 #ifdef LC_ENABLE
         case OFPACT_REMOTE:
             xlate_remote_action(ctx, ofpact_get_REMOTE(a)->port,
-                    ofpact_get_REMOTE(a)->ip, ofpact_get_REMOTE(a)->max_len);
+                    ofpact_get_REMOTE(a)->ip);
 #endif
 
         case OFPACT_CONTROLLER:
@@ -6663,7 +6663,7 @@ packet_remote(struct ofproto *ofproto_, struct ofpbuf *packet,
            const struct ofpact *ofpacts, size_t ofpacts_len)
 {
 #ifdef DEBUG
-        VLOG_INFO("packet_remote().");
+        VLOG_INFO("packet_remote(): send remote cmd to dp.");
 #endif
     struct ofproto_dpif *ofproto = ofproto_dpif_cast(ofproto_);
     enum ofperr error;
