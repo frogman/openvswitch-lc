@@ -2344,22 +2344,19 @@ ofputil_decode_packet_remote(struct ofputil_packet_remote *pr,
     enum ofpraw raw;
     struct ofpbuf b;
 
-    ofpbuf_use_const(&b, oh, ntohs(oh->length));
+    ofpbuf_use_const(&b, oh, ntohs(oh->length)); //b->data points to oh
     raw = ofpraw_pull_assert(&b);
 
-    /*
-    if (raw == OFPRAW_OFPT11_PACKET_REMOTE) {
-        //TODO: maybe we should also support 1.1 in future.
-        return -1;
-    } else 
-    */
     if (raw == OFPRAW_OFPT10_PACKET_REMOTE) {
         enum ofperr error;
-        const struct ofp_packet_remote *opr = ofpbuf_pull(&b, sizeof *opr);
+        const struct ofp_packet_remote *opr = ofpbuf_pull(&b, sizeof *opr);//pull bytes from b->data
 
         pr->buffer_id = ntohl(opr->buffer_id);
         pr->in_port = ntohs(opr->in_port);
 
+#ifdef DEBUG
+    VLOG_INFO("ofputil_decode_packet_remote, act_len=0x%x",opr->actions_len);
+#endif
         error = ofpacts_pull_openflow10(&b, ntohs(opr->actions_len), ofpacts);
         if (error) {
             return error;
@@ -2387,7 +2384,9 @@ ofputil_decode_packet_remote(struct ofputil_packet_remote *pr,
         pr->packet = NULL;
         pr->packet_len = 0;
     }
-
+#ifdef DEBUG
+    VLOG_INFO("ofputil_decode_packet_remote, act_type=0x%x",pr->ofpacts->type);
+#endif
     return 0;
 }
 

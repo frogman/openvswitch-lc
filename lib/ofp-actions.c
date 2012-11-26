@@ -572,7 +572,7 @@ ofpacts_pull_actions(struct ofpbuf *openflow, unsigned int actions_len,
 
     ofpbuf_clear(ofpacts);
 
-    if (actions_len % OFP_ACTION_ALIGN != 0) {
+    if (actions_len % OFP_ACTION_ALIGN != 0) {//align 8 bytes
         VLOG_WARN_RL(&rl, "OpenFlow message actions length %u is not a "
                      "multiple of %d", actions_len, OFP_ACTION_ALIGN);
         return OFPERR_OFPBRC_BAD_LEN;

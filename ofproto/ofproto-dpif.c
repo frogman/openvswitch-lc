@@ -5407,6 +5407,9 @@ xlate_remote_action(struct action_xlate_ctx *ctx,
 
     ctx->nf_output_iface = NF_OUT_DROP;
     if (port != ctx->flow.in_port) {
+#ifdef DEBUG
+        VLOG_INFO("will compose_remote_action()");
+#endif
         compose_remote_action(ctx, port,ip);
     }
 
@@ -5639,12 +5642,21 @@ do_xlate_actions(const struct ofpact *ofpacts, size_t ofpacts_len,
         }
 
         switch (a->type) {
+#ifdef DEBUG
+            VLOG_INFO("do_xlate_actions, type=0x%x",a->type);
+#endif
         case OFPACT_OUTPUT:
+#ifdef DEBUG
+            VLOG_INFO("will run xlate_output_action()");
+#endif
             xlate_output_action(ctx, ofpact_get_OUTPUT(a)->port,
                                 ofpact_get_OUTPUT(a)->max_len);
             break;
 #ifdef LC_ENABLE
         case OFPACT_REMOTE:
+#ifdef DEBUG
+            VLOG_INFO("will run xlate_remote_action()");
+#endif
             xlate_remote_action(ctx, ofpact_get_REMOTE(a)->port,
                     ofpact_get_REMOTE(a)->ip);
 #endif
@@ -6663,7 +6675,7 @@ packet_remote(struct ofproto *ofproto_, struct ofpbuf *packet,
            const struct ofpact *ofpacts, size_t ofpacts_len)
 {
 #ifdef DEBUG
-        VLOG_INFO("packet_remote(): send remote cmd to dp.");
+        VLOG_INFO("packet_remote(): send remote cmd to dp, act_type = 0x%x.", ofpacts->type);
 #endif
     struct ofproto_dpif *ofproto = ofproto_dpif_cast(ofproto_);
     enum ofperr error;
