@@ -260,22 +260,7 @@ struct ofp_action_enqueue {
 };
 OFP_ASSERT(sizeof(struct ofp_action_enqueue) == 16);
 
-/*LC_ENABLE*/
-#ifdef LC_ENABLE
-union ofp_action {
-    ovs_be16 type;
-    struct ofp_action_header header;
-    struct ofp_action_vendor_header vendor;
-    struct ofp10_action_output output10;
-    struct ofp_action_vlan_vid vlan_vid;
-    struct ofp_action_vlan_pcp vlan_pcp;
-    struct ofp_action_nw_addr nw_addr;
-    struct ofp_action_nw_tos nw_tos;
-    struct ofp_action_tp_port tp_port;
-    struct ofp10_action_remote remote10;
-};
-OFP_ASSERT(sizeof(union ofp_action) == 16);
-#else
+/*do not change this even if LC_ENABLE*/
 union ofp_action {
     ovs_be16 type;
     struct ofp_action_header header;
@@ -288,7 +273,6 @@ union ofp_action {
     struct ofp_action_tp_port tp_port;
 };
 OFP_ASSERT(sizeof(union ofp_action) == 8);
-#endif
 
 /* Send packet (controller -> datapath). */
 struct ofp_packet_out {
