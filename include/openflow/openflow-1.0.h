@@ -220,10 +220,8 @@ struct ofp10_action_remote {
     ovs_be16 type;                  /* OFPAT10_OUTPUT. */
     ovs_be16 len;                   /* Length is 8. */
     ovs_be16 port;                  /* Output port. */
-    ovs_be16 pad1;                  /* pad. */
+    ovs_be16 pad1[3];                  /* pad. */
     ovs_be32 ip;                    /* Remote ip. */
-    ovs_be16 max_len;               /* Max length to send to controller. */
-    ovs_be16 pad2;                  /* pad. */
 };
 OFP_ASSERT(sizeof(struct ofp10_action_remote) == 16);
 #endif
@@ -262,6 +260,22 @@ struct ofp_action_enqueue {
 };
 OFP_ASSERT(sizeof(struct ofp_action_enqueue) == 16);
 
+/*LC_ENABLE*/
+#ifdef LC_ENABLE
+union ofp_action {
+    ovs_be16 type;
+    struct ofp_action_header header;
+    struct ofp_action_vendor_header vendor;
+    struct ofp10_action_output output10;
+    struct ofp_action_vlan_vid vlan_vid;
+    struct ofp_action_vlan_pcp vlan_pcp;
+    struct ofp_action_nw_addr nw_addr;
+    struct ofp_action_nw_tos nw_tos;
+    struct ofp_action_tp_port tp_port;
+    struct ofp10_action_remote remote10;
+};
+OFP_ASSERT(sizeof(union ofp_action) == 16);
+#else
 union ofp_action {
     ovs_be16 type;
     struct ofp_action_header header;
@@ -274,6 +288,7 @@ union ofp_action {
     struct ofp_action_tp_port tp_port;
 };
 OFP_ASSERT(sizeof(union ofp_action) == 8);
+#endif
 
 /* Send packet (controller -> datapath). */
 struct ofp_packet_out {
