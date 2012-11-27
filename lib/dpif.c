@@ -1000,6 +1000,10 @@ dpif_execute__(struct dpif *dpif, const struct dpif_execute *execute)
         error = 0;
     }
 
+#ifdef DEBUG
+    VLOG_INFO("dpif_execute__(): error=%u",error);
+#endif
+
     log_execute_message(dpif, execute, error);
 
     return error;

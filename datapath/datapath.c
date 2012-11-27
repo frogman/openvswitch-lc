@@ -1025,6 +1025,9 @@ static void clear_stats(struct sw_flow *flow)
 
 static int ovs_packet_cmd_execute(struct sk_buff *skb, struct genl_info *info)
 {
+#ifdef DEBUG
+    pr_info("ovs_packet_cmd_execute()\n");
+#endif
 	struct ovs_header *ovs_header = info->userhdr;
 	struct nlattr **a = info->attrs;
 	struct sw_flow_actions *acts;

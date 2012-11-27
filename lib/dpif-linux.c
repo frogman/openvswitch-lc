@@ -1008,6 +1008,9 @@ dpif_linux_execute__(int dp_ifindex, const struct dpif_execute *execute)
 static int
 dpif_linux_execute(struct dpif *dpif_, const struct dpif_execute *execute)
 {
+#ifdef DEBUG
+    VLOG_INFO("dpif_linux_execute()");
+#endif
     struct dpif_linux *dpif = dpif_linux_cast(dpif_);
 
     return dpif_linux_execute__(dpif->dp_ifindex, execute);

@@ -2209,6 +2209,9 @@ handle_packet_remote(struct ofconn *ofconn, const struct ofp_header *oh)
                                          pr.ofpacts, pr.ofpacts_len);
     ofpbuf_delete(payload);
 
+#ifdef DEBUG
+        VLOG_INFO("handle_packet_remote() finish.");
+#endif
 exit_free_ofpacts:
     ofpbuf_uninit(&ofpacts);
 exit:
@@ -3922,6 +3925,9 @@ handle_openflow(struct ofconn *ofconn, struct ofpbuf *ofp_msg)
         ofconn_send_error(ofconn, ofp_msg->data, error);
     }
     COVERAGE_INC(ofproto_recv_openflow);
+#ifdef DEBUG
+        VLOG_INFO("handle_openflow() finish.");
+#endif
     return error != OFPROTO_POSTPONE;
 }
 

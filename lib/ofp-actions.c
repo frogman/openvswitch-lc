@@ -499,10 +499,10 @@ ofpact_from_openflow10_remote(const struct ofp_action_remote *a, struct ofpbuf *
     }
 
 #ifdef DEBUG
-    VLOG_INFO("ofpact_from_openflow10(): code = %u", code);
+    VLOG_INFO("ofpact_from_openflow10_remote(): code = %u", code);
 #endif
     if(code == OFPUTIL_OFPAT10_REMOTE) {
-        VLOG_INFO("ofpact_from_openflow10(): handle OFPUTIL_OFPAT10_REMOTE");
+        VLOG_INFO("ofpact_from_openflow10_remote(): handle OFPUTIL_OFPAT10_REMOTE");
         return remote_from_openflow10(a, out);
     }
 
@@ -1105,7 +1105,11 @@ ofpact_check__(const struct ofpact *a, const struct flow *flow, int max_ports)
                                          max_ports);
 #ifdef LC_ENABLE
     case OFPACT_REMOTE:
-        return 0;
+#ifdef DEBUG
+        VLOG_INFO("ofpact_check__(), type=OFPACT_REMOTE");
+#endif
+        return ofputil_check_output_port(ofpact_get_REMOTE(a)->port,
+                                         max_ports);
 #endif
 
     case OFPACT_CONTROLLER:
@@ -1181,6 +1185,9 @@ ofpacts_check(const struct ofpact ofpacts[], size_t ofpacts_len,
     OFPACT_FOR_EACH (a, ofpacts, ofpacts_len) {
         enum ofperr error = ofpact_check__(a, flow, max_ports);
         if (error) {
+#ifdef DEBUG
+            VLOG_INFO("ofpacts_check(): error to check, ofpacts_len=%u.",ofpacts_len);
+#endif
             return error;
         }
     }

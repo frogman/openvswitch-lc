@@ -6675,7 +6675,7 @@ packet_remote(struct ofproto *ofproto_, struct ofpbuf *packet,
            const struct ofpact *ofpacts, size_t ofpacts_len)
 {
 #ifdef DEBUG
-        VLOG_INFO("packet_remote(): send remote cmd to dp, act_type = 0x%x.", ofpacts->type);
+        VLOG_INFO("packet_remote(): send remote cmd to dp, act_type = %u.", ofpacts->type);
 #endif
     struct ofproto_dpif *ofproto = ofproto_dpif_cast(ofproto_);
     enum ofperr error;
@@ -6685,6 +6685,11 @@ packet_remote(struct ofproto *ofproto_, struct ofpbuf *packet,
     }
 
     error = ofpacts_check(ofpacts, ofpacts_len, flow, ofproto->max_ports);
+#ifdef DEBUG
+    if(error) {
+        VLOG_INFO("packet_remote(): error to do ofpacts_check(), ofpacts_len=%u",ofpacts_len);
+    }
+#endif
     if (!error) {
         struct odputil_keybuf keybuf;
         struct dpif_flow_stats stats;
@@ -6711,6 +6716,9 @@ packet_remote(struct ofproto *ofproto_, struct ofpbuf *packet,
                      odp_actions.data, odp_actions.size, packet);
         ofpbuf_uninit(&odp_actions);
     }
+#ifdef DEBUG
+        VLOG_INFO("packet_remote() finish, error=%u",error);
+#endif
     return error;
 }
 
