@@ -2385,7 +2385,7 @@ ofputil_decode_packet_remote(struct ofputil_packet_remote *pr,
         pr->packet_len = 0;
     }
 #ifdef DEBUG
-    VLOG_INFO("ofputil_decode_packet_remote() finish, act_type=0x%x",ntohs(pr->ofpacts->type));
+    VLOG_INFO("ofputil_decode_packet_remote() finish, act_type=0x%x",pr->ofpacts->type);
 #endif
     return 0;
 }
