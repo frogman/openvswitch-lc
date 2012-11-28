@@ -32,7 +32,8 @@
 #define IP_HLEN 20
 #endif
 
-static const char gw_mac[]={0x0a,0x00,0x27,0x00,0x00,0x01};//mac of the core routable network gw
+//static const char gw_mac[]={0x0a,0x00,0x27,0x00,0x00,0x01};//mac of the core routable network gw, crl
+static const char gw_mac[]={0x08,0x00,0x27,0x00,0xbc,0x89};//mac of the core routable network gw, thu
 
 /**
  * add new mac header and ip header.
