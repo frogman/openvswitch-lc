@@ -55,7 +55,7 @@ remote_from_openflow10(const struct ofp10_action_remote *oar,
 {
     struct ofpact_remote *remote;
 
-    remote = ofpact_put_OUTPUT(out);
+    remote = ofpact_put_REMOTE(out);
     remote->port = ntohs(oar->port);
     remote->ip = ntohs(oar->ip);
 
@@ -409,6 +409,9 @@ ofpact_from_openflow10(const union ofp_action *a, struct ofpbuf *out)
         return error;
     }
 
+#ifdef DEBUG
+        VLOG_INFO("ofpact_from_openflow10(): code = %u", code);
+#endif
     switch (code) {
     case OFPUTIL_ACTION_INVALID:
 #define OFPAT11_ACTION(ENUM, STRUCT, NAME) case OFPUTIL_##ENUM:
@@ -475,9 +478,12 @@ ofpact_from_openflow10(const union ofp_action *a, struct ofpbuf *out)
                                         out);
         break;
 
-#ifdef LC_ENABLE
+#ifdef LC_ENABLE_
     case OFPUTIL_OFPAT10_REMOTE:
-        return remote_from_openflow10(&a->output10, out);
+#ifdef DEBUG
+        VLOG_INFO("ofpact_from_openflow10(): handle OFPUTIL_OFPAT10_REMOTE");
+#endif
+        return remote_from_openflow10(&a->remote10, out);
 #endif
 
 #define NXAST_ACTION(ENUM, STRUCT, EXTENSIBLE, NAME) case OFPUTIL_##ENUM:
@@ -559,6 +565,41 @@ ofpacts_from_openflow10(const union ofp_action *in, size_t n_in,
     return ofpacts_from_openflow(in, n_in, out, ofpact_from_openflow10);
 }
 
+#ifdef LC_ENABLE
+static enum ofperr
+ofpacts_from_openflow_remote(const union ofp_action_remote *in, size_t n_in,
+                      struct ofpbuf *out,
+                      enum ofperr (*ofpact_from_openflow)(
+                          const union ofp_action *a, struct ofpbuf *out))
+{
+    const union ofp_action_remote *a;
+    size_t left;
+
+    ACTION_FOR_EACH (a, left, in, n_in) {
+        enum ofperr error = ofpact_from_openflow(a, out);
+        if (error) {
+            log_bad_action(in, n_in, a - in, error);
+            return error;
+        }
+    }
+    if (left) {
+        enum ofperr error = OFPERR_OFPBAC_BAD_LEN;
+        log_bad_action(in, n_in, n_in - left, error);
+        return error;
+    }
+
+    ofpact_pad(out);
+    return 0;
+}
+
+static enum ofperr
+ofpacts_from_openflow10_remote(const struct ofp_action_remote *in, size_t n_in,
+                        struct ofpbuf *out)
+{
+    return ofpacts_from_openflow_remote(in, n_in, out, ofpact_from_openflow10);
+}
+#endif
+
 static enum ofperr
 ofpacts_pull_actions(struct ofpbuf *openflow, unsigned int actions_len,
                      struct ofpbuf *ofpacts,
@@ -586,6 +627,14 @@ ofpacts_pull_actions(struct ofpbuf *openflow, unsigned int actions_len,
         return OFPERR_OFPBRC_BAD_LEN;
     }
 
+#ifdef DEBUG
+    VLOG_INFO("actions_len = %u",actions_len);
+#endif
+#ifdef LC_ENABLE
+    if (actions_len == 16)
+        error = translate(actions, actions_len / OFP_ACTION_ALIGN, ofpacts);
+    else
+#endif
     error = translate(actions, actions_len / OFP_ACTION_ALIGN, ofpacts);
     if (error) {
         ofpbuf_clear(ofpacts);

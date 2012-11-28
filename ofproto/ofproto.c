@@ -2168,7 +2168,7 @@ static enum ofperr
 handle_packet_remote(struct ofconn *ofconn, const struct ofp_header *oh)
 {
 #ifdef DEBUG
-        VLOG_INFO("handle_packet_remote() from controller.");
+        VLOG_INFO("handle_packet_remote() from controller, type=0x%x, length=%u.",oh->type,oh->length);
 #endif
     struct ofproto *p = ofconn_get_ofproto(ofconn);
     struct ofputil_packet_remote pr;

@@ -5641,10 +5641,10 @@ do_xlate_actions(const struct ofpact *ofpacts, size_t ofpacts_len,
             break;
         }
 
-        switch (a->type) {
 #ifdef DEBUG
             VLOG_INFO("do_xlate_actions, type=0x%x",a->type);
 #endif
+        switch (a->type) {
         case OFPACT_OUTPUT:
 #ifdef DEBUG
             VLOG_INFO("will run xlate_output_action()");

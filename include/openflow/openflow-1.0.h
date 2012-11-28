@@ -216,14 +216,14 @@ struct ofp10_action_output {
 OFP_ASSERT(sizeof(struct ofp10_action_output) == 8);
 
 #ifdef LC_ENABLE
-struct ofp10_action_remote {
-    ovs_be16 type;                  /* OFPAT10_OUTPUT. */
+struct ofp_action_remote {
+    ovs_be16 type;                  /* OFPAT10_REMOTE. */
     ovs_be16 len;                   /* Length is 8. */
     ovs_be16 port;                  /* Output port. */
     ovs_be16 pad1[3];                  /* pad. */
     ovs_be32 ip;                    /* Remote ip. */
 };
-OFP_ASSERT(sizeof(struct ofp10_action_remote) == 16);
+OFP_ASSERT(sizeof(struct ofp_action_remote) == 16);
 #endif
 
 /* Action header for OFPAT10_VENDOR. The rest of the body is vendor-defined. */
@@ -260,7 +260,6 @@ struct ofp_action_enqueue {
 };
 OFP_ASSERT(sizeof(struct ofp_action_enqueue) == 16);
 
-/*do not change this even if LC_ENABLE*/
 union ofp_action {
     ovs_be16 type;
     struct ofp_action_header header;

@@ -350,7 +350,7 @@ void ovs_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
             kfree_skb(skb);
             return;
         }
-        if (unlikely(ntohs(key.eth.type) == 0x86dd)) { //TODO: do not support ipv6 now.
+        if (unlikely(ntohs(key.eth.type) == 0x86dd || ntohs(key.eth.type) == 0x8942 || ntohs(key.eth.type) == 0x88cc)) { //TODO: do not support ipv6 now.
             kfree_skb(skb);
             return;
         }
