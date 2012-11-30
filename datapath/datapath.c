@@ -1040,6 +1040,7 @@ static int ovs_packet_cmd_execute(struct sk_buff *skb, struct genl_info *info)
 	int err;
 	int key_len;
 
+
 	err = -EINVAL;
 	if (!a[OVS_PACKET_ATTR_PACKET] || !a[OVS_PACKET_ATTR_KEY] ||
 	    !a[OVS_PACKET_ATTR_ACTIONS] ||
@@ -1047,6 +1048,9 @@ static int ovs_packet_cmd_execute(struct sk_buff *skb, struct genl_info *info)
 		goto err;
 
 	len = nla_len(a[OVS_PACKET_ATTR_PACKET]);
+#ifdef DEBUG
+    pr_info("ovs_packet_cmd_execute(),len=%u",len);
+#endif
 	packet = __dev_alloc_skb(NET_IP_ALIGN + len, GFP_KERNEL);
 	err = -ENOMEM;
 	if (!packet)
@@ -1057,6 +1061,9 @@ static int ovs_packet_cmd_execute(struct sk_buff *skb, struct genl_info *info)
 
 	skb_reset_mac_header(packet);
 	eth = eth_hdr(packet);
+#ifdef DEBUG
+    pr_mac("ovs_packet_cmd_execute()",eth->h_source,eth->h_dest,eth->h_proto);
+#endif
 
 	/* Normally, setting the skb 'protocol' field would be handled by a
 	 * call to eth_type_trans(), but it assumes there's a sending

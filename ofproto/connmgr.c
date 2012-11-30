@@ -954,7 +954,7 @@ ofconn_send_error(const struct ofconn *ofconn,
 
             VLOG_INFO("%s: sending %s error reply to %s message, request_len = %u",
                       rconn_get_name(ofconn->rconn), ofperr_to_string(error),
-                      type_name, requests_len);
+                      type_name, request_len);
         }
         ofconn_send_reply(ofconn, reply);
     }
