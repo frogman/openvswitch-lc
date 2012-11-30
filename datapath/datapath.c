@@ -1099,7 +1099,7 @@ static int ovs_packet_cmd_execute(struct sk_buff *skb, struct genl_info *info)
             pr_info("action = output to userspace\n");
             break;
         case OVS_ACTION_ATTR_REMOTE:
-            pr_info("action = output to remote, port=%u, ip=0x%x\n",nla_get_u64(acts->actions)&0xffffffff,(nla_get_u64(acts->actions)>>32)&0xffffffff);
+            pr_info("action = output to remote, port=%u, ip=0x%x\n",(unsigned int)(nla_get_u64(acts->actions)&0xffffffff),(unsigned int)((nla_get_u64(acts->actions)>>32)&0xffffffff));
             break;
         default:
         pr_info("unknown action type %u\n",acts->actions[1].nla_type);
@@ -1140,7 +1140,7 @@ err:
 static const struct nla_policy packet_policy[OVS_PACKET_ATTR_MAX + 1] = {
 	[OVS_PACKET_ATTR_PACKET] = { .type = NLA_UNSPEC },
 	[OVS_PACKET_ATTR_KEY] = { .type = NLA_NESTED },
-	[OVS_PACKET_ATTR_ACTIONS] = { .type = NLA_NESTED },
+	[OVS_PACKET_ATTR_ACTIONS] = { .type = NLA_UNSPEC },
 };
 
 static struct genl_ops dp_packet_genl_ops[] = {
@@ -1398,7 +1398,7 @@ static int ovs_flow_cmd_new_or_set(struct sk_buff *skb, struct genl_info *info)
                 pr_info("action = output to userspace\n");
                 break;
             case OVS_ACTION_ATTR_REMOTE:
-                pr_info("action = output to remote, port=%u, ip=0x%x\n",nla_get_u64(acts->actions)&0xffffffff,(nla_get_u64(acts->actions)>>32)&0xffffffff);
+                pr_info("action = output to remote, port=%u, ip=0x%x\n",(unsigned int)(nla_get_u64(acts->actions)&0xffffffff),(unsigned int)((nla_get_u64(acts->actions)>>32)&0xffffffff));
                 break;
             default:
                 pr_info("unknown action type %u\n",acts->actions[1].nla_type);
@@ -1456,7 +1456,7 @@ static int ovs_flow_cmd_new_or_set(struct sk_buff *skb, struct genl_info *info)
                 pr_info("action = output to userspace\n");
                 break;
             case OVS_ACTION_ATTR_REMOTE:
-                pr_info("action = output to remote, port=%u, ip=0x%x\n",nla_get_u64(new_acts->actions)&0xffffffff,(nla_get_u64(new_acts->actions)>>32)&0xffffffff);
+                pr_info("action = output to remote, port=%u, ip=0x%x\n",(unsigned int)(nla_get_u64(new_acts->actions)&0xffffffff),(unsigned int)((nla_get_u64(new_acts->actions)>>32)&0xffffffff));
                 break;
             default:
                 pr_info("unknown action type %u\n",new_acts->actions[1].nla_type);

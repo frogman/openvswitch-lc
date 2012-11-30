@@ -57,7 +57,7 @@
 
 #ifdef LC_ENABLE
 #include "../lib/stat.h"
-extern int bridge_update_local_bf(const struct bridge *br, const char *src_mac);
+extern int bridge_update_local_bf(const struct bridge *br, const unsigned char *src_mac);
 #endif
 
 VLOG_DEFINE_THIS_MODULE(ofproto_dpif);
@@ -5131,10 +5131,13 @@ compose_remote_action__(struct action_xlate_ctx *ctx, uint16_t ofp_port, uint32_
 
     out_port = vsp_realdev_to_vlandev(ctx->ofproto, odp_port,
                                       ctx->flow.vlan_tci);
+#ifdef DEBUG
+        VLOG_INFO(">>>compose_remote_action__(): odp_port=%u,out_port=%u,ip=0x%x",odp_port,out_port,ip);
+#endif
     if (out_port != odp_port) {
         ctx->flow.vlan_tci = htons(0);
     }
-    commit_odp_actions(&ctx->flow, &ctx->base_flow, ctx->odp_actions); //write to odp_actions
+    commit_odp_actions(&ctx->flow, &ctx->base_flow, ctx->odp_actions); //check flow key
     nl_msg_put_u64(ctx->odp_actions, OVS_ACTION_ATTR_REMOTE, ((uint64_t)out_port<<32)+ip); //add output port,ip
 
     ctx->sflow_odp_port = odp_port;
@@ -5142,16 +5145,19 @@ compose_remote_action__(struct action_xlate_ctx *ctx, uint16_t ofp_port, uint32_
     ctx->nf_output_iface = ofp_port;
     ctx->flow.vlan_tci = flow_vlan_tci;
     ctx->flow.nw_tos = flow_nw_tos;
+#ifdef DEBUG
+        VLOG_INFO("<<<compose_remote_action__(): size=%u, nla_data=0x%llx",ctx->odp_actions->size,nl_attr_get_u64(ctx->odp_actions->data));
+#endif
 }
 static void
 compose_remote_action(struct action_xlate_ctx *ctx, uint16_t ofp_port, uint32_t ip)
 {
 #ifdef DEBUG
-        VLOG_INFO("compose_remote_action() start: port=%u,ip=0x%x",ofp_port,ip);
+        VLOG_INFO(">>>compose_remote_action(): port=%u,ip=0x%x",ofp_port,ip);
 #endif
-    compose_remote_action__(ctx, ofp_port, ip, true);
+    compose_remote_action__(ctx, ofp_port, ip, false);//no need to check stp actually
 #ifdef DEBUG
-        VLOG_INFO("compose_remote_action() done");
+        VLOG_INFO("<<<compose_remote_action() done");
 #endif
 }
 #endif
@@ -5410,7 +5416,7 @@ xlate_remote_action(struct action_xlate_ctx *ctx,
                     uint16_t port, uint32_t ip)
 {
 #ifdef DEBUG
-        VLOG_INFO("xlate_remote_action() start, port=%u, ip=0x%x.",port,ip);
+        VLOG_INFO(">>>xlate_remote_action() start, port=%u, ip=0x%x.",port,ip);
 #endif
     uint16_t prev_nf_output_iface = ctx->nf_output_iface;
 
@@ -5428,7 +5434,7 @@ xlate_remote_action(struct action_xlate_ctx *ctx,
         ctx->nf_output_iface = NF_OUT_MULTI;
     }
 #ifdef DEBUG
-        VLOG_INFO("xlate_remote_action() done.");
+        VLOG_INFO("<<<xlate_remote_action() done.");
 #endif
 }
 #endif
@@ -5651,21 +5657,15 @@ do_xlate_actions(const struct ofpact *ofpacts, size_t ofpacts_len,
         }
 
 #ifdef DEBUG
-            VLOG_INFO("do_xlate_actions, type=0x%x, ofpacts_len=%u",a->type,ofpacts_len);
+            VLOG_INFO(">>>do_xlate_actions, type=%u, ofpacts_len=%u",a->type,ofpacts_len);
 #endif
         switch (a->type) {
         case OFPACT_OUTPUT:
-#ifdef DEBUG
-            VLOG_INFO("will xlate_output_action()");
-#endif
             xlate_output_action(ctx, ofpact_get_OUTPUT(a)->port,
                                 ofpact_get_OUTPUT(a)->max_len);
             break;
 #ifdef LC_ENABLE
         case OFPACT_REMOTE:
-#ifdef DEBUG
-            VLOG_INFO("will xlate_remote_action()");
-#endif
             xlate_remote_action(ctx, ofpact_get_REMOTE(a)->port,
                     ofpact_get_REMOTE(a)->ip);
             break;
@@ -5813,7 +5813,9 @@ out:
         ctx->rule->up.evictable = was_evictable;
     }
 #ifdef DEBUG
-    VLOG_INFO("do_xlate_actions() done.");
+    if(a->type == OFPACT_REMOTE) 
+        VLOG_INFO("ctx->odp_actions: size=%u, nla_data=0x%llx",ctx->odp_actions->size,nl_attr_get_u64(ctx->odp_actions->data));
+    VLOG_INFO("<<<do_xlate_actions() done.");
 #endif
 }
 
@@ -5844,6 +5846,9 @@ xlate_actions(struct action_xlate_ctx *ctx,
               const struct ofpact *ofpacts, size_t ofpacts_len,
               struct ofpbuf *odp_actions)
 {
+#ifdef DEBUG
+    VLOG_INFO(">>>xlate_actions(): ofpacts_len=%u",ofpacts_len);
+#endif
     /* Normally false.  Set to true if we ever hit MAX_RESUBMIT_RECURSION, so
      * that in the future we always keep a copy of the original flow for
      * tracing purposes. */
@@ -5941,6 +5946,7 @@ xlate_actions(struct action_xlate_ctx *ctx,
             if (ctx->packet
                 && connmgr_msg_in_hook(ctx->ofproto->up.connmgr, &ctx->flow,
                                        ctx->packet)) {
+                VLOG_INFO("compose_output_action()");
                 compose_output_action(ctx, OFPP_LOCAL);
             }
         }
@@ -5950,7 +5956,10 @@ xlate_actions(struct action_xlate_ctx *ctx,
         fix_sflow_action(ctx);
     }
 #ifdef DEBUG
-    VLOG_INFO("xlate_actions() done");
+    if(ctx->odp_actions->size==12)
+        VLOG_INFO("<<<xlate_actions(): size=%u, nla_data=0x%llx",ctx->odp_actions->size,nl_attr_get_u64(ctx->odp_actions->data));
+    else if (ctx->odp_actions->size==8) 
+        VLOG_INFO("<<<xlate_actions(): size=%u, nla_data=0x%x",ctx->odp_actions->size,nl_attr_get_u32(ctx->odp_actions->data));
 #endif
 }
 
@@ -6696,7 +6705,7 @@ packet_remote(struct ofproto *ofproto_, struct ofpbuf *packet,
            const struct ofpact *ofpacts, size_t ofpacts_len)
 {
 #ifdef DEBUG
-        VLOG_INFO("packet_remote() start: send remote cmd to dp, act_type=%u, act_len=%u,port=%u, ip=0x%x.", ofpacts->type,ofpacts->len,((struct ofp_action_remote*)ofpacts)->port,((struct ofp_action_remote*)ofpacts)->ip);
+        VLOG_INFO(">>>packet_remote(): send remote cmd to dp, act_type=%u, act_len=%u,port=%u, ip=0x%x.", ofpacts->type,ofpacts->len,((struct ofpact_remote*)ofpacts)->port,((struct ofpact_remote*)ofpacts)->ip);
 #endif
     struct ofproto_dpif *ofproto = ofproto_dpif_cast(ofproto_);
     enum ofperr error;
@@ -6742,7 +6751,7 @@ packet_remote(struct ofproto *ofproto_, struct ofpbuf *packet,
         ofpbuf_uninit(&odp_actions);
     }
 #ifdef DEBUG
-        VLOG_INFO("packet_remote() finish, error=%u",error);
+        VLOG_INFO("<<<packet_remote() finish, error=%u",error);
 #endif
     return error;
 }

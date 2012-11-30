@@ -189,7 +189,7 @@ int bf_gdt_destroy(struct bf_gdt *gdt)
  * @param s: the string to add
  * @return 0 if successfully.
  */
-int bf_gdt_add_item(struct bf_gdt *gdt, u32 bf_id, const char *s)
+int bf_gdt_add_item(struct bf_gdt *gdt, u32 bf_id, const unsigned char *s)
 {
     u32 i=0;
     struct bloom_filter *bf = NULL;

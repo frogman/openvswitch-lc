@@ -46,7 +46,7 @@ struct bf_gdt *bf_gdt_init(u32 gid);
 int bf_gdt_destroy(struct bf_gdt *gdt);
 
 struct bloom_filter *bf_gdt_add_filter(struct bf_gdt *gdt, u32 bf_id, u16 port_no, u32 len);
-int bf_gdt_add_item(struct bf_gdt *gdt, u32 bf_id, const char *s);
+int bf_gdt_add_item(struct bf_gdt *gdt, u32 bf_id, const unsigned char *s);
 
 struct bloom_filter *bf_gdt_check(struct bf_gdt *gdt, const char *s);
 

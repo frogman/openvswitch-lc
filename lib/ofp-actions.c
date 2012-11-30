@@ -53,21 +53,24 @@ static enum ofperr
 remote_from_openflow10(const struct ofp_action_remote *oar,
                        struct ofpbuf *out)
 {
+#ifdef DEBUG
+    VLOG_INFO(">>>remote_from_openflow10():oar->len=%u,port=%u,ip=0x%x",ntohs(oar->len),ntohs(oar->port),ntohl(oar->ip));
+#endif
     struct ofpact_remote *remote;
 
     remote = ofpact_put_REMOTE(out);
     /*
     struct ofpact *ofpact;
     ofpact_pad(out);
-    ofpact = out->l2 = ofpbuf_put_uninit(out, sizeof(struct ofp_action_remote));
-    ofpact_init(ofpact, OFPACT_REMOTE, sizeof(struct ofp_action_remote));
+    ofpact = out->l2 = ofpbuf_put_uninit(out, sizeof(struct ofpact_remote));
+    ofpact_init(ofpact, OFPACT_REMOTE, sizeof(struct ofpact_remote));
     remote = ofpact;
     */
 
     remote->port = ntohs(oar->port);
     remote->ip = ntohl(oar->ip);
 #ifdef DEBUG
-    VLOG_INFO("remote_from_openflow10(): remote->port=%u,ip=0x%x",remote->port,remote->ip);
+    VLOG_INFO("<<<remote_from_openflow10(): remote->len=%u,port=%u,ip=0x%x",remote->ofpact.len,remote->port,remote->ip);
 #endif
 
     return ofputil_check_output_port(remote->port, OFPP_MAX);
@@ -504,18 +507,21 @@ ofpact_from_openflow10_remote(const struct ofp_action_remote *a, struct ofpbuf *
     enum ofputil_action_code code;
     enum ofperr error;
 
-    error = decode_openflow10_action((const union ofp_action*)a, &code);
+    error = decode_openflow10_action((const union ofp_action*)a, &code);//get the code
     if (error) {
         return error;
     }
 
 #ifdef DEBUG
-    VLOG_INFO("ofpact_from_openflow10_remote(): code=%u,len=%u,port=%u,ip=0x%x", code,ntohs(a->len),ntohs(a->port),ntohl(a->ip));
+    VLOG_INFO(">>>ofpact_from_openflow10_remote(): code=%u,len=%u,port=%u,ip=0x%x", code,ntohs(a->len),ntohs(a->port),ntohl(a->ip));
 #endif
     if(code == OFPUTIL_OFPAT10_REMOTE) {
-        VLOG_INFO("ofpact_from_openflow10_remote(): handle OFPUTIL_OFPAT10_REMOTE");
+        VLOG_INFO("handle OFPUTIL_OFPAT10_REMOTE");
         return remote_from_openflow10(a, out);
     }
+#ifdef DEBUG
+    VLOG_INFO("<<<ofpact_from_openflow10_remote()");
+#endif
 
     return error;
 }
@@ -628,11 +634,11 @@ ofpacts_from_openflow_remote(const struct ofp_action_remote *in, size_t n_in,
     size_t left;
 
 #ifdef DEBUG
-    VLOG_INFO("ofpacts_from_openflow_remote(): n_in=%u,in->port=%u,in->ip=0x%x",n_in,ntohs(in->port),ntohl(in->ip));
+    VLOG_INFO(">>>ofpacts_from_openflow_remote(): n_in=%u, in->port=%u,in->ip=0x%x",n_in,ntohs(in->port),ntohl(in->ip));
 #endif
     ACTION_FOR_EACH_REMOTE (a, left, in, n_in) {
 #ifdef DEBUG
-        VLOG_INFO("ofpacts_from_openflow_remote(): a->len=%u",ntohs(a->len));
+        VLOG_INFO("a->len=%u",ntohs(a->len));
 #endif
         enum ofperr error = ofpact_from_openflow(a, out);
         if (error) {
@@ -642,7 +648,7 @@ ofpacts_from_openflow_remote(const struct ofp_action_remote *in, size_t n_in,
     }
     if (left) {
 #ifdef DEBUG
-        VLOG_INFO("ofpacts_from_openflow_remote(): still left %u bytes",left);
+        VLOG_WARN("still left %u bytes",left);
 #endif
         enum ofperr error = OFPERR_OFPBAC_BAD_LEN;
         log_bad_action(in, n_in, n_in - left, error);
@@ -650,6 +656,9 @@ ofpacts_from_openflow_remote(const struct ofp_action_remote *in, size_t n_in,
     }
 
     ofpact_pad(out);
+#ifdef DEBUG
+        VLOG_INFO("<<<ofpacts_from_openflow_remote() done");
+#endif
     return 0;
 }
 
@@ -668,6 +677,9 @@ ofpacts_pull_actions(struct ofpbuf *openflow, unsigned int actions_len,
                                               size_t n_actions,
                                               struct ofpbuf *ofpacts))
 {
+#ifdef DEBUG
+    VLOG_INFO(">>>ofpacts_pull_actions(): actions_len = %u",actions_len);
+#endif
     static struct vlog_rate_limit rl = VLOG_RATE_LIMIT_INIT(1, 5);
 #ifdef LC_ENABLE
     const void *actions;
@@ -692,9 +704,6 @@ ofpacts_pull_actions(struct ofpbuf *openflow, unsigned int actions_len,
         return OFPERR_OFPBRC_BAD_LEN;
     }
 
-#ifdef DEBUG
-    VLOG_INFO("actions_len = %u",actions_len);
-#endif
 #ifdef LC_ENABLE
     if (actions_len == 16)
         error = ofpacts_from_openflow10_remote(actions, actions_len / sizeof(struct ofp_action_remote), ofpacts);
@@ -704,6 +713,9 @@ ofpacts_pull_actions(struct ofpbuf *openflow, unsigned int actions_len,
     if (error) {
         ofpbuf_clear(ofpacts);
     }
+#ifdef DEBUG
+    VLOG_INFO("<<<ofpacts_pull_actions() done");
+#endif
     return error;
 }
 
@@ -1397,6 +1409,9 @@ ofpact_to_nxast(const struct ofpact *a, struct ofpbuf *out)
     case OFPACT_SET_IPV4_DSCP:
     case OFPACT_SET_L4_SRC_PORT:
     case OFPACT_SET_L4_DST_PORT:
+#ifdef LC_ENABLE
+    case OFPACT_REMOTE:
+#endif
         NOT_REACHED();
     }
 }
@@ -1794,7 +1809,16 @@ ofpact_format(const struct ofpact *a, struct ds *s)
             }
         }
         break;
-
+#ifdef LC_ENABLE
+    case OFPACT_REMOTE:
+        port = ofpact_get_REMOTE(a)->port;
+        if (port < OFPP_MAX) {
+            ds_put_format(s, "remote:%"PRIu16, port);
+        } else {
+            ofputil_format_port(port, s);
+        }
+        break;
+#endif
     case OFPACT_CONTROLLER:
         controller = ofpact_get_CONTROLLER(a);
         if (controller->reason == OFPR_ACTION &&

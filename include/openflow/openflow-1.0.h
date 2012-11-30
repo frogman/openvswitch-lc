@@ -220,7 +220,8 @@ struct ofp_action_remote {
     ovs_be16 type;                  /* OFPAT10_REMOTE. */
     ovs_be16 len;                   /* Length is 8. */
     ovs_be16 port;                  /* Output port. */
-    ovs_be16 pad1[3];                  /* pad. */
+
+    uint8_t pad[6];                  /* pad. */
     ovs_be32 ip;                    /* Remote ip. */
 };
 OFP_ASSERT(sizeof(struct ofp_action_remote) == 16);
