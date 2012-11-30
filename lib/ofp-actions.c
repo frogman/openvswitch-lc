@@ -55,9 +55,23 @@ remote_from_openflow10(const struct ofp_action_remote *oar,
 {
     struct ofpact_remote *remote;
 
-    remote = ofpact_put_REMOTE(out);
+    //remote = ofpact_put_REMOTE(out);
+    struct ofpact *ofpact;
+
+    ofpact_pad(out);
+    ofpact = out->l2 = ofpbuf_put_uninit(out, sizeof(struct ofp_action_remote));
+    ofpact_init(ofpact, OFPACT_REMOTE, sizeof(struct ofp_action_remote));
+    remote = ofpact;
+
+#ifdef DEBUG
+    VLOG_INFO("remote_from_openflow10(): OFPACT_REMOTE_RAW_SIZE=%u,sizeof_ofp_action_remote=%u",OFPACT_REMOTE_RAW_SIZE,sizeof(struct ofp_action_remote));
+#endif
     remote->port = ntohs(oar->port);
-    remote->ip = ntohs(oar->ip);
+    remote->ip = ntohl(oar->ip);
+#ifdef DEBUG
+    VLOG_INFO("remote_from_openflow10(): oar->port=%u,ip=0x%x",ntohs(oar->port),ntohl(oar->ip));
+    VLOG_INFO("remote_from_openflow10(): remote->port=%u,ip=0x%x",remote->port,remote->ip);
+#endif
 
     return ofputil_check_output_port(remote->port, OFPP_MAX);
 }
@@ -499,7 +513,7 @@ ofpact_from_openflow10_remote(const struct ofp_action_remote *a, struct ofpbuf *
     }
 
 #ifdef DEBUG
-    VLOG_INFO("ofpact_from_openflow10_remote(): code = %u", code);
+    VLOG_INFO("ofpact_from_openflow10_remote(): code=%u,len=%u,port=%u,ip=0x%x", code,ntohs(a->len),ntohs(a->port),ntohl(a->ip));
 #endif
     if(code == OFPUTIL_OFPAT10_REMOTE) {
         VLOG_INFO("ofpact_from_openflow10_remote(): handle OFPUTIL_OFPAT10_REMOTE");
@@ -617,7 +631,7 @@ ofpacts_from_openflow_remote(const struct ofp_action_remote *in, size_t n_in,
     size_t left;
 
 #ifdef DEBUG
-    VLOG_INFO("ofpacts_from_openflow_remote(): n_in=%u",n_in);
+    VLOG_INFO("ofpacts_from_openflow_remote(): n_in=%u,in->port=%u,in->ip=0x%x",n_in,ntohs(in->port),ntohl(in->ip));
 #endif
     ACTION_FOR_EACH_REMOTE (a, left, in, n_in) {
 #ifdef DEBUG

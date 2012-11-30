@@ -2355,9 +2355,13 @@ ofputil_decode_packet_remote(struct ofputil_packet_remote *pr,
         pr->in_port = ntohs(opr->in_port);
 
 #ifdef DEBUG
-    VLOG_INFO("ofputil_decode_packet_remote, act_len=0x%x",ntohs(opr->actions_len));
+    VLOG_INFO("ofputil_decode_packet_remote(), act_len=%u",ntohs(opr->actions_len));
 #endif
         error = ofpacts_pull_openflow10(&b, ntohs(opr->actions_len), ofpacts);//convert from b into ofpacts
+#ifdef DEBUG
+        struct ofp_action_remote *tmp = ofpact_get_REMOTE(ofpacts);
+    VLOG_INFO("ofputil_decode_packet_remote(), len=%u,port=%u,ip=0x%x",ntohs(tmp->len),ntohs(tmp->port),ntohs(tmp->ip));
+#endif
         if (error) {
             return error;
         }

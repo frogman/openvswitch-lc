@@ -967,6 +967,11 @@ static void
 dpif_linux_encode_execute(int dp_ifindex, const struct dpif_execute *d_exec,
                           struct ofpbuf *buf)
 {
+#ifdef DEBUG
+    VLOG_INFO("dpif_linux_encode_execute() start pkt_size=%u,key_len=%u,actions_len=%u",
+            d_exec->packet->size, d_exec->key_len, d_exec->actions_len);
+
+#endif
     struct ovs_header *k_exec;
 
     ofpbuf_prealloc_tailroom(buf, (64
@@ -985,11 +990,17 @@ dpif_linux_encode_execute(int dp_ifindex, const struct dpif_execute *d_exec,
     nl_msg_put_unspec(buf, OVS_PACKET_ATTR_KEY, d_exec->key, d_exec->key_len);
     nl_msg_put_unspec(buf, OVS_PACKET_ATTR_ACTIONS,
                       d_exec->actions, d_exec->actions_len);
+#ifdef DEBUG
+    VLOG_INFO("dpif_linux_encode_execute() done");
+#endif
 }
 
 static int
 dpif_linux_execute__(int dp_ifindex, const struct dpif_execute *execute)
 {
+#ifdef DEBUG
+    VLOG_INFO("dpif_linux_execute__() start");
+#endif
     uint64_t request_stub[1024 / 8];
     struct ofpbuf request;
     int error;
@@ -998,6 +1009,10 @@ dpif_linux_execute__(int dp_ifindex, const struct dpif_execute *execute)
     dpif_linux_encode_execute(dp_ifindex, execute, &request);
     error = nl_sock_transact(genl_sock, &request, NULL);
     ofpbuf_uninit(&request);
+
+#ifdef DEBUG
+    VLOG_INFO("dpif_linux_execute__() done");
+#endif
 
     return error;
 }

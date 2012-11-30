@@ -278,6 +278,9 @@ format_vlan_tci(struct ds *ds, ovs_be16 vlan_tci)
 static void
 format_odp_action(struct ds *ds, const struct nlattr *a)
 {
+#ifdef DEBUG
+    VLOG_INFO("format_odp_action(): nla_len=%u",a->nla_len);
+#endif
     int expected_len;
     enum ovs_action_attr type = nl_attr_type(a);
     const struct ovs_action_push_vlan *vlan;
@@ -320,7 +323,9 @@ format_odp_action(struct ds *ds, const struct nlattr *a)
 #ifdef LC_ENABLE
     case OVS_ACTION_ATTR_REMOTE:
         ds_put_cstr(ds, "remote(");
-        ds_put_format(ds, "%"PRIu16, nl_attr_get_u32(((int*) a)+1));
+        ds_put_format(ds, "0x%"PRIx64, nl_attr_get_u64(a));
+        ds_put_format(ds, ",0x%"PRIx32, (nl_attr_get_u64(a)>>32)&0xffffffff);
+        ds_put_format(ds, ",0x%"PRIx32, nl_attr_get_u64(a)&0xffffffff);
         ds_put_char(ds, ')');
         break;
 #endif
@@ -336,6 +341,9 @@ void
 format_odp_actions(struct ds *ds, const struct nlattr *actions,
                    size_t actions_len)
 {
+#ifdef DEBUG
+    VLOG_INFO("format_odp_actions(): actions_len=%u",actions_len);
+#endif
     if (actions_len) {
         const struct nlattr *a;
         unsigned int left;

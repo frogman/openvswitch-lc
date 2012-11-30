@@ -1022,6 +1022,9 @@ dpif_execute(struct dpif *dpif,
              const struct nlattr *actions, size_t actions_len,
              const struct ofpbuf *buf)
 {
+#ifdef DEBUG
+    //VLOG_INFO("dpif_execute() start: actions_len=%u,actions=0x%llx",actions_len,nl_attr_get_u64(actions));
+#endif
     struct dpif_execute execute;
 
     execute.key = key;
