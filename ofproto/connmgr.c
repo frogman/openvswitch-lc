@@ -952,9 +952,9 @@ ofconn_send_error(const struct ofconn *ofconn,
                          ? ofpraw_get_name(raw)
                          : "invalid");
 
-            VLOG_INFO("%s: sending %s error reply to %s message, request_len = %u",
+            VLOG_INFO("%s: sending %s error reply to %s message",
                       rconn_get_name(ofconn->rconn), ofperr_to_string(error),
-                      type_name, requests_len);
+                      type_name);
         }
         ofconn_send_reply(ofconn, reply);
     }
