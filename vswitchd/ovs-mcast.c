@@ -41,7 +41,7 @@ pthread_mutex_t mutex;
  * @param len_msg length of the content
  * @return 0 if success
  */
-void mc_send(struct mc_send_arg* arg)
+void *mc_send(struct mc_send_arg* arg)
 {
     int sock_id;
     struct sockaddr_in addr;
@@ -52,13 +52,13 @@ void mc_send(struct mc_send_arg* arg)
     struct stat_base s;
 
     if (!arg) {
-        return ;
+        return NULL;
     }
 
     /* open a socket. only udp support multicast */
     if ((sock_id = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
         perror("socket error");
-        return;
+        return NULL;
     }
 
     /* build address */
@@ -98,7 +98,7 @@ void mc_send(struct mc_send_arg* arg)
 
     if(msg) free(msg);
     close(sock_id);
-    return;
+    return NULL;
 }
 
 /**
@@ -106,7 +106,7 @@ void mc_send(struct mc_send_arg* arg)
  * @param group multicast group
  * @param port multicast port
  */
-void mc_recv(struct mc_recv_arg* arg)
+void *mc_recv(struct mc_recv_arg* arg)
 {
     int sock_id;
     struct sockaddr_in addr, sender;
@@ -119,7 +119,7 @@ void mc_recv(struct mc_recv_arg* arg)
     /* Step 1: open a socket, and bind */
     if ((sock_id = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
         perror("socket error");
-        return;
+        return NULL;
     }
 
     memset((void*)&addr, 0, sizeof(addr));
@@ -129,7 +129,7 @@ void mc_recv(struct mc_recv_arg* arg)
 
     if (bind(sock_id, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
         perror("bind error");
-        return;
+        return NULL;
     }
 
     /* Step 2: fill in a struct ip_mreq */
@@ -140,7 +140,7 @@ void mc_recv(struct mc_recv_arg* arg)
     /* Step 3: call setsockopt with IP_ADD_MEMBERSHIP to support receiving multicast */
     if (setsockopt(sock_id, IPPROTO_IP, IP_ADD_MEMBERSHIP, &ipmr, sizeof(ipmr)) < 0) {
         perror("setsockopt:IP_ADD_MEMBERSHIP");
-        return;
+        return NULL;
     }
 
     /* Step 4: call recvfrom to receive multicast packets */
@@ -180,11 +180,11 @@ void mc_recv(struct mc_recv_arg* arg)
     /* Step 5: call setsockopt with IP_DROP_MEMBERSHIP to drop from multicast */
     if (setsockopt(sock_id, IPPROTO_IP, IP_DROP_MEMBERSHIP, &ipmr, sizeof(ipmr)) < 0) {
         perror("setsockopt:IP_DROP_MEMBERSHIP");
-        return;
+        return NULL;
     }
 
     /* Step 6: close the socket */
     close(sock_id);
     if (msg) free(msg);
-    return;
+    return NULL;
 }

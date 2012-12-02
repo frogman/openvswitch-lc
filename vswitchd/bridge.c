@@ -1306,9 +1306,7 @@ int bridge_update_bf_gdt_to_dp(const struct bridge *br, struct bloom_filter *bf)
 {
     if (!br)
         return 0;
-    int error;
-    error = ofproto_bf_gdt_update(br->ofproto,bf);
-    return error;
+    return ofproto_bf_gdt_update(br->ofproto,bf);
 }
 
 /**
@@ -2422,7 +2420,7 @@ static unsigned int get_local_edge_ip(char *eth)
     if (!eth)
         return -1;
 
-    int sock_fd;
+    int sock_fd=0;
     struct ifreq ifr;
 
     /* Get socket file descriptor */
