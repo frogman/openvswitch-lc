@@ -1005,7 +1005,8 @@ dpif_execute__(struct dpif *dpif, const struct dpif_execute *execute)
     }
 
 #ifdef DEBUG
-    VLOG_INFO(">>>dpif_execute__(): error=%u",error);
+    if(execute->actions_len==12)
+        VLOG_INFO(">>>dpif_execute__(): error=%u",error);
 #endif
 
     log_execute_message(dpif, execute, error);
@@ -1028,7 +1029,7 @@ dpif_execute(struct dpif *dpif,
 {
 #ifdef DEBUG
     if(actions_len==12)
-    VLOG_INFO("dpif_execute(): actions_len=%u,actions=0x%llx",actions_len,nl_attr_get_u64(actions));
+        VLOG_INFO("dpif_execute(): actions_len=%u,actions=0x%llx",actions_len,nl_attr_get_u64(actions));
 #endif
     struct dpif_execute execute;
 

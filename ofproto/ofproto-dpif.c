@@ -5657,6 +5657,7 @@ do_xlate_actions(const struct ofpact *ofpacts, size_t ofpacts_len,
         }
 
 #ifdef DEBUG
+        if(a->type==OFPACT_REMOTE)
             VLOG_INFO(">>>do_xlate_actions, type=%u, ofpacts_len=%u",a->type,ofpacts_len);
 #endif
         switch (a->type) {
@@ -5813,9 +5814,10 @@ out:
         ctx->rule->up.evictable = was_evictable;
     }
 #ifdef DEBUG
-    if(a->type == OFPACT_REMOTE) 
+    if(a->type == OFPACT_REMOTE) {
         VLOG_INFO("ctx->odp_actions: size=%u, nla_data=0x%llx",ctx->odp_actions->size,nl_attr_get_u64(ctx->odp_actions->data));
-    VLOG_INFO("<<<do_xlate_actions() done.");
+        VLOG_INFO("<<<do_xlate_actions() done.");
+    }
 #endif
 }
 
@@ -5847,7 +5849,7 @@ xlate_actions(struct action_xlate_ctx *ctx,
               struct ofpbuf *odp_actions)
 {
 #ifdef DEBUG
-    VLOG_INFO(">>>xlate_actions(): ofpacts_len=%u",ofpacts_len);
+    //VLOG_INFO(">>>xlate_actions(): ofpacts_len=%u",ofpacts_len);
 #endif
     /* Normally false.  Set to true if we ever hit MAX_RESUBMIT_RECURSION, so
      * that in the future we always keep a copy of the original flow for

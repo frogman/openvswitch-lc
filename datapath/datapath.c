@@ -951,6 +951,9 @@ static int validate_actions(const struct nlattr *attr,
 		/* Expected argument lengths, (u32)-1 for variable length. */
 		static const u32 action_lens[OVS_ACTION_ATTR_MAX + 1] = {
 			[OVS_ACTION_ATTR_OUTPUT] = sizeof(u32),
+#ifdef LC_ENABLE
+			[OVS_ACTION_ATTR_REMOTE] = sizeof(u64),
+#endif
 			[OVS_ACTION_ATTR_USERSPACE] = (u32)-1,
 			[OVS_ACTION_ATTR_PUSH_VLAN] = sizeof(struct ovs_action_push_vlan),
 			[OVS_ACTION_ATTR_POP_VLAN] = 0,
@@ -980,6 +983,12 @@ static int validate_actions(const struct nlattr *attr,
 				return -EINVAL;
 			break;
 
+#ifdef LC_ENABLE
+		case OVS_ACTION_ATTR_REMOTE:
+			if (nla_get_u64(a)&0xffffffff >= DP_MAX_PORTS)
+				return -EINVAL;
+			break;
+#endif
 
 		case OVS_ACTION_ATTR_POP_VLAN:
 			break;
@@ -1093,13 +1102,13 @@ static int ovs_packet_cmd_execute(struct sk_buff *skb, struct genl_info *info)
     pr_mac("ovs_packet_cmd_execute()",eth->h_source,eth->h_dest,ntohs(eth->h_proto));
     switch (acts->actions[0].nla_type) {
         case OVS_ACTION_ATTR_OUTPUT:
-            pr_info("action = output to port %u\n", nla_get_u32(acts->actions));
+            pr_info("action = OUTPUT to port %u\n", nla_get_u32(acts->actions));
             break;
         case OVS_ACTION_ATTR_USERSPACE:
-            pr_info("action = output to userspace\n");
+            pr_info("action = OUTPUT to userspace\n");
             break;
         case OVS_ACTION_ATTR_REMOTE:
-            pr_info("action = output to remote, port=%u, ip=0x%x\n",(unsigned int)(nla_get_u64(acts->actions)&0xffffffff),(unsigned int)((nla_get_u64(acts->actions)>>32)&0xffffffff));
+            pr_info("action = REMOTE, port=%u, ip=0x%x\n",(unsigned int)((nla_get_u64(acts->actions)>>32)&0xffffffff),(unsigned int)(nla_get_u64(acts->actions)&0xffffffff));
             break;
         default:
         pr_info("unknown action type %u\n",acts->actions[1].nla_type);

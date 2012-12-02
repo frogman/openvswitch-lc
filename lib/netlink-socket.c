@@ -468,7 +468,8 @@ nl_sock_transact_multiple__(struct nl_sock *sock,
     do {
         error = sendmsg(sock->fd, &msg, 0) < 0 ? errno : 0;
 #ifdef DEBUG
-        VLOG_INFO("n=%u,request->size=%u,error=%u",n,transactions[0]->request->size,error);
+        if(error)
+            VLOG_INFO("n=%u,request->size=%u,error=%u",n,transactions[0]->request->size,error);
 #endif
     } while (error == EINTR);
 
@@ -507,8 +508,8 @@ nl_sock_transact_multiple__(struct nl_sock *sock,
         error = nl_sock_recv__(sock, buf_txn->reply, false);
         if (error) {
 #ifdef DEBUG
-            if(error==22) {
-                VLOG_INFO("error when recv reply, n=%u",n);
+            if(error) {
+                VLOG_INFO("error when recv reply, n=%u,error=%u",n,error);
             }
 #endif
             if (error == EAGAIN) {
@@ -561,7 +562,7 @@ nl_sock_transact_multiple__(struct nl_sock *sock,
     ofpbuf_uninit(&tmp_reply);
 
 #ifdef DEBUG
-    VLOG_INFO("<<<nl_sock_transact_multiple__()");
+    //VLOG_INFO("<<<nl_sock_transact_multiple__()");
 #endif
 
     return error;
@@ -590,7 +591,9 @@ void
 nl_sock_transact_multiple(struct nl_sock *sock,
                           struct nl_transaction **transactions, size_t n)
 {
-    VLOG_INFO(">>>nl_sock_transact_multiple(): n=%u",n);
+#ifdef DEBUG
+    //VLOG_INFO(">>>nl_sock_transact_multiple(): n=%u",n);
+#endif
     int max_batch_count;
     int error;
 
@@ -649,7 +652,9 @@ nl_sock_transact_multiple(struct nl_sock *sock,
             nl_sock_record_errors__(transactions, n, error);
         }
     }
-    VLOG_INFO("<<<nl_sock_transact_multiple()");
+#ifdef DEBUG
+    //VLOG_INFO("<<<nl_sock_transact_multiple()");
+#endif
 }
 
 /* Sends 'request' to the kernel via 'sock' and waits for a response.  If
@@ -713,7 +718,10 @@ nl_sock_transact(struct nl_sock *sock, const struct ofpbuf *request,
             *replyp = transaction.reply;
         }
     }
-    VLOG_INFO("<<<nl_sock_transact(): error=%u",transaction.error);
+#ifdef DEBUG
+    if(transaction.error)
+        VLOG_INFO("<<<nl_sock_transact(): error=%u",transaction.error);
+#endif
 
     return transaction.error;
 }
