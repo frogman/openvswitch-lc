@@ -536,7 +536,7 @@ bool ofputil_frag_handling_from_string(const char *, enum ofp_config_flags *);
 /* The type of an action.
  *
  * For each implemented OFPAT10_* and NXAST_* action type, there is a
- * corresponding constant prefixed with OFPUTIL_, e.g.:
+ * corresponding constant prefixed with OFPUTIL_, (BE CARE, here start with 1) e.g.:
  *
  * OFPUTIL_OFPAT10_OUTPUT
  * OFPUTIL_OFPAT10_SET_VLAN_VID
@@ -550,6 +550,7 @@ bool ofputil_frag_handling_from_string(const char *, enum ofp_config_flags *);
  * OFPUTIL_OFPAT10_SET_TP_SRC
  * OFPUTIL_OFPAT10_SET_TP_DST
  * OFPUTIL_OFPAT10_ENQUEUE
+ * OFPUTIL_OFPAT10_REMOTE
  * OFPUTIL_NXAST_RESUBMIT
  * OFPUTIL_NXAST_SET_TUNNEL
  * OFPUTIL_NXAST_SET_QUEUE

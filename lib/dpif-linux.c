@@ -949,7 +949,6 @@ static int
 dpif_linux_bf_gdt_put(struct dpif *dpif_, const struct dpif_bf_gdt_put *put)
 {
     struct dpif_linux_bf_gdt request;
-    struct ofpbuf *buf;
     int error;
     /* init request from put.*/
     dpif_linux_init_bf_gdt_put(dpif_, put, &request); 
@@ -967,6 +966,14 @@ static void
 dpif_linux_encode_execute(int dp_ifindex, const struct dpif_execute *d_exec,
                           struct ofpbuf *buf)
 {
+#ifdef DEBUG
+    VLOG_INFO(">>>dpif_linux_encode_execute() start pkt_size=%u,key_len=%u,actions_len=%u",
+            d_exec->packet->size, d_exec->key_len,d_exec->actions_len);
+    if(d_exec->actions_len==12)
+        VLOG_INFO("actions=0x%llx",nl_attr_get_u64(d_exec->actions));
+    else if(d_exec->actions_len==8)
+        VLOG_INFO("actions=0x%x",nl_attr_get_u32(d_exec->actions));
+#endif
     struct ovs_header *k_exec;
 
     ofpbuf_prealloc_tailroom(buf, (64
@@ -985,11 +992,47 @@ dpif_linux_encode_execute(int dp_ifindex, const struct dpif_execute *d_exec,
     nl_msg_put_unspec(buf, OVS_PACKET_ATTR_KEY, d_exec->key, d_exec->key_len);
     nl_msg_put_unspec(buf, OVS_PACKET_ATTR_ACTIONS,
                       d_exec->actions, d_exec->actions_len);
+#ifdef DEBUG
+
+if (d_exec->actions_len==8) {
+        VLOG_INFO("pkt->size=%u,key_len=%u,actions=0x%x,actions_len=%u,buf->size=%u",
+                d_exec->packet->size,d_exec->key_len,nl_attr_get_u32(d_exec->actions), d_exec->actions_len,buf->size);
+        struct nlmsghdr *hdr = buf->data;
+        VLOG_INFO("nlmsg: len=%u,type=%u,seq=%u,pid=%u",hdr->nlmsg_len,hdr->nlmsg_type,hdr->nlmsg_seq,hdr->nlmsg_pid);
+        struct genlmsghdr *ghdr = NLMSG_DATA(hdr);
+        VLOG_INFO("genlmsg: cmd=%u,version=%u",ghdr->cmd,ghdr->version);
+        struct nlattr *tmp = (uint8_t*)buf->data+buf->size-8;
+        if (tmp) {
+            VLOG_INFO("nlattr type=%u,len=%u",tmp->nla_type,tmp->nla_len);
+            VLOG_INFO("nlattr data=0x%x",nl_attr_get_u32(tmp));
+        }
+        VLOG_INFO("<<<dpif_linux_encode_execute() done");
+    }
+
+    if (d_exec->actions_len==12) {
+        VLOG_INFO("pkt->size=%u,key_len=%u,actions=0x%llx,actions_len=%u,buf->size=%u",
+                d_exec->packet->size,d_exec->key_len,nl_attr_get_u64(d_exec->actions), d_exec->actions_len,buf->size);
+        struct nlmsghdr *hdr = buf->data;
+        VLOG_INFO("nlmsg: len=%u,type=%u,seq=%u,pid=%u",hdr->nlmsg_len,hdr->nlmsg_type,hdr->nlmsg_seq,hdr->nlmsg_pid);
+        struct genlmsghdr *ghdr = NLMSG_DATA(hdr);
+        VLOG_INFO("genlmsg: cmd=%u,version=%u",ghdr->cmd,ghdr->version);
+        struct nlattr *tmp = nl_attr_find_nested((uint8_t*)(buf->data)+24,OVS_PACKET_ATTR_ACTIONS);
+        tmp = (uint8_t*)(buf->data)+buf->size-12;
+        if (tmp) {
+            VLOG_INFO("nlattr type=%u,len=%u",tmp->nla_type,tmp->nla_len);
+            VLOG_INFO("nlattr data=0x%llx",nl_attr_get_u64(tmp));
+        }
+        VLOG_INFO("<<<dpif_linux_encode_execute() done");
+    }
+#endif
 }
 
 static int
 dpif_linux_execute__(int dp_ifindex, const struct dpif_execute *execute)
 {
+#ifdef DEBUG
+    VLOG_INFO(">>>dpif_linux_execute__() start");
+#endif
     uint64_t request_stub[1024 / 8];
     struct ofpbuf request;
     int error;
@@ -998,6 +1041,10 @@ dpif_linux_execute__(int dp_ifindex, const struct dpif_execute *execute)
     dpif_linux_encode_execute(dp_ifindex, execute, &request);
     error = nl_sock_transact(genl_sock, &request, NULL);
     ofpbuf_uninit(&request);
+
+#ifdef DEBUG
+    VLOG_INFO("<<<dpif_linux_execute__() done, error=%u",error);
+#endif
 
     return error;
 }
@@ -1487,7 +1534,9 @@ dpif_linux_init(void)
         if (!error) {
             error = nl_lookup_genl_family(OVS_BF_GDT_FAMILY, &ovs_bf_gdt_family);
         }
+#ifdef DEBUG
         VLOG_INFO("new register nl family, id= %d.\n",*(int*)&ovs_bf_gdt_family);
+#endif
         if (error) {
             VLOG_ERR("Generic Netlink family '%s' does not exist. "
                      "The Open vSwitch kernel module is probably not loaded.",

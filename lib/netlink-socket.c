@@ -467,13 +467,16 @@ nl_sock_transact_multiple__(struct nl_sock *sock,
     msg.msg_iovlen = n;
     do {
         error = sendmsg(sock->fd, &msg, 0) < 0 ? errno : 0;
+#ifdef DEBUG
+        if(error)
+            VLOG_INFO("n=%u,request->size=%u,error=%u",n,transactions[0]->request->size,error);
+#endif
     } while (error == EINTR);
 
     for (i = 0; i < n; i++) {
         struct nl_transaction *txn = transactions[i];
-
         log_nlmsg(__func__, error, txn->request->data, txn->request->size,
-                  sock->protocol);
+                sock->protocol);
     }
     if (!error) {
         COVERAGE_ADD(netlink_sent, n);
@@ -504,6 +507,11 @@ nl_sock_transact_multiple__(struct nl_sock *sock,
         /* Receive a reply. */
         error = nl_sock_recv__(sock, buf_txn->reply, false);
         if (error) {
+#ifdef DEBUG
+            if(error) {
+                VLOG_INFO("error when recv reply, n=%u,error=%u",n,error);
+            }
+#endif
             if (error == EAGAIN) {
                 nl_sock_record_errors__(transactions, n, 0);
                 *done += n;
@@ -528,7 +536,7 @@ nl_sock_transact_multiple__(struct nl_sock *sock,
             }
             if (txn->error) {
                 VLOG_DBG_RL(&rl, "received NAK error=%d (%s)",
-                            error, strerror(txn->error));
+                        error, strerror(txn->error));
             }
         } else {
             txn->error = 0;
@@ -552,6 +560,10 @@ nl_sock_transact_multiple__(struct nl_sock *sock,
         base_seq += i + 1;
     }
     ofpbuf_uninit(&tmp_reply);
+
+#ifdef DEBUG
+    //VLOG_INFO("<<<nl_sock_transact_multiple__()");
+#endif
 
     return error;
 }
@@ -579,6 +591,9 @@ void
 nl_sock_transact_multiple(struct nl_sock *sock,
                           struct nl_transaction **transactions, size_t n)
 {
+#ifdef DEBUG
+    //VLOG_INFO(">>>nl_sock_transact_multiple(): n=%u",n);
+#endif
     int max_batch_count;
     int error;
 
@@ -630,10 +645,16 @@ nl_sock_transact_multiple(struct nl_sock *sock,
         if (error == ENOBUFS) {
             VLOG_DBG_RL(&rl, "receive buffer overflow, resending request");
         } else if (error) {
+#ifdef DEBUG
+            VLOG_INFO("transaction error (%s)", strerror(error));
+#endif
             VLOG_ERR_RL(&rl, "transaction error (%s)", strerror(error));
             nl_sock_record_errors__(transactions, n, error);
         }
     }
+#ifdef DEBUG
+    //VLOG_INFO("<<<nl_sock_transact_multiple()");
+#endif
 }
 
 /* Sends 'request' to the kernel via 'sock' and waits for a response.  If
@@ -697,6 +718,10 @@ nl_sock_transact(struct nl_sock *sock, const struct ofpbuf *request,
             *replyp = transaction.reply;
         }
     }
+#ifdef DEBUG
+    if(transaction.error)
+        VLOG_INFO("<<<nl_sock_transact(): error=%u",transaction.error);
+#endif
 
     return transaction.error;
 }

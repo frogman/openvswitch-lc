@@ -73,6 +73,11 @@
 #include <sys/socket.h>
 #include <sys/ioctl.h>
 #include <arpa/inet.h>
+
+#ifndef LC_LOCAL_EDGE_IP
+#define LC_LOCAL_EDGE_IP LC_BF_LOCAL_ID //local edge sw's ip
+#endif
+
 #endif
 
 VLOG_DEFINE_THIS_MODULE(bridge);
@@ -1321,8 +1326,12 @@ void bridge_get_stat(const struct bridge *br, struct stat_base *s)
  */
 int bridge_update_local_bf(const struct bridge *br, const unsigned char *src_mac)
 {
-    if (!br || !br->gdt || !src_mac)
+    if (!br || !br->gdt || !src_mac) {
+#ifdef DEBUG
+        VLOG_WARN("local bf-gdt is not inited?");
+#endif
         return -1;
+    }
 
     struct bloom_filter*bf = bf_gdt_find_filter(br->gdt,br->local_id); //local bf not existed yet.
 
@@ -2404,10 +2413,12 @@ bridge_end_mcast(struct bridge *br)
 }
 
 /**
- * get the ip of its datapath.
+ * Get the ip of its edge switch, this should be got automatically,
+ * however, br0 is not setup yet when compling...
  */
-static unsigned int get_local_ip(char *eth)
+static unsigned int get_local_edge_ip(char *eth)
 {
+    return LC_LOCAL_EDGE_IP; //Must be manually set on each sw.
     if (!eth)
         return -1;
 
@@ -2438,11 +2449,14 @@ static unsigned int get_local_ip(char *eth)
 static void
 bridge_lc_init(struct bridge *br)
 {
+#ifdef DEBUG
     VLOG_INFO("%s bridge_lc_init(): init bf-gdt and mcast args.\n",br->name);
+#endif
     br->gdt = bf_gdt_init(LC_GROUP_DFT_ID);
-    //br->local_id = get_local_ip(LC_DP_NI_NAME);
-    br->local_id = LC_BF_DFT_ID; //Must be manually set on each sw.
-    VLOG_INFO("%s bridge_lc_init(): get local ip =0x%x(%u.%u.%u.%u).\n",br->name,br->local_id,((unsigned char *)&br->local_id)[3],((unsigned char *)&br->local_id)[2],((unsigned char *)&br->local_id)[1],((unsigned char *)&br->local_id)[0]);
+    br->local_id = get_local_edge_ip(LC_DP_NI_NAME);
+#ifdef DEBUG
+    VLOG_INFO("%s bridge_lc_init(): local edge sw's ip =0x%x(%u.%u.%u.%u).\n",br->name,br->local_id,((unsigned char *)&br->local_id)[3],((unsigned char *)&br->local_id)[2],((unsigned char *)&br->local_id)[1],((unsigned char *)&br->local_id)[0]);
+#endif
     br->send_arg.group_ip = inet_addr(LC_MCAST_GROUP_IP)+br->gdt->gid;
     br->send_arg.port = LC_MCAST_GROUP_PORT;
     br->send_arg.gdt = br->gdt;
@@ -2462,7 +2476,9 @@ bridge_lc_init(struct bridge *br)
     br->recv_arg.gdt = br->gdt;
     br->recv_arg.br = br;
     br->recv_arg.local_id = br->local_id;
+#ifdef DEBUG
     VLOG_INFO("%s bridge_lc_init() done.\n",br->name);
+#endif
     bridge_start_mcast(br);
 }
 #endif
@@ -2487,7 +2503,7 @@ bridge_create(const struct ovsrec_bridge *br_cfg)
     eth_addr_mark_random(br->default_ea);
 
 #ifdef LC_ENABLE
-    //bridge_lc_init(br);
+    bridge_lc_init(br);
 #endif
 
     hmap_init(&br->ports);

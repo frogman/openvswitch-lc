@@ -169,19 +169,6 @@ struct ofpact_output {
     uint16_t max_len;           /* Max send len, for port OFPP_CONTROLLER. */
 };
 
-#ifdef LC_ENABLE
-/* OFPACT_REMOTE.
- *
- * Used for OFPAT10_REMOTE. */
-struct ofpact_remote {
-    struct ofpact ofpact;
-    uint16_t port;              /* Output port. */
-    uint32_t ip;              /* Remote ip. */
-    uint16_t max_len;           /* Max send len, for port OFPP_CONTROLLER. */
-};
-
-#endif
-
 /* OFPACT_CONTROLLER.
  *
  * Used for NXAST_CONTROLLER. */
@@ -200,6 +187,17 @@ struct ofpact_enqueue {
     uint16_t port;
     uint32_t queue;
 };
+
+#ifdef LC_ENABLE
+/* OFPACT_REMOTE.
+ *
+ * Used for OFPAT10_REMOTE. */
+struct ofpact_remote {
+    struct ofpact ofpact;
+    uint16_t port;              /* Output port. */
+    uint32_t ip;              /* Remote ip. */
+};
+#endif
 
 /* OFPACT_OUTPUT_REG.
  *

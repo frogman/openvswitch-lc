@@ -990,6 +990,10 @@ int dpif_bf_gdt_put(struct dpif *dpif, enum dpif_bf_gdt_put_flags flags,
 static int
 dpif_execute__(struct dpif *dpif, const struct dpif_execute *execute)
 {
+#ifdef DEBUG
+    if(execute->actions_len==12)
+    VLOG_INFO(">>>dpif_execute__(): key_len=%u,actions=0x%llx,actions_len=%u",execute->key_len,nl_attr_get_u64(execute->actions),execute->actions_len);
+#endif
     int error;
 
     COVERAGE_INC(dpif_execute);
@@ -999,6 +1003,11 @@ dpif_execute__(struct dpif *dpif, const struct dpif_execute *execute)
     } else {
         error = 0;
     }
+
+#ifdef DEBUG
+    if(execute->actions_len==12)
+        VLOG_INFO(">>>dpif_execute__(): error=%u",error);
+#endif
 
     log_execute_message(dpif, execute, error);
 
@@ -1018,6 +1027,10 @@ dpif_execute(struct dpif *dpif,
              const struct nlattr *actions, size_t actions_len,
              const struct ofpbuf *buf)
 {
+#ifdef DEBUG
+    if(actions_len==12)
+        VLOG_INFO("dpif_execute(): actions_len=%u,actions=0x%llx",actions_len,nl_attr_get_u64(actions));
+#endif
     struct dpif_execute execute;
 
     execute.key = key;
