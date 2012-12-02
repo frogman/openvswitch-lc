@@ -949,7 +949,6 @@ static int
 dpif_linux_bf_gdt_put(struct dpif *dpif_, const struct dpif_bf_gdt_put *put)
 {
     struct dpif_linux_bf_gdt request;
-    struct ofpbuf *buf;
     int error;
     /* init request from put.*/
     dpif_linux_init_bf_gdt_put(dpif_, put, &request); 
@@ -1535,7 +1534,9 @@ dpif_linux_init(void)
         if (!error) {
             error = nl_lookup_genl_family(OVS_BF_GDT_FAMILY, &ovs_bf_gdt_family);
         }
+#ifdef DEBUG
         VLOG_INFO("new register nl family, id= %d.\n",*(int*)&ovs_bf_gdt_family);
+#endif
         if (error) {
             VLOG_ERR("Generic Netlink family '%s' does not exist. "
                      "The Open vSwitch kernel module is probably not loaded.",

@@ -162,7 +162,7 @@ void mc_recv(struct mc_recv_arg* arg)
 
         pthread_mutex_lock (&mutex);
         ret = bf_gdt_update_filter(arg->gdt,&msg->bf); //update remote bfs into local bf-gdt
-        msg->bf.port_no = LC_BF_REMOTE_PORT;
+        msg->bf.port_no = LC_BF_REMOTE_PORT; //change default port for remote pkts
         pthread_mutex_unlock (&mutex);
         if(ret > 0) {//sth changed in gdt with msg
             VLOG_INFO("Received new bf with bf_id=0x%x, will update dp's bf_gdt.",msg->bf.bf_id);

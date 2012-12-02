@@ -62,7 +62,9 @@
 #include "vport-internal_dev.h"
 
 #ifdef LC_ENABLE
-#define LC_DP_LOCAL_IP LC_BF_DFT_ID
+#ifndef LC_LOCAL_EDGE_IP
+#define LC_LOCAL_EDGE_IP LC_BF_LOCAL_ID //local edge sw's ip
+#endif
 #endif
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,18) || \
@@ -350,6 +352,7 @@ void ovs_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
             kfree_skb(skb);
             return;
         }
+        /*
         if (unlikely(ntohs(key.eth.type) == 0x86dd || ntohs(key.eth.type) == 0x8942 || ntohs(key.eth.type) == 0x88cc)) { //TODO: do not support ipv6 now.
             kfree_skb(skb);
             return;
@@ -358,6 +361,7 @@ void ovs_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
             kfree_skb(skb);
             return;
         }
+        */
 
 #ifdef DEBUG
         if (!OVS_CB(skb)->encaped) {
@@ -1794,13 +1798,13 @@ static int ovs_dp_cmd_new(struct sk_buff *skb, struct genl_info *info)
 		INIT_HLIST_HEAD(&dp->ports[i]);
 
 #ifdef LC_ENABLE /*init the lc_group, TODO*/
-    dp->local_ip = LC_DP_LOCAL_IP; //ip of network interface bonding on dp.
+    dp->local_ip = LC_LOCAL_EDGE_IP; //ip of network interface bonding on dp.
 	dp->gdt = bf_gdt_init(LC_GROUP_DFT_ID);
 	if (!dp->gdt) {
 		err = -ENOMEM;
 		goto err_destroy_percpu;
     }
-    bf_gdt_add_filter(dp->gdt,LC_DP_LOCAL_IP,LC_BF_LOCAL_PORT,LC_BF_DFT_LEN); /*empty local filter*/
+    bf_gdt_add_filter(dp->gdt,LC_BF_LOCAL_ID,LC_BF_LOCAL_PORT,LC_BF_DFT_LEN); /*empty local filter*/
     /*debug*/
     //bf_gdt_add_filter(dp->gdt,0xc0a83a0a,LC_BF_REMOTE_PORT,LC_BF_DFT_LEN); /*empty remote filter*/
     //unsigned char tmp_dst[] = {0x08,0x00,0x27,0xab,0xb6,0xa5};

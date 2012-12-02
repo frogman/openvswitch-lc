@@ -6743,13 +6743,15 @@ packet_remote(struct ofproto *ofproto_, struct ofpbuf *packet,
 
         ofpbuf_use_stub(&odp_actions,
                         odp_actions_stub, sizeof odp_actions_stub);
+#ifdef DEBUG
         VLOG_INFO("will xlate_actions(), ofpacts_len=%u",ofpacts_len);
+#endif
         xlate_actions(&ctx, ofpacts, ofpacts_len, &odp_actions);
+#ifdef DEBUG
         VLOG_INFO("will dpif_execute(),key.size=%u, odp_actions.size=%u\n",key.size,odp_actions.size);
-        //VLOG_INFO("will dpif_execute(),key.size=%u, odp_actions.size=%u,action.data=0x%llx",key.size,odp_actions.size,nl_attr_get_u64(odp_actions.data));
+#endif
         dpif_execute(ofproto->dpif, key.data, key.size,
                      odp_actions.data, odp_actions.size, packet);
-        VLOG_INFO("will ofpbuf_uninit()");
         ofpbuf_uninit(&odp_actions);
     }
 #ifdef DEBUG

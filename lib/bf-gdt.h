@@ -28,10 +28,6 @@
 #define BF_GDT_MAX_FILTERS 64
 #endif
 
-#ifndef LC_DP_DFT_ID
-#define LC_DP_DFT_ID 0
-#endif
-
 #ifndef LC_GROUP_DFT_ID
 #define LC_GROUP_DFT_ID 0
 #endif
