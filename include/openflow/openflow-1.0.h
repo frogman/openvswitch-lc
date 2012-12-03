@@ -199,7 +199,7 @@ enum ofp10_action_type {
     OFPAT10_SET_TP_SRC,         /* TCP/UDP source port. */
     OFPAT10_SET_TP_DST,         /* TCP/UDP destination port. */
     OFPAT10_ENQUEUE,            /* Output to queue. */
-    OFPAT10_REMOTE=12,             /* Remote to switch port. */
+    OFPAT10_REMOTE=12,          /* Remote to switch port. */
     OFPAT10_VENDOR = 0xffff
 };
 

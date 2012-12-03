@@ -3298,6 +3298,9 @@ ofproto_rule_expire(struct rule *rule, uint8_t reason)
 static enum ofperr
 handle_flow_mod(struct ofconn *ofconn, const struct ofp_header *oh)
 {
+#ifdef DEBUG
+        VLOG_INFO(">>>handle_flow_mod(): type=0x%x, length=%u.",oh->type,ntohs(oh->length));
+#endif
     struct ofproto *ofproto = ofconn_get_ofproto(ofconn);
     struct ofputil_flow_mod fm;
     uint64_t ofpacts_stub[1024 / 8];
@@ -3357,6 +3360,9 @@ handle_flow_mod(struct ofconn *ofconn, const struct ofp_header *oh)
     }
     ofproto->last_op = now;
 
+#ifdef DEBUG
+        VLOG_INFO("<<<handle_flow_mod() done.");
+#endif
 exit_free_ofpacts:
     ofpbuf_uninit(&ofpacts);
 exit:
@@ -3801,10 +3807,17 @@ handle_openflow__(struct ofconn *ofconn, const struct ofpbuf *msg)
         return error;
     }
 
+#ifdef DEBUG
+    VLOG_INFO("handle_openflow__():oh->type=%u",type);
+#endif
+
     switch (type) {
 #ifdef LC_ENABLE
         /* LC remote action. */
     case OFPTYPE_PACKET_REMOTE:
+#ifdef DEBUG
+        VLOG_INFO("handle pkt_remote from controller.");
+#endif
         return handle_packet_remote(ofconn, oh);
 #endif
         /* OpenFlow requests. */
@@ -3830,6 +3843,9 @@ handle_openflow__(struct ofconn *ofconn, const struct ofpbuf *msg)
         return handle_port_mod(ofconn, oh);
 
     case OFPTYPE_FLOW_MOD:
+#ifdef DEBUG
+        VLOG_INFO("handle flow_mod from controller.");
+#endif
         return handle_flow_mod(ofconn, oh);
 
     case OFPTYPE_BARRIER_REQUEST:
@@ -3917,6 +3933,21 @@ handle_openflow__(struct ofconn *ofconn, const struct ofpbuf *msg)
 static bool
 handle_openflow(struct ofconn *ofconn, struct ofpbuf *ofp_msg)
 {
+#ifdef DEBUG
+        VLOG_INFO(">>>handle_openflow(): msg->size=%u",ofp_msg->size);
+        int i = 0,j=0;
+        unsigned char t[2048];
+        for(i=0;i<ofp_msg->size;i++){
+            if(i>0 && i%16==0){
+                t[j++]='\n';
+            }
+            sprintf(&t[j],"%-02x",((uint8_t *)(ofp_msg->data))[i]);
+            j += 2;
+            t[j++]=' ';
+        }
+        t[j]='\0';
+        VLOG_INFO("data=%s",t);
+#endif
     int error = handle_openflow__(ofconn, ofp_msg);
     if (error && error != OFPROTO_POSTPONE) {
 #ifdef DEBUG
@@ -3926,7 +3957,7 @@ handle_openflow(struct ofconn *ofconn, struct ofpbuf *ofp_msg)
     }
     COVERAGE_INC(ofproto_recv_openflow);
 #ifdef DEBUG
-        VLOG_INFO("handle_openflow() finish.");
+        VLOG_INFO("<<<handle_openflow() done.");
 #endif
     return error != OFPROTO_POSTPONE;
 }

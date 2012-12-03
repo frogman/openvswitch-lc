@@ -352,8 +352,7 @@ void ovs_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
             kfree_skb(skb);
             return;
         }
-        /*
-        if (unlikely(ntohs(key.eth.type) == 0x86dd || ntohs(key.eth.type) == 0x8942 || ntohs(key.eth.type) == 0x88cc)) { //TODO: do not support ipv6 now.
+        if (ntohs(key.eth.type) == 0x86dd || ntohs(key.eth.type) == 0x8942 || ntohs(key.eth.type) == 0x88cc) { //TODO: do not support ipv6 now.
             kfree_skb(skb);
             return;
         }
@@ -361,7 +360,10 @@ void ovs_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
             kfree_skb(skb);
             return;
         }
-        */
+        if (unlikely(ntohs(key.eth.type) != 0x0800)) {
+            kfree_skb(skb);
+            return;
+        }
 
 #ifdef DEBUG
         if (!OVS_CB(skb)->encaped) {
@@ -1115,7 +1117,7 @@ static int ovs_packet_cmd_execute(struct sk_buff *skb, struct genl_info *info)
             pr_info("action = REMOTE, port=%u, ip=0x%x\n",(unsigned int)((nla_get_u64(acts->actions)>>32)&0xffffffff),(unsigned int)(nla_get_u64(acts->actions)&0xffffffff));
             break;
         default:
-        pr_info("unknown action type %u\n",acts->actions[1].nla_type);
+            pr_info("unknown action type %u\n",acts->actions[0].nla_type);
     }
 #endif
 	err = PTR_ERR(acts);
@@ -1405,16 +1407,16 @@ static int ovs_flow_cmd_new_or_set(struct sk_buff *skb, struct genl_info *info)
 #ifdef DEBUG
         switch (acts->actions[0].nla_type) {
             case OVS_ACTION_ATTR_OUTPUT:
-                pr_info("action = output to port %u\n", nla_get_u32(acts->actions));
+                pr_info("action = OUTPUT to port %u\n", nla_get_u32(acts->actions));
                 break;
             case OVS_ACTION_ATTR_USERSPACE:
-                pr_info("action = output to userspace\n");
+                pr_info("action = OUTPUT to userspace\n");
                 break;
             case OVS_ACTION_ATTR_REMOTE:
-                pr_info("action = output to remote, port=%u, ip=0x%x\n",(unsigned int)(nla_get_u64(acts->actions)&0xffffffff),(unsigned int)((nla_get_u64(acts->actions)>>32)&0xffffffff));
+                pr_info("action = REMOTE, port=%u, ip=0x%x\n",(unsigned int)((nla_get_u64(acts->actions)>>32)&0xffffffff),(unsigned int)(nla_get_u64(acts->actions)&0xffffffff));
                 break;
             default:
-                pr_info("unknown action type %u\n",acts->actions[1].nla_type);
+                pr_info("unknown action type %u\n",acts->actions[0].nla_type);
         }
 #endif
         error = PTR_ERR(acts);
@@ -1463,16 +1465,16 @@ static int ovs_flow_cmd_new_or_set(struct sk_buff *skb, struct genl_info *info)
 #ifdef DEBUG
         switch (new_acts->actions[0].nla_type) {
             case OVS_ACTION_ATTR_OUTPUT:
-                pr_info("action = output to port %u\n", nla_get_u32(new_acts->actions));
+                pr_info("action = OUTPUT to port %u\n", nla_get_u32(new_acts->actions));
                 break;
             case OVS_ACTION_ATTR_USERSPACE:
-                pr_info("action = output to userspace\n");
+                pr_info("action = OUTPUT to userspace\n");
                 break;
             case OVS_ACTION_ATTR_REMOTE:
-                pr_info("action = output to remote, port=%u, ip=0x%x\n",(unsigned int)(nla_get_u64(new_acts->actions)&0xffffffff),(unsigned int)((nla_get_u64(new_acts->actions)>>32)&0xffffffff));
+                pr_info("action = REMOTE, port=%u, ip=0x%x\n",(unsigned int)((nla_get_u64(new_acts->actions)>>32)&0xffffffff),(unsigned int)(nla_get_u64(new_acts->actions)&0xffffffff));
                 break;
             default:
-                pr_info("unknown action type %u\n",new_acts->actions[1].nla_type);
+                pr_info("unknown action type %u\n",new_acts->actions[0].nla_type);
         }
 #endif
 

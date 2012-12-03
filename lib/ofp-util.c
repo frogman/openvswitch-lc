@@ -1141,6 +1141,9 @@ ofputil_decode_flow_mod(struct ofputil_flow_mod *fm,
                         enum ofputil_protocol protocol,
                         struct ofpbuf *ofpacts)
 {
+#ifdef DEBUG
+        VLOG_INFO(">>>ofputil_decode_flow_mod(), oh_len=%u",ntohs(oh->length));
+#endif
     uint16_t command;
     struct ofpbuf b;
     enum ofpraw raw;
@@ -1214,6 +1217,9 @@ ofputil_decode_flow_mod(struct ofputil_flow_mod *fm,
 
             /* Now get the actions. */
             error = ofpacts_pull_openflow10(&b, b.size, ofpacts);
+#ifdef DEBUG
+        VLOG_INFO("act_type=%u,acts_len=%u,b.size=%u",ofm->actions->type,ofm->actions->len,b.size);
+#endif
             if (error) {
                 return error;
             }
@@ -1273,6 +1279,9 @@ ofputil_decode_flow_mod(struct ofputil_flow_mod *fm,
 
     fm->ofpacts = ofpacts->data;
     fm->ofpacts_len = ofpacts->size;
+#ifdef DEBUG
+    VLOG_INFO("<<<ofputil_decode_flow_mod(): ofpacts->act_type=%u, ofpacts_len=%u",fm->ofpacts->type,fm->ofpacts_len);
+#endif
 
     return 0;
 }
