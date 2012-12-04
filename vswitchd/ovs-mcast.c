@@ -27,7 +27,7 @@
 
 VLOG_DEFINE_THIS_MODULE(vswitchd);
 
-#define SEND_DELAY 5
+#define SEND_DELAY 5 //send delay in seconds
 
 struct dpif_dp_stats;
 pthread_mutex_t mutex;

@@ -3317,6 +3317,9 @@ handle_flow_mod(struct ofconn *ofconn, const struct ofp_header *oh)
     error = ofputil_decode_flow_mod(&fm, oh, ofconn_get_protocol(ofconn),
                                     &ofpacts);
     if (error) {
+#ifdef DEBUG
+        VLOG_INFO("error =%u when do ofputil_decode_flow_mod()",error);
+#endif
         goto exit_free_ofpacts;
     }
 
@@ -3381,9 +3384,15 @@ handle_flow_mod__(struct ofproto *ofproto, struct ofconn *ofconn,
 
     switch (fm->command) {
     case OFPFC_ADD:
+#ifdef DEBUG
+        VLOG_INFO("handle_flow_mod__(): add_flow");
+#endif
         return add_flow(ofproto, ofconn, fm, oh);
 
     case OFPFC_MODIFY:
+#ifdef DEBUG
+        VLOG_INFO("handle_flow_mod__(): modify_flow");
+#endif
         return modify_flows_loose(ofproto, ofconn, fm, oh);
 
     case OFPFC_MODIFY_STRICT:
@@ -3396,6 +3405,9 @@ handle_flow_mod__(struct ofproto *ofproto, struct ofconn *ofconn,
         return delete_flow_strict(ofproto, ofconn, fm, oh);
 
     default:
+#ifdef DEBUG
+        VLOG_INFO("handle_flow_mod__(): unknown fm->command");
+#endif
         if (fm->command > 0xff) {
             VLOG_WARN_RL(&rl, "%s: flow_mod has explicit table_id but "
                          "flow_mod_table_id extension is not enabled",
@@ -3816,43 +3828,64 @@ handle_openflow__(struct ofconn *ofconn, const struct ofpbuf *msg)
         /* LC remote action. */
     case OFPTYPE_PACKET_REMOTE:
 #ifdef DEBUG
-        VLOG_INFO("handle pkt_remote from controller.");
+        VLOG_INFO("handle PKT_REMOTE from controller.");
 #endif
         return handle_packet_remote(ofconn, oh);
 #endif
         /* OpenFlow requests. */
     case OFPTYPE_ECHO_REQUEST:
+#ifdef DEBUG
+        VLOG_INFO("handle ECHO_REQUEST from controller.");
+#endif
         return handle_echo_request(ofconn, oh);
 
     case OFPTYPE_FEATURES_REQUEST:
+#ifdef DEBUG
+        VLOG_INFO("handle FEATURES_REQUEST from controller.");
+#endif
         return handle_features_request(ofconn, oh);
 
     case OFPTYPE_GET_CONFIG_REQUEST:
+#ifdef DEBUG
+        VLOG_INFO("handle GET_CONFIG_REQUEST from controller.");
+#endif
         return handle_get_config_request(ofconn, oh);
 
     case OFPTYPE_SET_CONFIG:
+#ifdef DEBUG
+        VLOG_INFO("handle SET_CONFIG from controller.");
+#endif
         return handle_set_config(ofconn, oh);
 
     case OFPTYPE_PACKET_OUT:
 #ifdef DEBUG
-        VLOG_INFO("handle pkt_out from controller.");
+        VLOG_INFO("handle PKT_OUT from controller.");
 #endif
         return handle_packet_out(ofconn, oh);
 
     case OFPTYPE_PORT_MOD:
+#ifdef DEBUG
+        VLOG_INFO("handle PORT_MOD from controller.");
+#endif
         return handle_port_mod(ofconn, oh);
 
     case OFPTYPE_FLOW_MOD:
 #ifdef DEBUG
-        VLOG_INFO("handle flow_mod from controller.");
+        VLOG_INFO("handle FLOW_MOD from controller.");
 #endif
         return handle_flow_mod(ofconn, oh);
 
     case OFPTYPE_BARRIER_REQUEST:
+#ifdef DEBUG
+        VLOG_INFO("handle BARRIER_REQUEST from controller, do noth.");
+#endif
         return handle_barrier_request(ofconn, oh);
 
         /* OpenFlow replies. */
     case OFPTYPE_ECHO_REPLY:
+#ifdef DEBUG
+        VLOG_INFO("handle ECHO_REPLY from controller, do noth.");
+#endif
         return 0;
 
         /* Nicira extension requests. */
@@ -3876,34 +3909,64 @@ handle_openflow__(struct ofconn *ofconn, const struct ofpbuf *msg)
         return 0;
 
     case OFPTYPE_FLOW_MONITOR_CANCEL:
+#ifdef DEBUG
+        VLOG_INFO("handle FLOW_MONITOR_CANCEL from controller, do noth.");
+#endif
         return handle_flow_monitor_cancel(ofconn, oh);
 
     case OFPTYPE_SET_ASYNC_CONFIG:
+#ifdef DEBUG
+        VLOG_INFO("handle SET_ASYNC_CONFIG from controller, do noth.");
+#endif
         return handle_nxt_set_async_config(ofconn, oh);
 
         /* Statistics requests. */
     case OFPTYPE_DESC_STATS_REQUEST:
+#ifdef DEBUG
+        VLOG_INFO("handle DESC_STATS_REQUEST from controller, do noth.");
+#endif
         return handle_desc_stats_request(ofconn, oh);
 
     case OFPTYPE_FLOW_STATS_REQUEST:
+#ifdef DEBUG
+        VLOG_INFO("handle FLOW_STATS_REQUEST from controller, do noth.");
+#endif
         return handle_flow_stats_request(ofconn, oh);
 
     case OFPTYPE_AGGREGATE_STATS_REQUEST:
+#ifdef DEBUG
+        VLOG_INFO("handle AGGREGATE_STATS_REQUEST from controller, do noth.");
+#endif
         return handle_aggregate_stats_request(ofconn, oh);
 
     case OFPTYPE_TABLE_STATS_REQUEST:
+#ifdef DEBUG
+        VLOG_INFO("handle TABLE_STATS_REQUEST from controller, do noth.");
+#endif
         return handle_table_stats_request(ofconn, oh);
 
     case OFPTYPE_PORT_STATS_REQUEST:
+#ifdef DEBUG
+        VLOG_INFO("handle PORT_STATS_REQUEST from controller, do noth.");
+#endif
         return handle_port_stats_request(ofconn, oh);
 
     case OFPTYPE_QUEUE_STATS_REQUEST:
+#ifdef DEBUG
+        VLOG_INFO("handle QUEUE_STATS_REQUEST from controller, do noth.");
+#endif
         return handle_queue_stats_request(ofconn, oh);
 
     case OFPTYPE_PORT_DESC_STATS_REQUEST:
+#ifdef DEBUG
+        VLOG_INFO("handle PORT_DESC_STATS_REQUEST from controller, do noth.");
+#endif
         return handle_port_desc_stats_request(ofconn, oh);
 
     case OFPTYPE_FLOW_MONITOR_STATS_REQUEST:
+#ifdef DEBUG
+        VLOG_INFO("handle FLOW_MONITOR_STATS_REQUEST from controller, do noth.");
+#endif
         return handle_flow_monitor_request(ofconn, oh);
 
     case OFPTYPE_HELLO:
@@ -3941,7 +4004,7 @@ handle_openflow(struct ofconn *ofconn, struct ofpbuf *ofp_msg)
             if(i>0 && i%16==0){
                 t[j++]='\n';
             }
-            sprintf(&t[j],"%-02x",((uint8_t *)(ofp_msg->data))[i]);
+            sprintf(&t[j],"%02x",((uint8_t *)(ofp_msg->data))[i]);
             j += 2;
             t[j++]=' ';
         }

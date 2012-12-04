@@ -1200,6 +1200,9 @@ ofputil_decode_flow_mod(struct ofputil_flow_mod *fm,
             enum ofperr error;
 
             /* Get the ofp10_flow_mod. */
+#ifdef DEBUG
+            VLOG_INFO("ofpbuf_pull, size=%u",sizeof *ofm);
+#endif
             ofm = ofpbuf_pull(&b, sizeof *ofm);
 
             /* Set priority based on original wildcards.  Normally we'd allow
@@ -1218,7 +1221,7 @@ ofputil_decode_flow_mod(struct ofputil_flow_mod *fm,
             /* Now get the actions. */
             error = ofpacts_pull_openflow10(&b, b.size, ofpacts);
 #ifdef DEBUG
-        VLOG_INFO("act_type=%u,acts_len=%u,b.size=%u",ofm->actions->type,ofm->actions->len,b.size);
+        VLOG_INFO("b.size=%u",b.size);
 #endif
             if (error) {
                 return error;

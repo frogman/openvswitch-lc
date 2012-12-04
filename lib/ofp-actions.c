@@ -596,6 +596,9 @@ ofpacts_from_openflow(const union ofp_action *in, size_t n_in,
                       enum ofperr (*ofpact_from_openflow)(
                           const union ofp_action *a, struct ofpbuf *out))
 {
+#ifdef DEBUG
+    VLOG_INFO(">>>ofpacts_from_openflow(): n_in=%u, in->type=%u, header.type=%u, header.len=%u",n_in,ntohs(in->type),ntohs(in->header.type),ntohs(in->header.len));
+#endif
     const union ofp_action *a;
     size_t left;
 
@@ -613,6 +616,9 @@ ofpacts_from_openflow(const union ofp_action *in, size_t n_in,
     }
 
     ofpact_pad(out);
+#ifdef DEBUG
+    VLOG_INFO("<<<ofpacts_from_openflow() done");
+#endif
     return 0;
 }
 
@@ -670,6 +676,9 @@ ofpacts_from_openflow10_remote(const struct ofp_action_remote *in, size_t n_in,
 }
 #endif
 
+/**
+ * pull actions and stores into ofpacts.
+ */
 static enum ofperr
 ofpacts_pull_actions(struct ofpbuf *openflow, unsigned int actions_len,
                      struct ofpbuf *ofpacts,

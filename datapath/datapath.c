@@ -352,15 +352,11 @@ void ovs_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
             kfree_skb(skb);
             return;
         }
-        if (ntohs(key.eth.type) == 0x86dd || ntohs(key.eth.type) == 0x8942 || ntohs(key.eth.type) == 0x88cc) { //TODO: do not support ipv6 now.
-            kfree_skb(skb);
-            return;
-        }
-        if (unlikely(ntohs(key.eth.type) != 0x0806 && ntohs(key.eth.type) != 0x0800)) {
-            kfree_skb(skb);
-            return;
-        }
         if (unlikely(ntohs(key.eth.type) != 0x0800)) {
+            kfree_skb(skb);
+            return;
+        }
+        if (unlikely(ntohl(key.ipv4.addr.src) == 0xc0a83901)) {
             kfree_skb(skb);
             return;
         }
@@ -1041,7 +1037,7 @@ static void clear_stats(struct sw_flow *flow)
 static int ovs_packet_cmd_execute(struct sk_buff *skb, struct genl_info *info)
 {
 #ifdef DEBUG
-    pr_info("ovs_packet_cmd_execute()\n");
+    pr_info("ovs_packet_cmd_execute(): receive pkt_execute cmd from osvd\n");
 #endif
 	struct ovs_header *ovs_header = info->userhdr;
 	struct nlattr **a = info->attrs;
@@ -1373,7 +1369,10 @@ static int ovs_flow_cmd_new_or_set(struct sk_buff *skb, struct genl_info *info)
 
 	table = genl_dereference(dp->table);
 	flow = ovs_flow_tbl_lookup(table, &key, key_len);
-	if (!flow) { //no same flow existed already
+	if (!flow) { //no same flow existed yet
+#ifdef DEBUG
+        pr_info("No same flow in local tbl yet, will add.");
+#endif
 		struct sw_flow_actions *acts;
 
 		/* Bail out if we're not allowed to create a new flow. */
@@ -1405,6 +1404,9 @@ static int ovs_flow_cmd_new_or_set(struct sk_buff *skb, struct genl_info *info)
 		/* Obtain actions. */
 		acts = ovs_flow_actions_alloc(a[OVS_FLOW_ATTR_ACTIONS]);
 #ifdef DEBUG
+        pr_info("actions_len=%u",acts->actions_len);
+#endif
+#ifdef DEBUG
         switch (acts->actions[0].nla_type) {
             case OVS_ACTION_ATTR_OUTPUT:
                 pr_info("action = OUTPUT to port %u\n", nla_get_u32(acts->actions));
@@ -1432,6 +1434,9 @@ static int ovs_flow_cmd_new_or_set(struct sk_buff *skb, struct genl_info *info)
                 info->snd_seq,
                 OVS_FLOW_CMD_NEW);
     } else {
+#ifdef DEBUG
+        pr_info("Same flow in local tbl already, will update.");
+#endif
         /* We found a matching flow. */
         struct sw_flow_actions *old_acts;
         struct nlattr *acts_attrs;
@@ -1458,6 +1463,9 @@ static int ovs_flow_cmd_new_or_set(struct sk_buff *skb, struct genl_info *info)
             struct sw_flow_actions *new_acts;
 
             new_acts = ovs_flow_actions_alloc(acts_attrs);
+#ifdef DEBUG
+        pr_info("actions_len=%u",new_acts->actions_len);
+#endif
 
             error = PTR_ERR(new_acts);
             if (IS_ERR(new_acts))
