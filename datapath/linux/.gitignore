@@ -43,3 +43,6 @@
 /workqueue.c
 /dcm.c
 /lc_group.c
+/bf.c
+/bf-gdt.c
+/remote.c
