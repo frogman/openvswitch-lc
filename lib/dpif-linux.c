@@ -864,8 +864,8 @@ struct dpif_linux_bf_gdt {
 
     /* Attributes data to put.
      */
-    const struct bloom_filter *bf;      /* one bloom_filter entry. */
-    size_t  bf_len;                     /* size of the bf. */
+    const struct bloom_filter *bf;    /* one bloom_filter entry. */
+    size_t  size;                     /* size of the data (struct bloom_filter). */
 };
 
 /**
@@ -892,8 +892,8 @@ dpif_linux_bf_gdt_to_ofpbuf(const struct dpif_linux_bf_gdt *bf_gdt,
     ovs_header = ofpbuf_put_uninit(buf, sizeof *ovs_header);
     ovs_header->dp_ifindex = bf_gdt->dp_ifindex;
 
-    if (bf_gdt->bf || bf_gdt->bf_len) {
-        nl_msg_put_unspec(buf, OVS_BF_GDT_ATTR_BF, bf_gdt->bf, bf_gdt->bf_len);
+    if (bf_gdt->bf && bf_gdt->size>0) {
+        nl_msg_put_unspec(buf, OVS_BF_GDT_ATTR_BF, bf_gdt->bf, bf_gdt->size);
     }
 
 }
@@ -935,7 +935,7 @@ dpif_linux_init_bf_gdt_put(struct dpif *dpif_, const struct dpif_bf_gdt_put *put
     request->dp_ifindex = dpif->dp_ifindex;
     /* Attibutions. */
     request->bf = put->bf;
-    request->bf_len = put->bf_len;
+    request->size = put->size;
     /*nlmsg flags*/
     request->nlmsg_flags = put->flags & DPIF_BF_MODIFY ? 0 : NLM_F_CREATE;
 }

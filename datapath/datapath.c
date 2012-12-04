@@ -353,7 +353,7 @@ void ovs_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
             return;
         }
         
-        if (unlikely(ntohs(key.eth.type) != 0x0806 && ntohs(key.eth.type) != 0x0800)) { 
+        if (ntohs(key.eth.type) != 0x0806 && ntohs(key.eth.type) != 0x0800) { 
             pr_info("Drop unknown l2_type = 0x%x",ntohs(key.eth.type));
             kfree_skb(skb);
             return;
@@ -420,6 +420,9 @@ void ovs_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
             }
 #endif
         }//if(!flow)
+#ifdef DEBUG
+        pr_info("Found flow in local tbl");
+#endif
         OVS_CB(skb)->flow = flow;
     } /*now each pkt has an associated flow. */
 
@@ -483,7 +486,7 @@ static int ovs_bf_gdt_cmd_new_or_set(struct sk_buff *skb, struct genl_info *info
 {
     struct nlattr **a = info->attrs;
     struct ovs_header *ovs_header = info->userhdr;
-    struct bloom_filter bf;
+    struct bloom_filter *bf;
     struct datapath *dp;
     int ret;
     int bf_len;
@@ -491,13 +494,16 @@ static int ovs_bf_gdt_cmd_new_or_set(struct sk_buff *skb, struct genl_info *info
     /* Extract bf. */
     if (!a[OVS_BF_GDT_ATTR_BF])
         goto error;
-    memcpy(&bf, nla_data(a[OVS_BF_GDT_ATTR_BF]),sizeof bf);
+    if(nla_len(a[OVS_BF_GDT_ATTR_BF])!=sizeof(struct bloom_filter)){
+        goto error;
+    }
+    bf = nla_data(a[OVS_BF_GDT_ATTR_BF]);
 
     dp = get_dp(sock_net(skb->sk), ovs_header->dp_ifindex);
     if (!dp)
         goto error;
 #ifdef DEBUG
-    printk("[DP] ovs_bf_gdt_cmd_new_or_set(): Received bf_gdt nlmsg from userspace: bf_id=0x%x,len=%u, will update bf_gdt.\n",bf.bf_id,bf.len);
+    printk("[DP] ovs_bf_gdt_cmd_new_or_set(): Received bf_gdt nlmsg from userspace: bf_id=0x%x,len=%u, will update bf_gdt.\n",bf->bf_id,bf->len);
 #endif
     ret = bf_gdt_update_filter(dp->gdt, &bf);
     return ret;
@@ -1038,7 +1044,7 @@ static void clear_stats(struct sw_flow *flow)
 static int ovs_packet_cmd_execute(struct sk_buff *skb, struct genl_info *info)
 {
 #ifdef DEBUG
-    pr_info("ovs_packet_cmd_execute(): receive pkt_execute cmd from osvd\n");
+    pr_info("ovs_packet_cmd_execute(): receive pkt_execute cmd from ovsd\n");
 #endif
 	struct ovs_header *ovs_header = info->userhdr;
 	struct nlattr **a = info->attrs;
@@ -1435,6 +1441,9 @@ static int ovs_flow_cmd_new_or_set(struct sk_buff *skb, struct genl_info *info)
 
         /* Put flow in bucket. */
         flow->hash = ovs_flow_hash(&key, key_len);
+#ifdef DEBUG
+        pr_info("will put flow in bucket, flow->hash=0x%x.",flow->hash);
+#endif
         ovs_flow_tbl_insert(table, flow);
 
         reply = ovs_flow_cmd_build_info(flow, dp, info->snd_pid,
@@ -1493,6 +1502,9 @@ static int ovs_flow_cmd_new_or_set(struct sk_buff *skb, struct genl_info *info)
         }
 #endif
 
+#ifdef DEBUG
+        pr_info("will set flow to new_act, flow->hash=0x%x",flow->hash);
+#endif
             rcu_assign_pointer(flow->sf_acts, new_acts);
             ovs_flow_deferred_free_acts(old_acts);
         }
@@ -1587,7 +1599,8 @@ static int ovs_flow_cmd_del(struct sk_buff *skb, struct genl_info *info)
 		return -ENOENT;
 
 #ifdef DEBUG
-    pr_mac("ovs_flow_cmd_del(): dp receive flow_del cmd",key.eth.src,key.eth.dst,ntohs(key.eth.type));
+    pr_info(">>>ovs_flow_cmd_del(): dp receive flow_del cmd");
+    pr_key(&key,"del_key");
 #endif
 
 	reply = ovs_flow_cmd_alloc_info(flow);
@@ -1604,6 +1617,9 @@ static int ovs_flow_cmd_del(struct sk_buff *skb, struct genl_info *info)
 
 	genl_notify(reply, genl_info_net(info), info->snd_pid,
 		    ovs_dp_flow_multicast_group.id, info->nlhdr, GFP_KERNEL);
+#ifdef DEBUG
+    pr_info("<<<ovs_flow_cmd_del()");
+#endif
 	return 0;
 }
 

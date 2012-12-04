@@ -18,9 +18,9 @@ sudo sysctl -w net.ipv4.neigh.default.gc_stale_time=600;
 sudo sysctl -w net.ipv4.neigh.br0.gc_stale_time=600;
 
 #crl
-sudo arp -s 10.0.0.2 08:00:27:ab:b6:a5;
-sudo arp -s 192.168.57.1 0a:00:27:00:00:01;
+#sudo arp -s 10.0.0.2 08:00:27:ab:b6:a5;
+#sudo arp -s 192.168.57.1 0a:00:27:00:00:01;
 
 #thu
-#sudo arp -s 10.0.0.2 08:00:27:ab:b6:a5;
-#sudo arp -s 192.168.57.1 08:00:27:00:bc:89;
+sudo arp -s 10.0.0.2 08:00:27:ab:b6:a5;
+sudo arp -s 192.168.57.1 08:00:27:00:bc:89;

@@ -98,6 +98,11 @@ static void log_flow_del_message(struct dpif *, const struct dpif_flow_del *,
 static void log_execute_message(struct dpif *, const struct dpif_execute *,
                                 int error);
 
+#ifdef LC_ENABLE
+static void log_bf_gdt_put_message(struct dpif *, const struct dpif_bf_gdt_put *,
+                                 int error);
+#endif
+
 static void
 dp_initialize(void)
 {
@@ -971,18 +976,18 @@ dpif_bf_gdt_put__(struct dpif *dpif, const struct dpif_bf_gdt_put *put)
                             | DPIF_BF_ZERO_STATS)));
 
     error = dpif->dpif_class->bf_gdt_put(dpif, put);
-    //log_flow_put_message(dpif, put, error);
+    log_bf_gdt_put_message(dpif, put, error);
     return error;
 }
 
 int dpif_bf_gdt_put(struct dpif *dpif, enum dpif_bf_gdt_put_flags flags,
-                  const struct bloom_filter *bf, size_t bf_len)
+                  const struct bloom_filter *bf, size_t size)
 {
     struct dpif_bf_gdt_put put;
 
     put.flags = flags;
     put.bf = bf;
-    put.bf_len = bf_len;
+    put.size = size;
     return dpif_bf_gdt_put__(dpif, &put);
 }
 #endif
@@ -1331,6 +1336,50 @@ log_flow_del_message(struct dpif *dpif, const struct dpif_flow_del *del,
                          !error ? del->stats : NULL, NULL, 0);
     }
 }
+
+#ifdef LC_ENABLE
+static void
+log_bf_gdt_message(const struct dpif *dpif, int error, const char *operation, int bf_id, size_t size)
+{
+    struct ds ds = DS_EMPTY_INITIALIZER;
+    ds_put_format(&ds, "%s: ", dpif_name(dpif));
+    if (error) {
+        ds_put_cstr(&ds, "failed to ");
+    }
+    ds_put_format(&ds, "%s ", operation);
+    if (error) {
+        ds_put_format(&ds, "(%s) ", strerror(error));
+    }
+
+    ds_put_format(&ds, "bf_id=0x%x ", bf_id);
+    ds_put_format(&ds, "size=%u ", size);
+    vlog(THIS_MODULE, flow_message_log_level(error), "%s", ds_cstr(&ds));
+    ds_destroy(&ds);
+}
+
+static void
+log_bf_gdt_put_message(struct dpif *dpif, const struct dpif_bf_gdt_put *put,
+                     int error)
+{
+    if (should_log_flow_message(error)) {//TODO: use flow's
+        struct ds s;
+
+        ds_init(&s);
+        ds_put_cstr(&s, "put");
+        if (put->flags & DPIF_BF_CREATE) {
+            ds_put_cstr(&s, "[create]");
+        }
+        if (put->flags & DPIF_BF_MODIFY) {
+            ds_put_cstr(&s, "[modify]");
+        }
+        if (put->flags & DPIF_BF_ZERO_STATS) {
+            ds_put_cstr(&s, "[zero]");
+        }
+        log_bf_gdt_message(dpif, error, ds_cstr(&s),put->bf->bf_id, put->size);
+        ds_destroy(&s);
+    }
+}
+#endif
 
 static void
 log_execute_message(struct dpif *dpif, const struct dpif_execute *execute,

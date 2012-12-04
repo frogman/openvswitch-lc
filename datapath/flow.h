@@ -203,5 +203,8 @@ u32 ovs_flow_hash(const struct sw_flow_key *key, int key_len);
 
 struct sw_flow *ovs_flow_tbl_next(struct flow_table *table, u32 *bucket, u32 *idx);
 extern const int ovs_key_lens[OVS_KEY_ATTR_MAX + 1];
+#ifdef LC_ENABLE
+void pr_key(struct sw_flow_key *key,char *info);
+#endif
 
 #endif /* flow.h */
