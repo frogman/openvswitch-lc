@@ -89,6 +89,38 @@ struct bloom_filter *bf_gdt_add_filter(struct bf_gdt *gdt, u32 bf_id, u16 port_n
     }
     return NULL;
 }
+
+/**
+ * Create and add a new empty bloom_filter into the given gdt
+ * @param gdt: the gdt to update
+ * @param bf_id: the bf_id
+ * @return -1 if failed, 0 if succeed, 1 if not found.
+ */
+int bf_gdt_del_filter(struct bf_gdt *gdt, u32 bf_id)
+{
+    if (!gdt) {
+        return -1;
+    }
+
+    int i = 0;
+    for (i=0;i<gdt->nbf;i++){
+        if(gdt->bf_array[i]->bf_id == bf_id) {
+#ifdef __KERNEL__
+            kfree(gdt->bf_array[i]);
+#else
+            free(gdt->bf_array[i]);
+#endif
+            if(i != gdt->nbf-1) {//not the last one
+                gdt->bf_array[i] = gdt->bf_array[gdt->nbf-1];
+            }
+            gdt->bf_array[gdt->nbf-1] = NULL;
+            gdt->nbf -= 1;
+            return 0;
+        }
+    }
+    return 1;
+}
+
 /**
  * Insert a bloom_filter content into the given gdt, guarantee no existed yet.
  * the given bloom_filter can be freed outside.
@@ -136,26 +168,26 @@ struct bloom_filter *bf_gdt_find_filter(struct bf_gdt *gdt, u32 bf_id)
 int bf_gdt_update_filter(struct bf_gdt *gdt, struct bloom_filter *bf)
 {
     if (!gdt || !bf) {
-        return NULL;
+        return -1;
     }
     int ret = -1;
     struct bloom_filter *matched_bf = bf_gdt_find_filter(gdt,bf->bf_id);
     if(matched_bf) {//find matched.
-        if(memcmp(matched_bf->array,bf->array,matched_bf->len)==0) {//equal, no change
+        if(memcmp(matched_bf->array,bf->array,matched_bf->len)==0) { //no change
             ret = -1;
-        }else{// some content changed
-#ifdef DEBUG
+        } else {//content changed, then update
 #ifdef __KERNEL__
-	printk(KERN_INFO "bf_gdt_update_filter():update existed, bf_id=0x%x,len=%u",bf->bf_id,bf->len);
+#ifdef DEBUG
+            pr_info("bf_gdt_update_filter():update existed, bf_id=0x%x, len=%u",bf->bf_id,bf->len);
 #endif
 #endif
             memcpy(matched_bf->array,bf->array,matched_bf->len);
             ret = 1;
         }
-    } else { //no match, then insert
-#ifdef DEBUG
+    } else { //no existed, then insert
 #ifdef __KERNEL__
-	printk(KERN_INFO "bf_gdt_update_filter():add new, bf_id=0x%x,len=%u",bf->bf_id,bf->len);
+#ifdef DEBUG
+        pr_info("bf_gdt_update_filter():add new, bf_id=0x%x, len=%u",bf->bf_id,bf->len);
 #endif
 #endif
         bf_gdt_insert_filter(gdt,bf);
@@ -224,7 +256,7 @@ struct bloom_filter *bf_gdt_check(struct bf_gdt *gdt, unsigned char *s)
     u32 i;
 #ifdef DEBUG
 #ifdef __KERNEL__
-	printk(KERN_INFO "gdt_check():gdt->nbf=%u",gdt->nbf);
+    printk(KERN_INFO "gdt_check():gdt->nbf=%u",gdt->nbf);
 #endif
 #endif
     if (gdt && gdt->bf_array) {

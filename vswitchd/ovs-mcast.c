@@ -45,9 +45,8 @@ void *mc_send(struct mc_send_arg* arg)
 {
     int sock_id;
     struct sockaddr_in addr;
-    socklen_t len;
     int ret;
-    struct mcast_msg *msg= malloc(sizeof(struct mcast_msg));
+    struct mcast_msg *msg= NULL;
     struct bloom_filter *bf=NULL;
     struct stat_base s;
 
@@ -66,29 +65,28 @@ void *mc_send(struct mc_send_arg* arg)
     addr.sin_family = AF_INET;
     addr.sin_addr.s_addr = arg->group_ip; 
     addr.sin_port = htons(arg->port);
-    len = sizeof(addr);
 
     /* prepare message.*/
+    msg= malloc(sizeof(struct mcast_msg));
     msg->gid = arg->gdt->gid;
-
-    /*stat information.*/
-    bridge_get_stat(arg->br,&s);
-    msg->s.num = 1;
-    msg->s.entry[0].src_sw_id = arg->local_id;
-    msg->s.entry[0].dst_sw_id = arg->local_id; //TODO
-    msg->s.entry[0].bytes = s.entry[0].bytes;
 
     /* send the data to the address:port */
     while (!*arg->stop) {
+        /*stat information.*/
+        bridge_get_stat(arg->br,&s);
         bf = bf_gdt_find_filter(arg->gdt,arg->local_id); //find local bf.
         if (bf) {//found matched bf
             pthread_mutex_lock (&mutex);
             memcpy(&(msg->bf),bf,sizeof(struct bloom_filter));
             pthread_mutex_unlock(&mutex);
-            ret = sendto(sock_id,msg,sizeof(struct mcast_msg),0,(struct sockaddr *)&addr, len);
+            msg->s.num = 1;
+            msg->s.entry[0].src_sw_id = arg->local_id;
+            msg->s.entry[0].dst_sw_id = arg->local_id; //TODO
+            msg->s.entry[0].bytes = s.entry[0].bytes;
+            ret = sendto(sock_id,msg,sizeof(struct mcast_msg),0,(struct sockaddr *)&addr,sizeof(addr));
             if (ret <0) {
                 perror("sendto error");
-            } 
+            }
             //else {
             //    VLOG_INFO("Send mcast msg to %s:%u, gid=%u,bf_id=0x%x\n", inet_ntoa(addr.sin_addr.s_addr), ntohs(addr.sin_port),msg->gid,msg->bf.bf_id);
             //}
@@ -112,8 +110,8 @@ void *mc_recv(struct mc_recv_arg* arg)
     struct sockaddr_in addr, sender;
     struct ip_mreq ipmr;
     socklen_t len;
-    int ret;
-    int count;
+    int ret=0;
+    int count=0;
     struct mcast_msg *msg = malloc(sizeof(struct mcast_msg));
 
     /* Step 1: open a socket, and bind */
@@ -145,7 +143,7 @@ void *mc_recv(struct mc_recv_arg* arg)
 
     /* Step 4: call recvfrom to receive multicast packets */
     len = sizeof(sender);
-    count = 0;
+
     while (!*arg->stop) {
         ret = recvfrom(sock_id, msg, sizeof(struct mcast_msg),0,(struct sockaddr *)&sender,&len);
         if (ret < 0) {
@@ -156,16 +154,16 @@ void *mc_recv(struct mc_recv_arg* arg)
         if (msg->gid != arg->gdt->gid){
             VLOG_WARN("WARNING: group %u received mcast msg from other group %u\n",arg->gdt->gid,msg->gid);
         }
-        if (msg->bf.bf_id == arg->local_id){//from local switch
+        if (msg->bf.bf_id == arg->local_id){ //from local switch, should ignore
             continue;
         }
 
         pthread_mutex_lock (&mutex);
-        ret = bf_gdt_update_filter(arg->gdt,&msg->bf); //update remote bfs into local bf-gdt
-        msg->bf.port_no = LC_BF_REMOTE_PORT; //change default port for remote pkts
+        ret = bf_gdt_update_filter(arg->gdt,&msg->bf); //update remote bf into ovsd's local bf-gdt
         pthread_mutex_unlock (&mutex);
         if(ret > 0) {//sth changed in gdt with msg
             VLOG_INFO("Received new bf with bf_id=0x%x, will update dp's bf_gdt.",msg->bf.bf_id);
+            msg->bf.port_no = LC_BF_REMOTE_PORT; //change default port for remote pkts
             bridge_update_bf_gdt_to_dp(arg->br, &msg->bf);
         }
         //else {

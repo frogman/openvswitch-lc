@@ -35,8 +35,8 @@ struct bridge;
 
 struct mcast_msg {
     unsigned int gid; //group id of the msg
-    struct bloom_filter bf;
-    struct stat_base s;
+    struct bloom_filter bf; //the entry of local bloom_filter
+    struct stat_base s; //stat information, to be extened.
 };
 
 struct mc_send_arg {
