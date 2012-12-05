@@ -2907,6 +2907,9 @@ handle_flow_miss_without_facet(struct flow_miss *miss,
                                struct rule_dpif *rule,
                                struct flow_miss_op *ops, size_t *n_ops)
 {
+#ifdef DEBUG
+    VLOG_INFO(">>>handle_flow_miss_without_facet()");
+#endif
     struct ofproto_dpif *ofproto = ofproto_dpif_cast(rule->up.ofproto);
     long long int now = time_msec();
     struct action_xlate_ctx ctx;
@@ -2943,6 +2946,9 @@ handle_flow_miss_without_facet(struct flow_miss *miss,
             ofpbuf_uninit(&odp_actions);
         }
     }
+#ifdef DEBUG
+    VLOG_INFO("<<<handle_flow_miss_without_facet()");
+#endif
 }
 
 /* Handles 'miss', which matches 'facet'.  May add any required datapath
@@ -4034,6 +4040,9 @@ subfacet_should_install(struct subfacet *subfacet, enum slow_path_reason slow,
 static bool
 facet_check_consistency(struct facet *facet)
 {
+#ifdef DEBUG
+    VLOG_INFO(">>>facet_check_consistency()");
+#endif
     static struct vlog_rate_limit rl = VLOG_RATE_LIMIT_INIT(1, 15);
 
     struct ofproto_dpif *ofproto = ofproto_dpif_cast(facet->rule->up.ofproto);
@@ -4141,6 +4150,10 @@ facet_check_consistency(struct facet *facet)
     }
     ofpbuf_uninit(&odp_actions);
 
+#ifdef DEBUG
+    VLOG_INFO("<<<facet_check_consistency()");
+#endif
+
     return ok;
 }
 
@@ -4154,6 +4167,9 @@ facet_check_consistency(struct facet *facet)
 static void
 facet_revalidate(struct facet *facet)
 {
+#ifdef DEBUG
+    VLOG_INFO(">>>facet_revalidate()");
+#endif
     struct ofproto_dpif *ofproto = ofproto_dpif_cast(facet->rule->up.ofproto);
     struct actions {
         struct nlattr *odp_actions;
@@ -4247,6 +4263,9 @@ facet_revalidate(struct facet *facet)
         facet->used = new_rule->up.created;
         facet->prev_used = facet->used;
     }
+#ifdef DEBUG
+    VLOG_INFO("<<<facet_revalidate()");
+#endif
 }
 
 /* Updates 'facet''s used time.  Caller is responsible for calling
@@ -4478,6 +4497,9 @@ static void
 subfacet_make_actions(struct subfacet *subfacet, const struct ofpbuf *packet,
                       struct ofpbuf *odp_actions)
 {
+#ifdef DEBUG
+    VLOG_INFO(">>>subfacet_make_actions()");
+#endif
     struct facet *facet = subfacet->facet;
     struct rule_dpif *rule = facet->rule;
     struct ofproto_dpif *ofproto = ofproto_dpif_cast(rule->up.ofproto);
@@ -4501,6 +4523,9 @@ subfacet_make_actions(struct subfacet *subfacet, const struct ofpbuf *packet,
         subfacet->actions_len = odp_actions->size;
         subfacet->actions = xmemdup(odp_actions->data, odp_actions->size);
     }
+#ifdef DEBUG
+    VLOG_INFO("<<<subfacet_make_actions()");
+#endif
 }
 
 /* Updates 'subfacet''s datapath flow, setting its actions to 'actions_len'
@@ -4783,6 +4808,9 @@ rule_destruct(struct rule *rule_)
 static void
 rule_get_stats(struct rule *rule_, uint64_t *packets, uint64_t *bytes)
 {
+#ifdef DEBUG
+    VLOG_INFO(">>>rule_get_stats()");
+#endif
     struct rule_dpif *rule = rule_dpif_cast(rule_);
     struct facet *facet;
 
@@ -4798,6 +4826,9 @@ rule_get_stats(struct rule *rule_, uint64_t *packets, uint64_t *bytes)
         *packets += facet->packet_count;
         *bytes += facet->byte_count;
     }
+#ifdef DEBUG
+    VLOG_INFO("<<<rule_get_stats()");
+#endif
 }
 
 static enum ofperr
@@ -5416,7 +5447,7 @@ xlate_remote_action(struct action_xlate_ctx *ctx,
                     uint16_t port, uint32_t ip)
 {
 #ifdef DEBUG
-        VLOG_INFO(">>>xlate_remote_action() start, port=%u, ip=0x%x.",port,ip);
+        VLOG_INFO(">>>xlate_remote_action(): port=%u, ip=0x%x.",port,ip);
 #endif
     uint16_t prev_nf_output_iface = ctx->nf_output_iface;
 
@@ -5657,8 +5688,7 @@ do_xlate_actions(const struct ofpact *ofpacts, size_t ofpacts_len,
         }
 
 #ifdef DEBUG
-        if(a->type==OFPACT_REMOTE)
-            VLOG_INFO(">>>do_xlate_actions, type=%u, ofpacts_len=%u",a->type,ofpacts_len);
+        VLOG_INFO(">>>do_xlate_actions, type=%u, ofpacts_len=%u",a->type,ofpacts_len);
 #endif
         switch (a->type) {
         case OFPACT_OUTPUT:
@@ -5816,8 +5846,8 @@ out:
 #ifdef DEBUG
     if(a->type == OFPACT_REMOTE) {
         VLOG_INFO("ctx->odp_actions: size=%u, nla_data=0x%llx",ctx->odp_actions->size,nl_attr_get_u64(ctx->odp_actions->data));
-        VLOG_INFO("<<<do_xlate_actions() done.");
     }
+    VLOG_INFO("<<<do_xlate_actions() done.");
 #endif
 }
 
@@ -5849,7 +5879,7 @@ xlate_actions(struct action_xlate_ctx *ctx,
               struct ofpbuf *odp_actions)
 {
 #ifdef DEBUG
-    //VLOG_INFO(">>>xlate_actions(): ofpacts_len=%u",ofpacts_len);
+    VLOG_INFO(">>>xlate_actions(): ofpacts_len=%u",ofpacts_len);
 #endif
     /* Normally false.  Set to true if we ever hit MAX_RESUBMIT_RECURSION, so
      * that in the future we always keep a copy of the original flow for
@@ -5948,7 +5978,9 @@ xlate_actions(struct action_xlate_ctx *ctx,
             if (ctx->packet
                 && connmgr_msg_in_hook(ctx->ofproto->up.connmgr, &ctx->flow,
                                        ctx->packet)) {
-                VLOG_INFO("compose_output_action()");
+#ifdef DEBUG
+                VLOG_INFO("===compose_output_action()===");
+#endif
                 compose_output_action(ctx, OFPP_LOCAL);
             }
         }
@@ -5962,6 +5994,8 @@ xlate_actions(struct action_xlate_ctx *ctx,
         VLOG_INFO("<<<xlate_actions(): size=%u, nla_data=0x%llx",ctx->odp_actions->size,nl_attr_get_u64(ctx->odp_actions->data));
     else if (ctx->odp_actions->size==8) 
         VLOG_INFO("<<<xlate_actions(): size=%u, nla_data=0x%x",ctx->odp_actions->size,nl_attr_get_u32(ctx->odp_actions->data));
+    else
+        VLOG_INFO("<<<xlate_actions(): size=%u",ctx->odp_actions->size);
 #endif
 }
 
@@ -5972,12 +6006,18 @@ xlate_actions_for_side_effects(struct action_xlate_ctx *ctx,
                                const struct ofpact *ofpacts,
                                size_t ofpacts_len)
 {
+#ifdef DEBUG
+    VLOG_INFO(">>>xlate_actions_for_side_effects");
+#endif
     uint64_t odp_actions_stub[1024 / 8];
     struct ofpbuf odp_actions;
 
     ofpbuf_use_stub(&odp_actions, odp_actions_stub, sizeof odp_actions_stub);
     xlate_actions(ctx, ofpacts, ofpacts_len, &odp_actions);
     ofpbuf_uninit(&odp_actions);
+#ifdef DEBUG
+    VLOG_INFO("<<<xlate_actions_for_side_effects");
+#endif
 }
 
 static void
@@ -6660,6 +6700,9 @@ packet_out(struct ofproto *ofproto_, struct ofpbuf *packet,
            const struct flow *flow,
            const struct ofpact *ofpacts, size_t ofpacts_len)
 {
+#ifdef DEBUG
+    VLOG_INFO(">>>packet_out()");
+#endif
     struct ofproto_dpif *ofproto = ofproto_dpif_cast(ofproto_);
     enum ofperr error;
 
@@ -6694,6 +6737,9 @@ packet_out(struct ofproto *ofproto_, struct ofpbuf *packet,
                      odp_actions.data, odp_actions.size, packet);
         ofpbuf_uninit(&odp_actions);
     }
+#ifdef DEBUG
+    VLOG_INFO("<<<packet_out()");
+#endif
     return error;
 }
 
@@ -7100,6 +7146,9 @@ ofproto_trace(struct ofproto_dpif *ofproto, const struct flow *flow,
               const struct ofpbuf *packet, ovs_be16 initial_tci,
               struct ds *ds)
 {
+#ifdef DEBUG
+    VLOG_INFO(">>>ofproto_trace()");
+#endif
     struct rule_dpif *rule;
 
     ds_put_cstr(ds, "Flow: ");
@@ -7187,6 +7236,9 @@ ofproto_trace(struct ofproto_dpif *ofproto, const struct flow *flow,
             }
         }
     }
+#ifdef DEBUG
+    VLOG_INFO("<<<ofproto_trace()");
+#endif
 }
 
 static void

@@ -1141,6 +1141,9 @@ ofputil_decode_flow_mod(struct ofputil_flow_mod *fm,
                         enum ofputil_protocol protocol,
                         struct ofpbuf *ofpacts)
 {
+#ifdef DEBUG
+        VLOG_INFO(">>>ofputil_decode_flow_mod(), oh_len=%u",ntohs(oh->length));
+#endif
     uint16_t command;
     struct ofpbuf b;
     enum ofpraw raw;
@@ -1197,6 +1200,9 @@ ofputil_decode_flow_mod(struct ofputil_flow_mod *fm,
             enum ofperr error;
 
             /* Get the ofp10_flow_mod. */
+#ifdef DEBUG
+            VLOG_INFO("ofpbuf_pull, size=%u",sizeof *ofm);
+#endif
             ofm = ofpbuf_pull(&b, sizeof *ofm);
 
             /* Set priority based on original wildcards.  Normally we'd allow
@@ -1214,6 +1220,9 @@ ofputil_decode_flow_mod(struct ofputil_flow_mod *fm,
 
             /* Now get the actions. */
             error = ofpacts_pull_openflow10(&b, b.size, ofpacts);
+#ifdef DEBUG
+        VLOG_INFO("b.size=%u",b.size);
+#endif
             if (error) {
                 return error;
             }
@@ -1273,6 +1282,9 @@ ofputil_decode_flow_mod(struct ofputil_flow_mod *fm,
 
     fm->ofpacts = ofpacts->data;
     fm->ofpacts_len = ofpacts->size;
+#ifdef DEBUG
+    VLOG_INFO("<<<ofputil_decode_flow_mod(): ofpacts->act_type=%u, ofpacts_len=%u",fm->ofpacts->type,fm->ofpacts_len);
+#endif
 
     return 0;
 }

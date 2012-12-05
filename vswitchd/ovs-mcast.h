@@ -64,7 +64,7 @@ struct mc_recv_arg {
  * 224.0.2.0 ~ 238.255.255.255 temporary multicast for users
  * 239.*.*.* local multicast
  */
-void mc_send(struct mc_send_arg* arg);
-void mc_recv(struct mc_recv_arg* arg);
+void *mc_send(struct mc_send_arg* arg);
+void *mc_recv(struct mc_recv_arg* arg);
 
 #endif
