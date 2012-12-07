@@ -100,6 +100,9 @@ static int internal_dev_mac_addr(struct net_device *dev, void *p)
 /* Called with rcu_read_lock_bh. */
 static int internal_dev_xmit(struct sk_buff *skb, struct net_device *netdev)
 {
+#ifdef DEBUG
+    pr_info(">>>internal_dev_xmit()");
+#endif
 	if (unlikely(compute_ip_summed(skb, true))) {
 		kfree_skb(skb);
 		return 0;
@@ -111,6 +114,9 @@ static int internal_dev_xmit(struct sk_buff *skb, struct net_device *netdev)
 	rcu_read_lock();
 	ovs_vport_receive(internal_dev_priv(netdev)->vport, skb);
 	rcu_read_unlock();
+#ifdef DEBUG
+    pr_info("<<<internal_dev_xmit()");
+#endif
 	return 0;
 }
 

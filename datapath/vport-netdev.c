@@ -249,6 +249,9 @@ int ovs_netdev_get_mtu(const struct vport *vport)
 /* Must be called with rcu_read_lock. */
 static void netdev_port_receive(struct vport *vport, struct sk_buff *skb)
 {
+#ifdef DEBUG
+    pr_info(">>>netdev_port_receive()");
+#endif
 	if (unlikely(!vport)) {
 		kfree_skb(skb);
 		return;
@@ -271,6 +274,9 @@ static void netdev_port_receive(struct vport *vport, struct sk_buff *skb)
 	vlan_copy_skb_tci(skb);
 
 	ovs_vport_receive(vport, skb);
+#ifdef DEBUG
+    pr_info("<<<netdev_port_receive()");
+#endif
 }
 
 static unsigned int packet_length(const struct sk_buff *skb)

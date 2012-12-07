@@ -28,9 +28,6 @@
 
 #include "bf-gdt.h"
 
-#define SETBIT(array, n) (array[n/sizeof(char)] |= (1<<(n%sizeof(char))))
-#define GETBIT(array, n) (array[n/sizeof(char)] & (1<<(n%sizeof(char))))
-
 /**
  * Init an empty bf_gdt with no bf yet.
  * @param gid: the group id
@@ -45,7 +42,9 @@ struct bf_gdt *bf_gdt_init(u32 gid)
     if(!(gdt=malloc(sizeof(struct bf_gdt)))) 
 #endif
     {
-        /*printk("Error in kmalloc gdt\n");*/
+#ifdef __KERNEL__
+	printk(KERN_INFO "bf_gdt_init(): Error in kmalloc gdt");
+#endif
         return NULL;
     }
 #ifdef __KERNEL__
@@ -54,7 +53,9 @@ struct bf_gdt *bf_gdt_init(u32 gid)
     if(!(gdt->bf_array=calloc(BF_GDT_MAX_FILTERS,sizeof(struct bloom_filter*)))) 
 #endif
     {
-        /*printk("Error in kmalloc gdt\n");*/
+#ifdef __KERNEL__
+	printk(KERN_INFO "bf_gdt_init(): Error in kmalloc bf_array");
+#endif
         return NULL;
     }
 
@@ -74,19 +75,17 @@ struct bf_gdt *bf_gdt_init(u32 gid)
  */
 struct bloom_filter *bf_gdt_add_filter(struct bf_gdt *gdt, u32 bf_id, u16 port_no, u32 len)
 {
-    if (!gdt) {
+#ifdef __KERNEL__
+	printk(KERN_INFO "add_filter(): gdt->nbf=%u",gdt->nbf);
+#endif
+    if (!gdt || gdt->nbf >= BF_GDT_MAX_FILTERS) {
         return NULL;
     }
-    if (bf_id < 0)
-        bf_id = gdt->nbf;
+
     struct bloom_filter *bf = bf_create(bf_id,len,port_no,2);
     if (bf) {
-        if(gdt->nbf < BF_GDT_MAX_FILTERS) {
-            gdt->bf_array[gdt->nbf++] = bf;
-            return bf;
-        } else {
-            bf_destroy(bf);
-        }
+        gdt->bf_array[gdt->nbf++] = bf;
+        return bf;
     }
     return NULL;
 }
@@ -104,7 +103,7 @@ struct bloom_filter *bf_gdt_insert_filter(struct bf_gdt *gdt, struct bloom_filte
     }
     struct bloom_filter *new_bf = bf_gdt_add_filter(gdt,bf->bf_id,bf->port_no,bf->len);
     if (new_bf) {
-        memcpy(new_bf,bf,sizeof(struct bloom_filter));
+        memcpy(new_bf->array,bf->array,new_bf->len);
     }
     return new_bf;
 }
@@ -142,13 +141,23 @@ int bf_gdt_update_filter(struct bf_gdt *gdt, struct bloom_filter *bf)
     int ret = -1;
     struct bloom_filter *matched_bf = bf_gdt_find_filter(gdt,bf->bf_id);
     if(matched_bf) {//find matched.
-        if(memcmp(matched_bf,bf,sizeof(struct bloom_filter))==0) {//equal, no change
+        if(memcmp(matched_bf->array,bf->array,matched_bf->len)==0) {//equal, no change
             ret = -1;
         }else{// some content changed
-            memcpy(matched_bf,bf,sizeof(struct bloom_filter));
+#ifdef DEBUG
+#ifdef __KERNEL__
+	printk(KERN_INFO "bf_gdt_update_filter():update existed, bf_id=0x%x,len=%u",bf->bf_id,bf->len);
+#endif
+#endif
+            memcpy(matched_bf->array,bf->array,matched_bf->len);
             ret = 1;
         }
     } else { //no match, then insert
+#ifdef DEBUG
+#ifdef __KERNEL__
+	printk(KERN_INFO "bf_gdt_update_filter():add new, bf_id=0x%x,len=%u",bf->bf_id,bf->len);
+#endif
+#endif
         bf_gdt_insert_filter(gdt,bf);
         ret = 2;
     }
@@ -210,9 +219,14 @@ int bf_gdt_add_item(struct bf_gdt *gdt, u32 bf_id, const unsigned char *s)
  * @param s: the string to test
  * @return the bf if true
  */
-struct bloom_filter *bf_gdt_check(struct bf_gdt *gdt, const char *s)
+struct bloom_filter *bf_gdt_check(struct bf_gdt *gdt, unsigned char *s)
 {
     u32 i;
+#ifdef DEBUG
+#ifdef __KERNEL__
+	printk(KERN_INFO "gdt_check():gdt->nbf=%u",gdt->nbf);
+#endif
+#endif
     if (gdt && gdt->bf_array) {
         for(i=0; i<gdt->nbf; ++i) {
             if(bf_check(gdt->bf_array[i],s)) return gdt->bf_array[i];

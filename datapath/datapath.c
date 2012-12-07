@@ -321,7 +321,7 @@ void ovs_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
 	struct sw_flow *flow;
 	struct dp_stats_percpu *stats;
 	u64 *stats_counter;
-	int error;
+	int error = 0;
 #ifdef LC_ENABLE
     struct bloom_filter *bf = NULL;
 #endif
@@ -352,11 +352,9 @@ void ovs_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
             kfree_skb(skb);
             return;
         }
-        if (unlikely(ntohs(key.eth.type) != 0x0800)) {
-            kfree_skb(skb);
-            return;
-        }
-        if (unlikely(ntohl(key.ipv4.addr.src) == 0xc0a83901)) {
+        
+        if (unlikely(ntohs(key.eth.type) != 0x0806 && ntohs(key.eth.type) != 0x0800)) { 
+            pr_info("Drop unknown l2_type = 0x%x",ntohs(key.eth.type));
             kfree_skb(skb);
             return;
         }
@@ -368,6 +366,7 @@ void ovs_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
         unsigned char *src_mac = (unsigned char*)key.eth.src;
         unsigned char *dst_mac = (unsigned char*)key.eth.dst;
         unsigned short type = ntohs(key.eth.type);
+        pr_mac("pkt mac header:",src_mac, dst_mac, type);
 #endif
         /* Look up in local table. */
         flow = ovs_flow_tbl_lookup(rcu_dereference(dp->table), &key, key_len);
@@ -375,10 +374,10 @@ void ovs_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
         if (unlikely(!flow)) { /*not found in local fwd table, usually the 1st pkt.*/
 #ifdef LC_ENABLE
 #ifdef DEBUG
-            pr_mac("NO found flow in local tbl",src_mac, dst_mac, type);
+            pr_info("NO found flow in local tbl");
 #endif
             /*ip pkt from local host*/
-            if (!OVS_CB(skb)->encaped && key.eth.type!=htons(0x0806)) {//ignore local arp pkt
+            if (!OVS_CB(skb)->encaped && key.eth.type!=htons(0x0806)) {//local non-arp pkt
                 bf = bf_gdt_check(dp->gdt,(unsigned char*)key.eth.dst); //host in bf_gdt?
             }
             /*local_to_remote pkt, and in local bf-gdt. */
@@ -497,7 +496,9 @@ static int ovs_bf_gdt_cmd_new_or_set(struct sk_buff *skb, struct genl_info *info
     dp = get_dp(sock_net(skb->sk), ovs_header->dp_ifindex);
     if (!dp)
         goto error;
-    printk("[DP] ovs_bf_gdt_cmd_new_or_set(): Received bf_gdt nlmsg from userspace: bf_id=0x%x, will update bf_gdt.\n",bf.bf_id);
+#ifdef DEBUG
+    printk("[DP] ovs_bf_gdt_cmd_new_or_set(): Received bf_gdt nlmsg from userspace: bf_id=0x%x,len=%u, will update bf_gdt.\n",bf.bf_id,bf.len);
+#endif
     ret = bf_gdt_update_filter(dp->gdt, &bf);
     return ret;
 error:
@@ -987,7 +988,7 @@ static int validate_actions(const struct nlattr *attr,
 
 #ifdef LC_ENABLE
 		case OVS_ACTION_ATTR_REMOTE:
-			if (nla_get_u64(a)&0xffffffff >= DP_MAX_PORTS)
+			if (((nla_get_u64(a)>>32)&0xffffffff) >= DP_MAX_PORTS)
 				return -EINVAL;
 			break;
 #endif
@@ -1057,6 +1058,9 @@ static int ovs_packet_cmd_execute(struct sk_buff *skb, struct genl_info *info)
 		goto err;
 
 	len = nla_len(a[OVS_PACKET_ATTR_PACKET]);
+#ifdef DEBUG
+        pr_info("ovs_packet_cmd_execute(),len=%u",len);
+#endif
 	packet = __dev_alloc_skb(NET_IP_ALIGN + len, GFP_KERNEL);
 	err = -ENOMEM;
 	if (!packet)
@@ -1067,6 +1071,9 @@ static int ovs_packet_cmd_execute(struct sk_buff *skb, struct genl_info *info)
 
 	skb_reset_mac_header(packet);
 	eth = eth_hdr(packet);
+#ifdef DEBUG
+        pr_mac("ovs_packet_cmd_execute()",eth->h_source,eth->h_dest,ntohs(eth->h_proto));
+#endif
 
 	/* Normally, setting the skb 'protocol' field would be handled by a
 	 * call to eth_type_trans(), but it assumes there's a sending
@@ -1811,10 +1818,15 @@ static int ovs_dp_cmd_new(struct sk_buff *skb, struct genl_info *info)
     dp->local_ip = LC_LOCAL_EDGE_IP; //ip of network interface bonding on dp.
 	dp->gdt = bf_gdt_init(LC_GROUP_DFT_ID);
 	if (!dp->gdt) {
+        pr_warning("bf_gdt_init() failed when do ovs_dp_cmd_new()");
 		err = -ENOMEM;
 		goto err_destroy_percpu;
     }
-    bf_gdt_add_filter(dp->gdt,LC_BF_LOCAL_ID,LC_BF_LOCAL_PORT,LC_BF_DFT_LEN); /*empty local filter*/
+    if(!bf_gdt_add_filter(dp->gdt,LC_BF_LOCAL_ID,LC_BF_LOCAL_PORT,LC_BF_DFT_LEN)) { /*empty local filter*/
+        pr_warning("bf_gdt_add_filter() failed when do ovs_dp_cmd_new()");
+		err = -ENOMEM;
+		goto err_destroy_percpu;
+    }
     /*debug*/
     //bf_gdt_add_filter(dp->gdt,0xc0a83a0a,LC_BF_REMOTE_PORT,LC_BF_DFT_LEN); /*empty remote filter*/
     //unsigned char tmp_dst[] = {0x08,0x00,0x27,0xab,0xb6,0xa5};
