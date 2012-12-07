@@ -472,6 +472,7 @@ int ovs_vport_get_ip_proto(struct sk_buff *skb)
  */
 void ovs_vport_receive(struct vport *vport, struct sk_buff *skb)
 {
+    pr_info("ovs_vport_receive()");
 	struct vport_percpu_stats *stats;
 
 	stats = per_cpu_ptr(vport->percpu_stats, smp_processor_id());
@@ -488,10 +489,13 @@ void ovs_vport_receive(struct vport *vport, struct sk_buff *skb)
 		OVS_CB(skb)->tun_id = 0;
 
 #ifdef LC_ENABLE
-    if (ovs_vport_get_ip_proto(skb)!=LC_REMOTE_IP_PROTO)
+    if (ovs_vport_get_ip_proto(skb)!=LC_REMOTE_IP_PROTO) {
+        pr_info("Non encaped pkt.");
 		OVS_CB(skb)->encaped = 0;
-    else
+    } else {
+        pr_info("Encaped pkt.");
 		OVS_CB(skb)->encaped = 1;
+    }
 #endif
 
 	ovs_dp_process_received_packet(vport, skb);

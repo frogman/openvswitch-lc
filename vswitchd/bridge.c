@@ -2501,7 +2501,7 @@ bridge_create(const struct ovsrec_bridge *br_cfg)
     eth_addr_mark_random(br->default_ea);
 
 #ifdef LC_ENABLE
-    bridge_lc_init(br);
+    //bridge_lc_init(br);
 #endif
 
     hmap_init(&br->ports);

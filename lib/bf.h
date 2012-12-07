@@ -43,18 +43,18 @@ struct bloom_filter{
     u32 bf_id; /*id, should be the id of the switch, or the ip of the dp.*/
     u32 len; /*bit length of the bit array*/
     u16 port_no; /*the port send out, should be LC_BF_REMOTE_PORT.*/
-    u8 array[128]; /*the bit array, defaultly 1024 bit*/
+    u8 array[128]; /*the bit array, defaultly LC_BF_DFT_LEN bit*/
     u32 nfuncs; /*number of hash functions*/
     hashfunc_t *funcs; /*hash functions array*/
 };
 
-u32 sax_hash(const char *key);
-u32 sdbm_hash(const char *key);
+u32 sax_hash(const unsigned char *key);
+u32 sdbm_hash(const unsigned char *key);
 
 struct bloom_filter *bf_create(u32 bf_id, u32 len, u16 port_no, u32 nfuncs); 
 int bf_destroy(struct bloom_filter *bf);
-int bf_add(struct bloom_filter *bf, const char *s);
-int bf_check(struct bloom_filter *bf, const char *s);
+int bf_add(struct bloom_filter *bf, const unsigned char *s);
+int bf_check(struct bloom_filter *bf, unsigned char *s);
 int bf_set_array(struct bloom_filter *bf, const u8 *array, u32 len);
 
 #endif

@@ -28,13 +28,13 @@
 
 #include "bf.h"
 
-#define SETBIT(array, i) (array[i/sizeof(char)] |= (1<<(i%sizeof(char))))
-#define GETBIT(array, i) (array[i/sizeof(char)] & (1<<(i%sizeof(char))))
+#define SETBIT(array, i) (array[i/sizeof(unsigned char)] |= (1<<(i%sizeof(char))))
+#define GETBIT(array, i) (array[i/sizeof(unsigned char)] & (1<<(i%sizeof(char))))
 
 /**
  * hash function: SAX.
  */
-u32 sax_hash(const char *key)
+u32 sax_hash(const unsigned char *key)
 {
     u32 h=0;
     while(*key) h^=(h<<5)+(h>>2)+(unsigned char)*key++;
@@ -44,7 +44,7 @@ u32 sax_hash(const char *key)
 /**
  * hash function: sdbm.
  */
-u32 sdbm_hash(const char *key)
+u32 sdbm_hash(const unsigned char *key)
 {
     u32 h=0;
     while(*key) h=(unsigned char)*key++ + (h<<6) + (h<<16) - h;
@@ -103,11 +103,12 @@ struct bloom_filter *bf_create(u32 bf_id, u32 len, u16 port_no, u32 nfuncs)
     for(i=0; i<nfuncs; ++i) {
         bf->funcs[i]=hashFunctions[i];
     }
+    bf->nfuncs=nfuncs;
 
+    memset(bf->array,0,128);
     bf->bf_id = bf_id;
     bf->port_no = port_no;
     bf->len=len;
-    bf->nfuncs=nfuncs;
 
     return bf;
 }
@@ -135,7 +136,7 @@ int bf_destroy(struct bloom_filter *bf)
  * @param bf: the bloom_filter to update
  * @param s: the string to add
  */
-int bf_add(struct bloom_filter *bf, const char *s)
+int bf_add(struct bloom_filter *bf, const unsigned char *s)
 {
     if (!bf)
         return -1;
@@ -154,12 +155,15 @@ int bf_add(struct bloom_filter *bf, const char *s)
  * @param s: the string to test
  * @return 1 if true
  */
-int bf_check(struct bloom_filter *bf, const char *s)
+int bf_check(struct bloom_filter *bf, unsigned char *s)
 {
     u32 i;
 
     if (!bf || !bf->array)
         return 0;
+#ifdef __KERNEL__
+	printk(KERN_INFO "bf->len=%u,id=0x%x,nfunc=%u",bf->len,bf->bf_id,bf->nfuncs);
+#endif
 
     for(i=0; i<bf->nfuncs; ++i) {
         if(!(GETBIT(bf->array, bf->funcs[i](s)%bf->len))) return 0;
