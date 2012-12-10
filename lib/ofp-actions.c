@@ -1824,6 +1824,9 @@ ofpact_format(const struct ofpact *a, struct ds *s)
     const struct ofpact_controller *controller;
     const struct ofpact_tunnel *tunnel;
     uint16_t port;
+#ifdef LC_ENABLE
+    uint32_t ip;
+#endif
 
     switch (a->type) {
     case OFPACT_OUTPUT:
@@ -1840,8 +1843,10 @@ ofpact_format(const struct ofpact *a, struct ds *s)
 #ifdef LC_ENABLE
     case OFPACT_REMOTE:
         port = ofpact_get_REMOTE(a)->port;
+        ip = ofpact_get_REMOTE(a)->ip;
         if (port < OFPP_MAX) {
-            ds_put_format(s, "remote:%"PRIu16, port);
+            ds_put_format(s, "remote:%,"PRIu16, port);
+            ds_put_format(s, "0x%x", ip);
         } else {
             ofputil_format_port(port, s);
         }
