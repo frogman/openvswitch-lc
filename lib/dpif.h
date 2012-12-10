@@ -215,7 +215,7 @@ enum dpif_bf_gdt_put_flags {
 struct dpif_bf_gdt_put {
     /* Input. */
     enum dpif_bf_gdt_put_flags flags; /* DPIF_BP_*. */
-    size_t bf_len;                    /*bytes of bf.*/
+    size_t size;                    /*size of data: sizeof struct bloom_filter.*/
     const struct bloom_filter *bf;    /* one bloom_filter entry. */
 };
 int dpif_bf_gdt_put(struct dpif *, enum dpif_bf_gdt_put_flags,

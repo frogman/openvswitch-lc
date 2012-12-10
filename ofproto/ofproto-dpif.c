@@ -746,9 +746,15 @@ dealloc(struct ofproto *ofproto_)
 static int 
 bf_gdt_update(struct ofproto *ofproto_, struct bloom_filter *bf_)
 {
+#ifdef DEBUG
+    VLOG_INFO(">>>bf_gdt_update()");
+#endif
     struct ofproto_dpif *ofproto = ofproto_dpif_cast(ofproto_);
     int error;
     error = dpif_bf_gdt_put(ofproto->dpif, DPIF_BF_CREATE, bf_, sizeof(struct bloom_filter));
+#ifdef DEBUG
+    VLOG_INFO("<<<bf_gdt_update(),error=%u",error);
+#endif
     return error;
 }
 #endif

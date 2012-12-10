@@ -3965,7 +3965,7 @@ handle_openflow__(struct ofconn *ofconn, const struct ofpbuf *msg)
 
     case OFPTYPE_FLOW_MONITOR_STATS_REQUEST:
 #ifdef DEBUG
-        VLOG_INFO("handle FLOW_MONITOR_STATS_REQUEST from controller, do noth.");
+        VLOG_INFO("handle FLOW_MONITOR_STATS_REQUEST from controller, do nothing.");
 #endif
         return handle_flow_monitor_request(ofconn, oh);
 

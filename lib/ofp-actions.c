@@ -1438,6 +1438,19 @@ ofpact_output_to_openflow10(const struct ofpact_output *output,
     oao->max_len = htons(output->max_len);
 }
 
+#ifdef LC_ENABLE
+static void
+ofpact_remote_to_openflow10(const struct ofpact_remote *remote,
+                             struct ofpbuf *out)
+{
+    struct ofp_action_remote *oar;
+
+    oar = ofputil_put_OFPAT10_REMOTE(out);
+    oar->port = htons(remote->port);
+    oar->ip = htonl(remote->ip);
+}
+#endif
+
 static void
 ofpact_enqueue_to_openflow10(const struct ofpact_enqueue *enqueue,
                              struct ofpbuf *out)
@@ -1456,6 +1469,12 @@ ofpact_to_openflow10(const struct ofpact *a, struct ofpbuf *out)
     case OFPACT_OUTPUT:
         ofpact_output_to_openflow10(ofpact_get_OUTPUT(a), out);
         break;
+
+#ifdef LC_ENABLE
+    case OFPACT_REMOTE:
+        ofpact_remote_to_openflow10(ofpact_get_REMOTE(a), out);
+        break;
+#endif
 
     case OFPACT_ENQUEUE:
         ofpact_enqueue_to_openflow10(ofpact_get_ENQUEUE(a), out);

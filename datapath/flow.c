@@ -791,6 +791,15 @@ u32 ovs_flow_hash(const struct sw_flow_key *key, int key_len)
 	return jhash2((u32 *)key, DIV_ROUND_UP(key_len, sizeof(u32)), 0);
 }
 
+#ifdef LC_ENABLE
+void pr_key(struct sw_flow_key *key,char *info)
+{
+    if(key){
+        pr_info("[%s]tun_id=0x%llx,pri=0x%x,inport=%u,src=0x%x,dst=0x%x,tci=%u,type=%u,proto=%u,tos=%u,ttl=%u,frag=%u,ip_src=0x%x,ip_dst=0x%x",info,key->phy.tun_id,key->phy.priority,key->phy.in_port,*(key->eth.src),*(key->eth.dst),key->eth.tci,key->eth.type,key->ip.proto,key->ip.tos,key->ip.ttl,key->ip.frag,key->ipv4.addr.src,key->ipv4.addr.dst);
+    }
+}
+
+#endif
 struct sw_flow *ovs_flow_tbl_lookup(struct flow_table *table,
 				struct sw_flow_key *key, int key_len)
 {
@@ -800,25 +809,48 @@ struct sw_flow *ovs_flow_tbl_lookup(struct flow_table *table,
 	u32 hash;
 
 	hash = ovs_flow_hash(key, key_len);
+#ifdef DEBUG
+        pr_info(">>>ovs_flow_tbl_lookup():hash=0x%x",hash);
+#endif
 
 	head = find_bucket(table, hash);
+#ifdef DEBUG
+    if(head)
+        pr_info("Find bucket successfully.");
+    else
+        pr_info("NO find bucket.");
+#endif
 	hlist_for_each_entry_rcu(flow, n, head, hash_node[table->node_ver]) {
-
-		if (flow->hash == hash &&
-		    !memcmp(&flow->key, key, key_len)) {
+#ifdef DEBUG
+        pr_key(key,"input_key");
+        pr_key(&(flow->key),"match_key");
+#endif
+		if (flow->hash == hash && !memcmp(&flow->key, key, key_len)) {
+#ifdef DEBUG
+            pr_info("<<<ovs_flow_tbl_lookup():Find matched flow successfully.");
+#endif
 			return flow;
 		}
 	}
+#ifdef DEBUG
+            pr_info("<<<ovs_flow_tbl_lookup():NO find matched flow,.");
+#endif
 	return NULL;
 }
 
 void ovs_flow_tbl_insert(struct flow_table *table, struct sw_flow *flow)
 {
+#ifdef DEBUG
+        pr_info(">>>ovs_flow_tbl_insert():hash=0x%x",flow->hash);
+#endif
 	struct hlist_head *head;
 
 	head = find_bucket(table, flow->hash);
 	hlist_add_head_rcu(&flow->hash_node[table->node_ver], head);
 	table->count++;
+#ifdef DEBUG
+        pr_info("<<<ovs_flow_tbl_insert()");
+#endif
 }
 
 void ovs_flow_tbl_remove(struct flow_table *table, struct sw_flow *flow)

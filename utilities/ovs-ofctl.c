@@ -62,6 +62,10 @@
 
 VLOG_DEFINE_THIS_MODULE(ofctl);
 
+#ifndef LC_ENABLE
+#define LC_ENABLE
+#endif
+
 /* --strict: Use strict matching for flow mod commands?  Additionally governs
  * use of nx_pull_match() instead of nx_pull_match_loose() in parse-nx-match.
  */
