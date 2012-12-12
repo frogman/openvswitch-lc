@@ -3217,7 +3217,9 @@ handle_miss_upcalls(struct ofproto_dpif *ofproto, struct dpif_upcall *upcalls,
                     dst_mac[0],dst_mac[1],dst_mac[2],dst_mac[3],dst_mac[4],dst_mac[5], ntohs(miss->flow.dl_type));
 #endif
             if(bridge_update_local_bf(ofproto->up.br, src_mac)<0){
+#ifdef DEBUG
                 VLOG_WARN("Failed to update local bf-gdt.");
+#endif
             }else{
 #ifdef DEBUG
                 VLOG_INFO("updated local bf-gdt.");

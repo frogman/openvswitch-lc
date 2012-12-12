@@ -472,7 +472,9 @@ int ovs_vport_get_ip_proto(struct sk_buff *skb)
  */
 void ovs_vport_receive(struct vport *vport, struct sk_buff *skb)
 {
+#ifdef DEBUG
     pr_info("ovs_vport_receive()");
+#endif
 	struct vport_percpu_stats *stats;
 
 	stats = per_cpu_ptr(vport->percpu_stats, smp_processor_id());

@@ -36,5 +36,6 @@ exit;
 sleep 2;
 
 for ((i=1; i<=${NUM}; i++)); do
-    ping -c 1 10.0.0.`expr $i \* 2 - 1`;
+    ping -c 1 10.0.0.`expr $i \* 2 - 1` >>ping_history.txt;
+    sleep 2;
 done
