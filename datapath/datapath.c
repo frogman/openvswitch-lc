@@ -354,7 +354,9 @@ void ovs_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
         }
         
         if (ntohs(key.eth.type) != 0x0806 && ntohs(key.eth.type) != 0x0800) { 
+#ifdef DEBUG
             pr_info("Drop unknown l2_type = 0x%x",ntohs(key.eth.type));
+#endif
             kfree_skb(skb);
             return;
         }
@@ -589,15 +591,12 @@ static int ovs_bf_gdt_cmd_get(struct sk_buff *skb, struct genl_info *info)
     unsigned int bf_id;
     struct sk_buff *reply;
     struct datapath *dp;
-    int err;
     struct bf_gdt *gdt;
     struct bloom_filter *bf;
 
     if (!a[OVS_BF_GDT_ATTR_KEY])
         return -EINVAL;
     bf_id = nla_get_u32(a[OVS_BF_GDT_ATTR_KEY]);
-    if (err)
-        return err;
 
     dp = get_dp(sock_net(skb->sk), ovs_header->dp_ifindex);
     if (!dp)

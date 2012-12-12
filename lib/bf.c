@@ -161,8 +161,10 @@ int bf_check(struct bloom_filter *bf, unsigned char *s)
 
     if (!bf || !bf->array)
         return 0;
+#ifdef DEBUG
 #ifdef __KERNEL__
 	printk(KERN_INFO "bf->len=%u,id=0x%x,nfunc=%u",bf->len,bf->bf_id,bf->nfuncs);
+#endif
 #endif
 
     for(i=0; i<bf->nfuncs; ++i) {

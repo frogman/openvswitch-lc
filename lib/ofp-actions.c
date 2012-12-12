@@ -516,7 +516,9 @@ ofpact_from_openflow10_remote(const struct ofp_action_remote *a, struct ofpbuf *
     VLOG_INFO(">>>ofpact_from_openflow10_remote(): code=%u,len=%u,port=%u,ip=0x%x", code,ntohs(a->len),ntohs(a->port),ntohl(a->ip));
 #endif
     if(code == OFPUTIL_OFPAT10_REMOTE) {
+#ifdef DEBUG
         VLOG_INFO("handle OFPUTIL_OFPAT10_REMOTE");
+#endif
         return remote_from_openflow10(a, out);
     }
 #ifdef DEBUG
