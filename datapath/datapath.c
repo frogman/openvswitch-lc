@@ -477,18 +477,81 @@ static struct genl_family dp_bf_gdt_genl_family = {
     SET_NETNSOK
 };
 
+/* Called with genl_lock. */
+static int ovs_bf_gdt_cmd_fill_info(struct bloom_filter *bf, struct datapath *dp,
+				  struct sk_buff *skb, u32 pid,
+				  u32 seq, u32 flags, u8 cmd)
+{
+	const int skb_orig_len = skb->len;
+	struct ovs_header *ovs_header;
+	int err;
+
+	ovs_header = genlmsg_put(skb, pid, seq, &dp_bf_gdt_genl_family, flags, cmd);
+	if (!ovs_header)
+		return -EMSGSIZE;
+
+	ovs_header->dp_ifindex = get_dpifindex(dp);
+
+    err = nla_put_u32(skb, OVS_BF_GDT_ATTR_KEY, bf->bf_id);
+	if (err)
+		goto nla_put_failure;
+    err = nla_put(skb, OVS_BF_GDT_ATTR_BF,sizeof(struct bloom_filter),bf);
+
+    if (err < 0 && skb_orig_len)
+        goto error;
+
+    return genlmsg_end(skb, ovs_header);
+
+nla_put_failure:
+    err = -EMSGSIZE;
+error:
+	genlmsg_cancel(skb, ovs_header);
+	return err;
+}
+
+static struct sk_buff *ovs_bf_gdt_cmd_alloc_info(struct bloom_filter *bf)
+{
+	int len;
+
+	/* bloom_filter */
+	len = nla_total_size(8+4+sizeof(struct bloom_filter));
+	len += NLMSG_ALIGN(sizeof(struct ovs_header));
+
+	return genlmsg_new(len, GFP_KERNEL);
+}
+
+static struct sk_buff *ovs_bf_gdt_cmd_build_info(struct bloom_filter *bf,
+					       struct datapath *dp,
+					       u32 pid, u32 seq, u8 cmd)
+{
+	struct sk_buff *skb;
+	int retval;
+
+	skb = ovs_bf_gdt_cmd_alloc_info(bf);
+	if (!skb)
+		return ERR_PTR(-ENOMEM);
+
+	retval = ovs_bf_gdt_cmd_fill_info(bf, dp, skb, pid, seq, 0, cmd);
+	BUG_ON(retval < 0);
+	return skb;
+}
+
 
 /**
  * Update the local bf-gdt according to the received nlmsg from ovsd.
  */
 static int ovs_bf_gdt_cmd_new_or_set(struct sk_buff *skb, struct genl_info *info)
 {
+#ifdef DEBUG
+    pr_info(">>>ovs_bf_gdt_cmd_new_or_set()");
+#endif
     struct nlattr **a = info->attrs;
     struct ovs_header *ovs_header = info->userhdr;
     struct bloom_filter *bf;
     struct datapath *dp;
     int ret;
     int bf_len;
+    struct bf_gdt *gdt;
 
     /* Extract bf. */
     if (!a[OVS_BF_GDT_ATTR_BF])
@@ -496,26 +559,30 @@ static int ovs_bf_gdt_cmd_new_or_set(struct sk_buff *skb, struct genl_info *info
     if(nla_len(a[OVS_BF_GDT_ATTR_BF])!=sizeof(struct bloom_filter)){
         goto error;
     }
-    bf = nla_data(a[OVS_BF_GDT_ATTR_BF]);
 
+    bf = nla_data(a[OVS_BF_GDT_ATTR_BF]);
     dp = get_dp(sock_net(skb->sk), ovs_header->dp_ifindex);
     if (!dp)
         goto error;
 #ifdef DEBUG
-    printk("[DP] ovs_bf_gdt_cmd_new_or_set(): Received bf_gdt nlmsg from userspace: bf_id=0x%x,len=%u, will update bf_gdt.\n",bf->bf_id,bf->len);
+    pr_info("bf_id=0x%x,len=%u.\n",bf->bf_id,bf->len);
 #endif
-    ret = bf_gdt_update_filter(dp->gdt, &bf);
+    gdt = genl_dereference(dp->gdt);
+    ret = bf_gdt_update_filter(gdt, &bf);
+
+#ifdef DEBUG
+    pr_info("<<<ovs_bf_gdt_cmd_new_or_set()");
+#endif
     return ret;
 error:
     return -1;
 }
 
 /**
- * TODO: get bf_gdt according to the bf_id.
+ * get bf_gdt according to the bf_id.
  */
 static int ovs_bf_gdt_cmd_get(struct sk_buff *skb, struct genl_info *info)
 {
-    return 0;
     struct nlattr **a = info->attrs;
     struct ovs_header *ovs_header = info->userhdr;
     unsigned int bf_id;
@@ -523,12 +590,10 @@ static int ovs_bf_gdt_cmd_get(struct sk_buff *skb, struct genl_info *info)
     struct datapath *dp;
     int err;
     struct bf_gdt *gdt;
-    int bf_id_len;
+    struct bloom_filter *bf;
 
     if (!a[OVS_BF_GDT_ATTR_KEY])
         return -EINVAL;
-    err = ovs_flow_from_nlattrs(&bf_id, &bf_id_len, a[OVS_BF_GDT_ATTR_KEY]);
-    bf_id_len= 4;
     bf_id = nla_get_u32(a[OVS_BF_GDT_ATTR_KEY]);
     if (err)
         return err;
@@ -538,47 +603,46 @@ static int ovs_bf_gdt_cmd_get(struct sk_buff *skb, struct genl_info *info)
         return -ENODEV;
 
     gdt = genl_dereference(dp->gdt);
+    if(!(bf=bf_gdt_find_filter(gdt,bf_id)))
+        return -ENOENT;
 
-    //reply = ovs_flow_cmd_build_info(flow, dp, info->snd_pid, info->snd_seq, OVS_BF_GDT_CMD_NEW);
+    reply = ovs_bf_gdt_cmd_build_info(bf, dp, info->snd_pid, info->snd_seq, OVS_BF_GDT_CMD_NEW);
     if (IS_ERR(reply))
         return PTR_ERR(reply);
 
     return genlmsg_reply(reply, info);
 }
 
+/**
+ * flush the bf-gdt table
+ */
 static int flush_bf_gdt(struct datapath *dp)
 {
 	struct bf_gdt *old_table;
 	struct bf_gdt *new_table;
 
 	old_table = genl_dereference(dp->gdt);
-    /*
-	new_table = ovs_flow_tbl_alloc(TBL_MIN_BUCKETS);
-	if (!new_table)
-		return -ENOMEM;
-
-	rcu_assign_pointer(dp->table, new_table);
-    */
-
-	bf_gdt_destroy(old_table);
+   	bf_gdt_destroy(old_table);
+    dp->gdt = NULL;
 	return 0;
 }
 
 /**
- * TODO: del bf_gdt according to the bf_id.
+ * del bf_gdt according to the bf_id.
  */
 static int ovs_bf_gdt_cmd_del(struct sk_buff *skb, struct genl_info *info)
 {
-    return 0;
+#ifdef DEBUG
+    pr_info(">>>ovs_bf_gdt_cmd_del()");
+#endif
 	struct nlattr **a = info->attrs;
 	struct ovs_header *ovs_header = info->userhdr;
-	struct sw_flow_key key;
 	struct sk_buff *reply;
-	struct sw_flow *flow;
 	struct datapath *dp;
-	struct flow_table *table;
 	int err;
-	int key_len;
+    unsigned int bf_id=0;
+    struct bloom_filter *bf=NULL;
+	struct bf_gdt *gdt;
 
 	dp = get_dp(sock_net(skb->sk), ovs_header->dp_ifindex);
 	if (!dp)
@@ -587,17 +651,36 @@ static int ovs_bf_gdt_cmd_del(struct sk_buff *skb, struct genl_info *info)
 	if (!a[OVS_BF_GDT_ATTR_KEY])
 		return flush_bf_gdt(dp);
 
+    bf_id = nla_get_u32(a[OVS_BF_GDT_ATTR_KEY]);
+	gdt = genl_dereference(dp->gdt);
+    bf = bf_gdt_find_filter(gdt,bf_id);
+	if (!bf)
+		return -ENOENT;
+
+	reply = ovs_bf_gdt_cmd_alloc_info(bf);
+	if (!reply)
+		return -ENOMEM;
+	err = ovs_bf_gdt_cmd_fill_info(bf, dp, reply, info->snd_pid,
+				     info->snd_seq, 0, OVS_BF_GDT_CMD_DEL);
+	BUG_ON(err < 0);
+    bf_gdt_del_filter(gdt,bf_id);
+
+#ifdef DEBUG
+    pr_info("<<<ovs_bf_gdt_cmd_del()");
+#endif
     return 0;
 }
 
 /**
- * TODO: dump bf_gdt.
+ * dump bf_gdt.
  */
 static int ovs_bf_gdt_cmd_dump(struct sk_buff *skb, struct netlink_callback *cb)
 {
 	struct ovs_header *ovs_header = genlmsg_data(nlmsg_data(cb->nlh));
 	struct datapath *dp;
 	struct bf_gdt *gdt;
+    struct bloom_filter *bf;
+    int i = 0;
 
 	dp = get_dp(sock_net(skb->sk), ovs_header->dp_ifindex);
 	if (!dp)
@@ -605,26 +688,17 @@ static int ovs_bf_gdt_cmd_dump(struct sk_buff *skb, struct netlink_callback *cb)
 
 	gdt = genl_dereference(dp->gdt);
 
-	for (;;) {
-		struct bloom_filter *bf;
-		u32 bucket=1, obj=0;
-
-		bucket = cb->args[0];
-		obj = cb->args[1];
-		bf = gdt->bf_array[obj];
+    u32 bucket = cb->args[0]; //max num
+    u32 last = cb->args[1]; //last
+	for (i=0;i<bucket && i<gdt->nbf;i++) {
+		bf = gdt->bf_array[i];
 		if (!bf)
 			break;
-
-        /*
-		if (ovs_flow_cmd_fill_info(flow, dp, skb,
+		if (ovs_bf_gdt_cmd_fill_info(bf, dp, skb,
 					   NETLINK_CB(cb->skb).pid,
 					   cb->nlh->nlmsg_seq, NLM_F_MULTI,
 					   OVS_BF_GDT_CMD_NEW) < 0)
-                       */
 			break;
-
-		cb->args[0] = bucket;
-		cb->args[1] = obj;
 	}
 	return skb->len;
 }

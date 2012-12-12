@@ -182,7 +182,7 @@ enum ovs_bf_gdt_cmd {
 
 enum ovs_bf_gdt_attr {
 	OVS_BF_GDT_ATTR_UNSPEC,
-	OVS_BF_GDT_ATTR_KEY,       /* Sequence of OVS_KEY_ATTR_* attributes. */
+	OVS_BF_GDT_ATTR_KEY,     /* bf_id. */
 	OVS_BF_GDT_ATTR_BF,      /* nested bf structure. */
 	__OVS_BF_GDT_ATTR_MAX
 };

@@ -1410,9 +1410,9 @@ ofproto_port_del(struct ofproto *ofproto, uint16_t ofp_port)
 #ifdef LC_ENABLE
 int ofproto_bf_gdt_update(struct ofproto *ofproto, struct bloom_filter *bf)
 {
-    int error;
-    error = ofproto->ofproto_class->bf_gdt_update(ofproto,bf);
-    return error;
+    if (!ofproto || !bf)
+        return 0;
+    return ofproto->ofproto_class->bf_gdt_update(ofproto,bf);
 }
 
 void ofproto_get_stat(struct ofproto *ofproto, struct stat_base *s)
