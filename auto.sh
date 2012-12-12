@@ -1,4 +1,4 @@
-NUM=5
+NUM=20
 sudo kill `cd /usr/local/var/run/openvswitch && cat ovsdb-server.pid ovs-vswitchd.pid`;
 sudo rmmod openvswitch;
 sudo modprobe -r openvswitch;
@@ -32,6 +32,8 @@ done
 #sudo arp -s 192.168.57.1 08:00:27:00:bc:89;
 
 exit;
+
+sleep 2;
 
 for ((i=1; i<=${NUM}; i++)); do
     ping -c 1 10.0.0.`expr $i \* 2 - 1`;

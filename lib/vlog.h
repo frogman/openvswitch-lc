@@ -247,7 +247,7 @@ void vlog_usage(void);
         };
 
 #ifndef DEBUG
-#define DEBUG
+//#define DEBUG
 #endif
 
 #ifdef  __cplusplus
