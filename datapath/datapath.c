@@ -353,13 +353,13 @@ void ovs_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
             return;
         }
         
-        if (ntohs(key.eth.type) != 0x0806 && ntohs(key.eth.type) != 0x0800) { 
 #ifdef DEBUG
+        if (ntohs(key.eth.type) != 0x0806 && ntohs(key.eth.type) != 0x0800) { 
             pr_info("Drop unknown l2_type = 0x%x",ntohs(key.eth.type));
-#endif
             kfree_skb(skb);
             return;
         }
+#endif
 
 #ifdef DEBUG
         if (!OVS_CB(skb)->encaped) {
@@ -1917,7 +1917,7 @@ static int ovs_dp_cmd_new(struct sk_buff *skb, struct genl_info *info)
 		goto err_destroy_percpu;
     }
     /*debug*/
-    //bf_gdt_add_filter(dp->gdt,0xc0a83a0a,LC_BF_REMOTE_PORT,LC_BF_DFT_LEN); /*empty remote filter*/
+    //bf_gdt_add_filter(dp->gdt,0xc0a83a0a,LC_BF_REMOTE_PORT,LC_BF_DFT_LEN); /*create an empty remote filter*/
     //unsigned char tmp_dst[] = {0x08,0x00,0x27,0xab,0xb6,0xa5};
     //bf_gdt_add_item(dp->gdt,0xc0a83a0a,tmp_dst);
     /*debug*/
