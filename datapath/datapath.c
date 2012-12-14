@@ -424,6 +424,7 @@ void ovs_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
 #endif
         }//if(!flow)
 #ifdef DEBUG
+        else 
         pr_info("Found flow in local tbl");
 #endif
         OVS_CB(skb)->flow = flow;
@@ -557,7 +558,6 @@ static int ovs_bf_gdt_cmd_new_or_set(struct sk_buff *skb, struct genl_info *info
     struct bloom_filter *bf;
     struct datapath *dp;
     int ret;
-    int bf_len;
     struct bf_gdt *gdt;
 
     /* Extract bf. */
@@ -575,13 +575,13 @@ static int ovs_bf_gdt_cmd_new_or_set(struct sk_buff *skb, struct genl_info *info
     pr_info("bf_id=0x%x,len=%u.\n",bf->bf_id,bf->len);
 #endif
     gdt = genl_dereference(dp->gdt);
-    ret = bf_gdt_update_filter(gdt, &bf);
+    ret = bf_gdt_update_filter(gdt, bf);
 
 #ifdef DEBUG
     pr_info("<<<ovs_bf_gdt_cmd_new_or_set(),ret=%u",ret);
 #endif
 #undef DEBUG
-    return ret;
+    return 0;
 error:
     return -1;
 }
