@@ -37,7 +37,7 @@ typedef unsigned char u8;
 #define LC_BF_LOCAL_PORT 0xfffe //local port OFPP_LOCAL
 #define LC_BF_REMOTE_PORT 1 //remote port
 
-typedef unsigned int (*hashfunc_t)(const char *);
+typedef u32 (*hashfunc_t)(const unsigned char *);
 
 struct bloom_filter{
     u32 bf_id; /*id, should be the id of the switch, or the ip of the dp.*/

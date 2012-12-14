@@ -2392,8 +2392,8 @@ bridge_start_mcast(struct bridge *br)
     VLOG_INFO("%s bridge_start_mcast() begin.\n",br->name);
     extern pthread_mutex_t mutex;
     pthread_mutex_init (&mutex,NULL);
-    //pthread_create(&br->send_tid,NULL,mc_send,&br->send_arg);
-    //sleep(1);
+    pthread_create(&br->send_tid,NULL,mc_send,&br->send_arg);
+    sleep(1);
     pthread_create(&br->recv_tid,NULL,mc_recv,&br->recv_arg);
     VLOG_INFO("%s bridge_start_mcast() done.\n",br->name);
 }
