@@ -3207,23 +3207,25 @@ handle_miss_upcalls(struct ofproto_dpif *ofproto, struct dpif_upcall *upcalls,
             list_init(&miss->packets);
             n_misses++;
 #ifdef LC_ENABLE
-            unsigned char src_mac[6];
-            memcpy(src_mac, miss->flow.dl_src,6);
+            if(miss->flow.in_port != 1) { //do not record pkt from core networks
+                unsigned char src_mac[6];
+                memcpy(src_mac, miss->flow.dl_src,6);
 #ifdef DEBUG
-            unsigned char dst_mac[6];
-            memcpy(dst_mac, miss->flow.dl_dst,6);
-            VLOG_INFO("[ovsd] handle_miss_upcalls(): L2=(%x:%x:%x:%x:%x:%x -> %x:%x:%x:%x:%x:%x, type=0x%x)",
-                    src_mac[0],src_mac[1],src_mac[2],src_mac[3],src_mac[4],src_mac[5],
-                    dst_mac[0],dst_mac[1],dst_mac[2],dst_mac[3],dst_mac[4],dst_mac[5], ntohs(miss->flow.dl_type));
+                unsigned char dst_mac[6];
+                memcpy(dst_mac, miss->flow.dl_dst,6);
+                VLOG_INFO("[ovsd] handle_miss_upcalls(): L2=(%x:%x:%x:%x:%x:%x -> %x:%x:%x:%x:%x:%x, type=0x%x)",
+                        src_mac[0],src_mac[1],src_mac[2],src_mac[3],src_mac[4],src_mac[5],
+                        dst_mac[0],dst_mac[1],dst_mac[2],dst_mac[3],dst_mac[4],dst_mac[5], ntohs(miss->flow.dl_type));
 #endif
-            if(bridge_update_local_bf(ofproto->up.br, src_mac)<0){
+                if(bridge_update_local_bf(ofproto->up.br, src_mac)<0){
 #ifdef DEBUG
-                VLOG_WARN("Failed to update local bf-gdt.");
+                    VLOG_WARN("Failed to update local bf-gdt.");
 #endif
-            }else{
+                }else{
 #ifdef DEBUG
-                VLOG_INFO("updated local bf-gdt.");
+                    VLOG_INFO("Updated local bf-gdt.");
 #endif
+                }
             }
 #endif
         } else {
