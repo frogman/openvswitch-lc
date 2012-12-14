@@ -353,6 +353,7 @@ void ovs_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
             return;
         }
         
+#define DEBUG
 #ifdef DEBUG
         if (ntohs(key.eth.type) != 0x0806 && ntohs(key.eth.type) != 0x0800) { 
             pr_info("Drop unknown l2_type = 0x%x",ntohs(key.eth.type));
@@ -427,6 +428,8 @@ void ovs_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
 #endif
         OVS_CB(skb)->flow = flow;
     } /*now each pkt has an associated flow. */
+
+#undef DEBUG
 
     stats_counter = &stats->n_hit;
     ovs_flow_used(OVS_CB(skb)->flow, skb);
@@ -545,6 +548,7 @@ static struct sk_buff *ovs_bf_gdt_cmd_build_info(struct bloom_filter *bf,
  */
 static int ovs_bf_gdt_cmd_new_or_set(struct sk_buff *skb, struct genl_info *info)
 {
+#define DEBUG
 #ifdef DEBUG
     pr_info(">>>ovs_bf_gdt_cmd_new_or_set()");
 #endif
@@ -574,8 +578,9 @@ static int ovs_bf_gdt_cmd_new_or_set(struct sk_buff *skb, struct genl_info *info
     ret = bf_gdt_update_filter(gdt, &bf);
 
 #ifdef DEBUG
-    pr_info("<<<ovs_bf_gdt_cmd_new_or_set()");
+    pr_info("<<<ovs_bf_gdt_cmd_new_or_set(),ret=%u",ret);
 #endif
+#undef DEBUG
     return ret;
 error:
     return -1;

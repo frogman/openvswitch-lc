@@ -1338,7 +1338,9 @@ int bridge_update_local_bf(const struct bridge *br, const unsigned char *src_mac
     }
 
     if (!bf) {/*create failed.*/
+#ifdef DEBUG
         VLOG_WARN("create new local bf failed.");
+#endif
         return -1;
     }
     return bf_gdt_add_item(br->gdt,bf->bf_id,src_mac);
@@ -2501,7 +2503,7 @@ bridge_create(const struct ovsrec_bridge *br_cfg)
     eth_addr_mark_random(br->default_ea);
 
 #ifdef LC_ENABLE
-    //bridge_lc_init(br);
+    bridge_lc_init(br);
 #endif
 
     hmap_init(&br->ports);
