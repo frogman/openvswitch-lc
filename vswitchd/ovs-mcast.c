@@ -27,7 +27,7 @@
 
 VLOG_DEFINE_THIS_MODULE(vswitchd);
 
-#define SEND_DELAY 5 //send delay in seconds
+#define SEND_DELAY 9 //send delay in seconds
 
 struct dpif_dp_stats;
 pthread_mutex_t mutex;
@@ -81,7 +81,7 @@ void *mc_send(struct mc_send_arg* arg)
             pthread_mutex_unlock(&mutex);
             msg->s.num = 1;
             msg->s.entry[0].src_sw_id = arg->local_id;
-            msg->s.entry[0].dst_sw_id = arg->local_id; //TODO
+            msg->s.entry[0].dst_sw_id = arg->local_id; //TODO: we may set to right dest
             msg->s.entry[0].bytes = s.entry[0].bytes;
             ret = sendto(sock_id,msg,sizeof(struct mcast_msg),0,(struct sockaddr *)&addr,sizeof(addr));
             if (ret <0) {
@@ -151,7 +151,7 @@ void *mc_recv(struct mc_recv_arg* arg)
             continue;
         }
         //VLOG_INFO("[%d] Receive mcast msg from %s:%d gid=%u, bf_id=0x%x, local_id=0x%x.\n", count, inet_ntoa(sender.sin_addr.s_addr), ntohs(sender.sin_port),msg->gid,msg->bf.bf_id,msg->s.entry[0].src_sw_id);
-        if (msg->gid != arg->gdt->gid){
+        if (msg->gid != arg->gdt->gid) {
             VLOG_WARN("WARNING: group %u received mcast msg from other group %u\n",arg->gdt->gid,msg->gid);
         }
         if (msg->bf.bf_id == arg->local_id){ //from local switch, should ignore
@@ -159,10 +159,10 @@ void *mc_recv(struct mc_recv_arg* arg)
         }
 
         pthread_mutex_lock (&mutex);
-        ret = bf_gdt_update_filter(arg->gdt,&msg->bf); //update remote bf into ovsd's local bf-gdt
+        ret = bf_gdt_update_filter(arg->gdt,&msg->bf); //try to update remote bf into ovsd's local bf-gdt
         pthread_mutex_unlock (&mutex);
         if(ret > 0) {//sth changed in gdt with msg
-            VLOG_INFO("Received new bf with bf_id=0x%x, will update dp's bf_gdt.",msg->bf.bf_id);
+            VLOG_INFO("Received new bf with gid=%u,id=0x%x,len=%u, will update dp's bf_gdt with REMOTE port.",msg->gid,msg->bf.bf_id,msg->bf.len);
             msg->bf.port_no = LC_BF_REMOTE_PORT; //change default port for remote pkts
             bridge_update_bf_gdt_to_dp(arg->br, &msg->bf);
         }

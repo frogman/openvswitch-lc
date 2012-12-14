@@ -1338,7 +1338,9 @@ int bridge_update_local_bf(const struct bridge *br, const unsigned char *src_mac
     }
 
     if (!bf) {/*create failed.*/
+#ifdef DEBUG
         VLOG_WARN("create new local bf failed.");
+#endif
         return -1;
     }
     return bf_gdt_add_item(br->gdt,bf->bf_id,src_mac);

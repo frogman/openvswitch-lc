@@ -24,6 +24,8 @@
 #else
 #include<stdarg.h>
 #include<stdlib.h>
+#include "vlog.h"
+VLOG_DEFINE_THIS_MODULE(bridge);
 #endif
 
 #include "bf-gdt.h"
@@ -43,7 +45,7 @@ struct bf_gdt *bf_gdt_init(u32 gid)
 #endif
     {
 #ifdef __KERNEL__
-	printk(KERN_INFO "bf_gdt_init(): Error in kmalloc gdt");
+	pr_info(KERN_INFO "bf_gdt_init(): Error in kmalloc gdt");
 #endif
         return NULL;
     }
@@ -54,7 +56,7 @@ struct bf_gdt *bf_gdt_init(u32 gid)
 #endif
     {
 #ifdef __KERNEL__
-	printk(KERN_INFO "bf_gdt_init(): Error in kmalloc bf_array");
+	pr_info(KERN_INFO "bf_gdt_init(): Error in kmalloc bf_array");
 #endif
         return NULL;
     }
@@ -75,8 +77,12 @@ struct bf_gdt *bf_gdt_init(u32 gid)
  */
 struct bloom_filter *bf_gdt_add_filter(struct bf_gdt *gdt, u32 bf_id, u16 port_no, u32 len)
 {
+#ifdef DEBUG
 #ifdef __KERNEL__
-	printk(KERN_INFO "add_filter(): gdt->nbf=%u",gdt->nbf);
+	pr_info("add_filter(): gdt->nbf=%u",gdt->nbf);
+#else
+	VLOG_INFO("add_filter(): gdt->nbf=%u",gdt->nbf);
+#endif
 #endif
     if (!gdt || gdt->nbf >= BF_GDT_MAX_FILTERS) {
         return NULL;
@@ -135,7 +141,14 @@ struct bloom_filter *bf_gdt_insert_filter(struct bf_gdt *gdt, struct bloom_filte
     }
     struct bloom_filter *new_bf = bf_gdt_add_filter(gdt,bf->bf_id,bf->port_no,bf->len);
     if (new_bf) {
-        memcpy(new_bf->array,bf->array,new_bf->len);
+#ifdef DEBUG
+#ifdef __KERNEL__
+        pr_info("create new_bf successfully,id=0x%x,port_no=%u,len=%u.",bf->bf_id,bf->port_no,bf->len);
+#else
+        VLOG_INFO("create new_bf successfully,id=0x%x,port_no=%u,len=%u.",bf->bf_id,bf->port_no,bf->len);
+#endif
+#endif
+        memcpy(new_bf->array,bf->array,(new_bf->len)>>3);
     }
     return new_bf;
 }
@@ -168,31 +181,71 @@ struct bloom_filter *bf_gdt_find_filter(struct bf_gdt *gdt, u32 bf_id)
 int bf_gdt_update_filter(struct bf_gdt *gdt, struct bloom_filter *bf)
 {
     if (!gdt || !bf) {
+#ifdef DEBUG
+#ifdef __KERNEL__
+        pr_info("bf_gdt_update_filter():gdt or bf NULL.");
+#else
+        VLOG_INFO("bf_gdt_update_filter():gdt or bf NULL.");
+#endif
+#endif
         return -1;
     }
+#ifdef DEBUG
+#ifdef __KERNEL__
+    pr_info(">>>bf_gdt_update_filter(),nbf=%u",gdt->nbf);
+#else
+    VLOG_INFO(">>>bf_gdt_update_filter(),nbf=%u",gdt->nbf);
+#endif
+#endif
     int ret = -1;
     struct bloom_filter *matched_bf = bf_gdt_find_filter(gdt,bf->bf_id);
+#ifdef DEBUG
+#ifdef __KERNEL__
+    pr_info("bf_gdt_update_filter():bf->id=0x%x,len=%u,port_no=%u.",bf->bf_id,bf->len,bf->port_no);
+#else
+    VLOG_INFO("bf_gdt_update_filter():bf->id=0x%x,len=%u,port_no=%u.",bf->bf_id,bf->len,bf->port_no);
+#endif
+#endif
     if(matched_bf) {//find matched.
-        if(memcmp(matched_bf->array,bf->array,matched_bf->len)==0) { //no change
+        if(memcmp(matched_bf->array,bf->array,(matched_bf->len)>>3)==0) { //no change
+#ifdef DEBUG
+#ifdef __KERNEL__
+            pr_info("bf_gdt_update_filter(): no change.");
+#else
+            VLOG_INFO("bf_gdt_update_filter(): no change.");
+#endif
+#endif
             ret = -1;
         } else {//content changed, then update
-#ifdef __KERNEL__
 #ifdef DEBUG
+#ifdef __KERNEL__
             pr_info("bf_gdt_update_filter():update existed, bf_id=0x%x, len=%u",bf->bf_id,bf->len);
+#else
+            VLOG_INFO("bf_gdt_update_filter():update existed, bf_id=0x%x, len=%u",bf->bf_id,bf->len);
 #endif
 #endif
-            memcpy(matched_bf->array,bf->array,matched_bf->len);
+            memcpy(matched_bf->array,bf->array,(matched_bf->len)>>3);
             ret = 1;
         }
     } else { //no existed, then insert
-#ifdef __KERNEL__
 #ifdef DEBUG
+#ifdef __KERNEL__
         pr_info("bf_gdt_update_filter():add new, bf_id=0x%x, len=%u",bf->bf_id,bf->len);
+#else
+        VLOG_INFO("bf_gdt_update_filter():add new, bf_id=0x%x, len=%u",bf->bf_id,bf->len);
 #endif
 #endif
         bf_gdt_insert_filter(gdt,bf);
         ret = 2;
     }
+#ifdef DEBUG
+#ifdef __KERNEL__
+    pr_info("<<<bf_gdt_update_filter(),nbf=%u",gdt->nbf);
+#else
+    VLOG_INFO("<<<bf_gdt_update_filter(),nbf=%u",gdt->nbf);
+#endif
+#endif
+
     return ret;
 }
 
@@ -256,7 +309,7 @@ struct bloom_filter *bf_gdt_check(struct bf_gdt *gdt, unsigned char *s)
     u32 i;
 #ifdef DEBUG
 #ifdef __KERNEL__
-    printk(KERN_INFO "gdt_check():gdt->nbf=%u",gdt->nbf);
+    pr_info(KERN_INFO "gdt_check():gdt->nbf=%u",gdt->nbf);
 #endif
 #endif
     if (gdt && gdt->bf_array) {
