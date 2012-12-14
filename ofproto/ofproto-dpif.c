@@ -3206,8 +3206,8 @@ handle_miss_upcalls(struct ofproto_dpif *ofproto, struct dpif_upcall *upcalls,
             miss->upcall_type = upcall->type;
             list_init(&miss->packets);
             n_misses++;
-#ifdef LC_ENABLE
-            if(miss->flow.in_port != 1) { //do not record pkt from core networks
+#ifdef LC_ENABLE //update local bf-gdt:do not record pkt from core network, only record ipv4
+            if(miss->flow.in_port != 1 && miss->flow.dl_type == htons(0x0800)) {
                 unsigned char src_mac[6];
                 memcpy(src_mac, miss->flow.dl_src,6);
 #ifdef DEBUG
