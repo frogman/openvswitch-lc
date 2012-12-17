@@ -435,6 +435,11 @@ ofpact_from_openflow10(const union ofp_action *a, struct ofpbuf *out)
     case OFPUTIL_OFPAT10_OUTPUT:
         return output_from_openflow10(&a->output10, out);
 
+#ifdef LC_ENABLE
+    case OFPUTIL_OFPAT10_REMOTE: //should not be handled here, althrough
+        return 0;
+#endif
+
     case OFPUTIL_OFPAT10_SET_VLAN_VID:
         if (a->vlan_vid.vlan_vid & ~htons(0xfff)) {
             return OFPERR_OFPBAC_BAD_ARGUMENT;
@@ -650,7 +655,7 @@ ofpacts_from_openflow_remote(const struct ofp_action_remote *in, size_t n_in,
 #endif
         enum ofperr error = ofpact_from_openflow(a, out);
         if (error) {
-            log_bad_action(in, n_in, a - in, error);
+            log_bad_action((const union ofp_action *)in, n_in, a - in, error);
             return error;
         }
     }
@@ -1590,6 +1595,12 @@ ofpact_to_openflow11(const struct ofpact *a, struct ofpbuf *out)
         /* XXX */
         break;
 
+#ifdef LC_ENABLE
+    case OFPACT_REMOTE:
+        /* XXX */
+        break;
+#endif
+
     case OFPACT_SET_VLAN_VID:
         ofputil_put_OFPAT11_SET_VLAN_VID(out)->vlan_vid
             = htons(ofpact_get_SET_VLAN_VID(a)->vlan_vid);
@@ -1708,6 +1719,10 @@ ofpact_outputs_to_port(const struct ofpact *ofpact, uint16_t port)
         return ofpact_get_OUTPUT(ofpact)->port == port;
     case OFPACT_ENQUEUE:
         return ofpact_get_ENQUEUE(ofpact)->port == port;
+#ifdef LC_ENABLE
+    case OFPACT_REMOTE:
+        return ofpact_get_REMOTE(ofpact)->port == port;
+#endif
     case OFPACT_CONTROLLER:
         return port == OFPP_CONTROLLER;
 
@@ -1847,8 +1862,8 @@ ofpact_format(const struct ofpact *a, struct ds *s)
         port = ofpact_get_REMOTE(a)->port;
         ip = ofpact_get_REMOTE(a)->ip;
         if (port < OFPP_MAX) {
-            ds_put_format(s, "remote:%,"PRIu16, port);
-            ds_put_format(s, "0x%x", ip);
+            ds_put_format(s, "remote:port=%"PRIu16, port);
+            ds_put_format(s, ",ip=0x%x", ip);
         } else {
             ofputil_format_port(port, s);
         }

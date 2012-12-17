@@ -171,7 +171,7 @@ enum ofpraw {
     /* OFPT 1.1 (21): void. */
     OFPRAW_OFPT11_BARRIER_REPLY,
 
-    /* OFPT 1.0 (20): struct ofp_packet_remote, uint8_t[]. */
+    /* OFPT 1.0 (22): struct ofp_packet_remote, uint8_t[]. */
     OFPRAW_OFPT10_PACKET_REMOTE,
 
 /* Standard statistics. */

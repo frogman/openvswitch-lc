@@ -730,8 +730,8 @@ ofptype_decode(enum ofptype *typep, const struct ofp_header *oh)
     enum ofperr error;
     enum ofpraw raw;
 
-    error = ofpraw_decode(&raw, oh);
-    *typep = error ? 0 : ofptype_from_ofpraw(raw);
+    error = ofpraw_decode(&raw, oh); //get ofpraw type
+    *typep = error ? 0 : ofptype_from_ofpraw(raw); //convert ofpraw to ofptype
     return error;
 }
 

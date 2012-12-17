@@ -483,7 +483,6 @@ struct ovs_action_push_vlan {
  * enum ovs_action_attr - Action types.
  *
  * @OVS_ACTION_ATTR_OUTPUT: Output packet to port.
- * @OVS_ACTION_ATTR_REMOTE: Output packet to remote sw, should do encapsulation.
  * @OVS_ACTION_ATTR_USERSPACE: Send packet to userspace according to nested
  * %OVS_USERSPACE_ATTR_* attributes.
  * @OVS_ACTION_ATTR_SET: Replaces the contents of an existing header.  The
@@ -494,6 +493,7 @@ struct ovs_action_push_vlan {
  * @OVS_ACTION_ATTR_POP_VLAN: Pop the outermost 802.1Q header off the packet.
  * @OVS_ACTION_ATTR_SAMPLE: Probabilitically executes actions, as specified in
  * the nested %OVS_SAMPLE_ATTR_* attributes.
+ * @OVS_ACTION_ATTR_REMOTE: Output packet to remote sw, with encapsulation.
  *
  * Only a single header can be set with a single %OVS_ACTION_ATTR_SET.  Not all
  * fields within a header are modifiable, e.g. the IPv4 protocol and fragment
@@ -509,7 +509,7 @@ enum ovs_action_attr {
 	OVS_ACTION_ATTR_POP_VLAN,     /* No argument. */
 	OVS_ACTION_ATTR_SAMPLE,       /* Nested OVS_SAMPLE_ATTR_*. */
 #ifdef LC_ENABLE
-	OVS_ACTION_ATTR_REMOTE=13,	      /* encapulate and send pkt to remote sw. */
+	OVS_ACTION_ATTR_REMOTE,	      /* encapulate and send pkt to remote sw. */
 #endif
 	__OVS_ACTION_ATTR_MAX
 };

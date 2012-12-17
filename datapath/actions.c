@@ -454,7 +454,7 @@ static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
                 break;
 
 #ifdef LC_ENABLE
-            case OVS_ACTION_ATTR_REMOTE: //TODO: print to test here.
+            case OVS_ACTION_ATTR_REMOTE:
                 payload = nla_get_u64(a);
                 remote_ip = payload & 0xffffffff; //remote_ip
                 prev_port = (payload >>32) & 0xffffffff; //port_no

@@ -324,8 +324,8 @@ format_odp_action(struct ds *ds, const struct nlattr *a)
     case OVS_ACTION_ATTR_REMOTE:
         ds_put_cstr(ds, "remote(");
         ds_put_format(ds, "0x%"PRIx64, nl_attr_get_u64(a));
-        ds_put_format(ds, ",0x%"PRIx32, (nl_attr_get_u64(a)>>32)&0xffffffff);
-        ds_put_format(ds, ",0x%"PRIx32, nl_attr_get_u64(a)&0xffffffff);
+        ds_put_format(ds, ",0x%"PRIx32, (unsigned int)(nl_attr_get_u64(a)>>32)&0xffffffff);
+        ds_put_format(ds, ",0x%"PRIx32, (unsigned int)nl_attr_get_u64(a)&0xffffffff);
         ds_put_char(ds, ')');
         break;
 #endif
