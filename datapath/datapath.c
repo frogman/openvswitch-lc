@@ -354,7 +354,6 @@ void ovs_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
             return;
         }
         
-#define DEBUG
 #ifdef DEBUG
         if (ntohs(key.eth.type) != 0x0806 && ntohs(key.eth.type) != 0x0800) { 
             pr_info("Drop unknown l2_type = 0x%x",ntohs(key.eth.type));
@@ -429,8 +428,6 @@ void ovs_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
 #endif
         OVS_CB(skb)->flow = flow;
     } /*now each pkt has an associated flow. */
-
-#undef DEBUG
 
     stats_counter = &stats->n_hit;
     ovs_flow_used(OVS_CB(skb)->flow, skb);
@@ -549,7 +546,6 @@ static struct sk_buff *ovs_bf_gdt_cmd_build_info(struct bloom_filter *bf,
  */
 static int ovs_bf_gdt_cmd_new_or_set(struct sk_buff *skb, struct genl_info *info)
 {
-#define DEBUG
     struct nlattr **a = info->attrs;
     struct ovs_header *ovs_header = info->userhdr;
     struct bloom_filter *bf;
@@ -573,6 +569,7 @@ static int ovs_bf_gdt_cmd_new_or_set(struct sk_buff *skb, struct genl_info *info
 #endif
     gdt = genl_dereference(dp->gdt);
     ret = bf_gdt_update_filter(gdt, bf);
+    /*
     int i = 0;
     char tmp[256]={0};
     for (i=0;i<128;i++){
@@ -584,11 +581,11 @@ static int ovs_bf_gdt_cmd_new_or_set(struct sk_buff *skb, struct genl_info *info
             pr_info("%s",tmp);
         }
     }
+    */
 
 #ifdef DEBUG
     pr_info("<<<ovs_bf_gdt_cmd_new_or_set(),ret=%u",ret);
 #endif
-#undef DEBUG
     return 0;
 error:
     return -1;
@@ -632,7 +629,6 @@ static int ovs_bf_gdt_cmd_get(struct sk_buff *skb, struct genl_info *info)
 static int flush_bf_gdt(struct datapath *dp)
 {
 	struct bf_gdt *old_table;
-	struct bf_gdt *new_table;
 
 	old_table = genl_dereference(dp->gdt);
    	bf_gdt_destroy(old_table);

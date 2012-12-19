@@ -136,7 +136,6 @@ int bf_gdt_del_filter(struct bf_gdt *gdt, u32 bf_id)
  */
 struct bloom_filter *bf_gdt_insert_filter(struct bf_gdt *gdt, struct bloom_filter *bf)
 {
-#define DEBUG
     if (!gdt || !bf) {
         return NULL;
     }
@@ -151,7 +150,6 @@ struct bloom_filter *bf_gdt_insert_filter(struct bf_gdt *gdt, struct bloom_filte
 #endif
         memcpy(new_bf->array,bf->array,new_bf->len/SIZE_CHAR);
     }
-#undef DEBUG
     return new_bf;
 }
 

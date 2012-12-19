@@ -27,7 +27,7 @@ for ((i=1; i<=${NUM}; i++)); do
     sudo arp -s 10.0.0.`expr $i \* 2` 08:00:27:ab:b6:a5;
 done
 
-ping -c 1 192.168.57.1
+ping -c 1 192.168.57.1 >/dev/null&
 
 #thu
 #sudo arp -s 10.0.0.2 08:00:27:ab:b6:a5;
