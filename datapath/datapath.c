@@ -324,6 +324,7 @@ void ovs_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
 	int error = 0;
 #ifdef LC_ENABLE
     struct bloom_filter *bf = NULL;
+    unsigned char dst_mac[13] = {0};//mac: "0a00000027"
 #endif
 
 	stats = per_cpu_ptr(dp->stats_percpu, smp_processor_id());
@@ -365,10 +366,8 @@ void ovs_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
         if (!OVS_CB(skb)->encaped) {
             pr_info("DP process_received_packet(): Received LOCAL pkt.\n");
         }
-        unsigned char *src_mac = (unsigned char*)key.eth.src;
-        unsigned char *dst_mac = (unsigned char*)key.eth.dst;
-        unsigned short type = ntohs(key.eth.type);
-        pr_mac("pkt mac header:",src_mac, dst_mac, type);
+        pr_mac("pkt mac header:",(unsigned char*)key.eth.src, (unsigned char*)key.eth.dst,
+                ntohs(key.eth.type));
 #endif
         /* Look up in local table. */
         flow = ovs_flow_tbl_lookup(rcu_dereference(dp->table), &key, key_len);
@@ -380,12 +379,14 @@ void ovs_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
 #endif
             /*ip pkt from local host*/
             if (!OVS_CB(skb)->encaped && key.eth.type!=htons(0x0806)) {//local non-arp pkt
-                bf = bf_gdt_check(dp->gdt,(unsigned char*)key.eth.dst); //host in bf_gdt?
+                sprintf(dst_mac,"%02x%02x%02x%02x%02x%02x",
+                        key.eth.dst[0],key.eth.dst[1],key.eth.dst[2],key.eth.dst[3],key.eth.dst[4],key.eth.dst[5]);
+                bf = bf_gdt_check(dp->gdt,dst_mac); //host in bf_gdt?
             }
             /*local_to_remote pkt, and in local bf-gdt. */
             if (!OVS_CB(skb)->encaped && likely(bf)) {
 #ifdef DEBUG
-                pr_info("Found in local bf_gdt\n");
+                pr_info("Found in bf_gdt, bf_id=0x%x\n",bf->bf_id);
                 pr_info("will send REMOTE cmd: port=%u, ip=0x%x\n", bf->port_no, bf->bf_id);
 #endif
 
