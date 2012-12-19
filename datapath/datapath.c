@@ -387,8 +387,7 @@ void ovs_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
             /*local_to_remote pkt, and in local bf-gdt. */
             if (!OVS_CB(skb)->encaped && likely(bf)) {
 #ifdef DEBUG
-                pr_info("Found in bf_gdt, bf_id=0x%x\n",bf->bf_id);
-                pr_info("will send REMOTE cmd: port=%u, ip=0x%x\n", bf->port_no, bf->bf_id);
+                pr_info("Found %s in bf_gdt,bf_id=0x%x,will send REMOTE cmd:port=%u,ip=0x%x",dst_mac, bf->bf_id, bf->port_no, bf->bf_id);
 #endif
 
                 flow = kmalloc(sizeof(struct sw_flow), GFP_ATOMIC);
@@ -409,7 +408,7 @@ void ovs_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
             } else { /* Not in local table. Not in bf-gdt yet, then send to ovsd*/
 #endif
 #ifdef DEBUG
-                pr_info("NO found in tbl/gdt, will send upcall\n");
+                pr_info("NO found %s in tbl/gdt, will send upcall", dst_mac);
 #endif
                 struct dp_upcall_info upcall;
                 upcall.cmd = OVS_PACKET_CMD_MISS;
@@ -551,9 +550,6 @@ static struct sk_buff *ovs_bf_gdt_cmd_build_info(struct bloom_filter *bf,
 static int ovs_bf_gdt_cmd_new_or_set(struct sk_buff *skb, struct genl_info *info)
 {
 #define DEBUG
-#ifdef DEBUG
-    pr_info(">>>ovs_bf_gdt_cmd_new_or_set()");
-#endif
     struct nlattr **a = info->attrs;
     struct ovs_header *ovs_header = info->userhdr;
     struct bloom_filter *bf;
@@ -573,10 +569,21 @@ static int ovs_bf_gdt_cmd_new_or_set(struct sk_buff *skb, struct genl_info *info
     if (!dp)
         goto error;
 #ifdef DEBUG
-    pr_info("bf_id=0x%x,len=%u.\n",bf->bf_id,bf->len);
+    pr_info(">>>ovs_bf_gdt_cmd_new_or_set(): bf_id=0x%x,len=%u.\n",bf->bf_id,bf->len);
 #endif
     gdt = genl_dereference(dp->gdt);
     ret = bf_gdt_update_filter(gdt, bf);
+    int i = 0;
+    char tmp[256]={0};
+    for (i=0;i<128;i++){
+        sprintf(tmp+i%16,"%x",bf->array[i]);
+        if(i%16==0){
+            pr_info("%u",i/16);
+        }
+        if((i+1)%16==0){
+            pr_info("%s",tmp);
+        }
+    }
 
 #ifdef DEBUG
     pr_info("<<<ovs_bf_gdt_cmd_new_or_set(),ret=%u",ret);
