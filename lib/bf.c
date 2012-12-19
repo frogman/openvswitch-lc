@@ -148,7 +148,7 @@ int bf_add(struct bloom_filter *bf, const unsigned char *s)
 
 #ifdef DEBUG
 #ifndef __KERNEL__
-                VLOG_INFO("Add %s into bf with id=0x%x,nfunc=%u",s,bf->bf_id,bf->nfuncs);
+    VLOG_INFO("Add %s into bf with id=0x%x,nfunc=%u",s,bf->bf_id,bf->nfuncs);
 #endif
 #endif
     return 0;
@@ -162,7 +162,6 @@ int bf_add(struct bloom_filter *bf, const unsigned char *s)
  */
 int bf_check(struct bloom_filter *bf, unsigned char *s)
 {
-#define DEBUG
     u32 i;
 
     if (!bf || !bf->array)
@@ -183,8 +182,6 @@ int bf_check(struct bloom_filter *bf, unsigned char *s)
             return 0;
         }
     }
-
-#undef DEBUG
 
     return 1;
 }
