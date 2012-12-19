@@ -162,7 +162,7 @@ void *mc_recv(struct mc_recv_arg* arg)
         ret = bf_gdt_update_filter(arg->gdt,&msg->bf); //try to update remote bf into ovsd's local bf-gdt
         pthread_mutex_unlock (&mutex);
         if(ret > 0) {//sth changed in gdt with msg
-            VLOG_INFO("Received new bf with gid=%u,id=0x%x,len=%u, will update dp's bf_gdt with REMOTE port.",msg->gid,msg->bf.bf_id,msg->bf.len);
+            VLOG_INFO("[MCAST] Received new bf:gid=%u,id=0x%x,len=%u, will update dp with REMOTE port.",msg->gid,msg->bf.bf_id,msg->bf.len);
             msg->bf.port_no = LC_BF_REMOTE_PORT; //change default port for remote pkts
             bridge_update_bf_gdt_to_dp(arg->br, &msg->bf);
         }

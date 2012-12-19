@@ -182,7 +182,6 @@ struct bloom_filter *bf_gdt_find_filter(struct bf_gdt *gdt, u32 bf_id)
  */
 int bf_gdt_update_filter(struct bf_gdt *gdt, struct bloom_filter *bf)
 {
-#define DEBUG
     if (!gdt || !bf) {
 #ifdef DEBUG
 #ifdef __KERNEL__
@@ -249,7 +248,6 @@ int bf_gdt_update_filter(struct bf_gdt *gdt, struct bloom_filter *bf)
 #endif
 #endif
 
-#undef DEBUG
     return ret;
 }
 
