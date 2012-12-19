@@ -28,8 +28,8 @@
 
 #include "bf.h"
 
-#define SETBIT(array, i) (array[i/sizeof(unsigned char)] |= (1<<(i%sizeof(char))))
-#define GETBIT(array, i) (array[i/sizeof(unsigned char)] & (1<<(i%sizeof(char))))
+#define SETBIT(array, i) (array[i/SIZE_CHAR] |= (1<<(i%SIZE_CHAR)))
+#define GETBIT(array, i) (array[i/SIZE_CHAR] & (1<<(i%SIZE_CHAR)))
 
 /**
  * hash function: SAX.
@@ -76,11 +76,11 @@ struct bloom_filter *bf_create(u32 bf_id, u32 len, u16 port_no, u32 nfuncs)
     }
 /*
 #ifdef __KERNEL__
-    if(!(bf->array=kcalloc((len+sizeof(char)-1)/sizeof(char), sizeof(char),GFP_KERNEL))) {
+    if(!(bf->array=kcalloc((len+SIZE_CHAR-1)/SIZE_CHAR, SIZE_CHAR,GFP_KERNEL))) {
         printk("Error in kcalloc bf\i");
         kfree(bf);
 #else
-    if(!(bf->array=calloc((len+sizeof(char)-1)/sizeof(char), sizeof(char)))) {
+    if(!(bf->array=calloc((len+SIZE_CHAR-1)/SIZE_CHAR, SIZE_CHAR))) {
         free(bf);
 #endif
         return NULL;
@@ -105,7 +105,7 @@ struct bloom_filter *bf_create(u32 bf_id, u32 len, u16 port_no, u32 nfuncs)
     }
     bf->nfuncs=nfuncs;
 
-    memset(bf->array,0,128);
+    memset(bf->array,0,len/SIZE_CHAR);
     bf->bf_id = bf_id;
     bf->port_no = port_no;
     bf->len=len;
@@ -146,6 +146,11 @@ int bf_add(struct bloom_filter *bf, const unsigned char *s)
         SETBIT(bf->array, bf->funcs[i](s)%bf->len);
     }
 
+#ifdef DEBUG
+#ifndef __KERNEL__
+                VLOG_INFO("Add %s into bf with id=0x%x,nfunc=%u",s,bf->bf_id,bf->nfuncs);
+#endif
+#endif
     return 0;
 }
 
@@ -157,6 +162,7 @@ int bf_add(struct bloom_filter *bf, const unsigned char *s)
  */
 int bf_check(struct bloom_filter *bf, unsigned char *s)
 {
+#define DEBUG
     u32 i;
 
     if (!bf || !bf->array)
@@ -168,8 +174,17 @@ int bf_check(struct bloom_filter *bf, unsigned char *s)
 #endif
 
     for(i=0; i<bf->nfuncs; ++i) {
-        if(!(GETBIT(bf->array, bf->funcs[i](s)%bf->len))) return 0;
+#ifdef DEBUG
+#ifdef __KERNEL__
+	pr_info("test bit %u=%u",bf->funcs[i](s)%bf->len,GETBIT(bf->array, bf->funcs[i](s)%bf->len));
+#endif
+#endif
+        if(!(GETBIT(bf->array, bf->funcs[i](s)%bf->len))) {
+            return 0;
+        }
     }
+
+#undef DEBUG
 
     return 1;
 }
@@ -188,24 +203,24 @@ int bf_set_array(struct bloom_filter *bf, const u8 *array, u32 len)
     /*
     u8 * tmp_array = NULL;
 #ifdef __KERNEL__
-    if(!(tmp_array=kcalloc((len+sizeof(char)-1)/sizeof(char), sizeof(char),GFP_KERNEL))) {
+    if(!(tmp_array=kcalloc((len+SIZE_CHAR-1)/SIZE_CHAR, SIZE_CHAR,GFP_KERNEL))) {
         kfree(tmp_array);
         printk("Error when kcalloc in bf_set_array()\n");
         return -1;
     }
     kfree(bf->array);
 #else
-    if(!(tmp_array=calloc((len+sizeof(char)-1)/sizeof(char), sizeof(char)))) {
+    if(!(tmp_array=calloc((len+SIZE_CHAR-1)/SIZE_CHAR, SIZE_CHAR))) {
         free(tmp_array);
         printk("Error when kcalloc in bf_set_array()\n");
         return -1;
     }
     free(bf->array);
 #endif
-    memcpy(tmp_array,array,(len+sizeof(char)-1)/sizeof(char));
+    memcpy(tmp_array,array,(len+SIZE_CHAR-1)/SIZE_CHAR);
     bf->array = tmp_array;
     */
-    memcpy(bf->array,array,(len+sizeof(char)-1)/sizeof(char));
+    memcpy(bf->array,array,(len+SIZE_CHAR-1)/SIZE_CHAR);
     bf->len = len;
     return 0;
 }

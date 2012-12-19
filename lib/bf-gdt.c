@@ -148,7 +148,7 @@ struct bloom_filter *bf_gdt_insert_filter(struct bf_gdt *gdt, struct bloom_filte
         VLOG_INFO("create new_bf successfully,id=0x%x,port_no=%u,len=%u.",bf->bf_id,bf->port_no,bf->len);
 #endif
 #endif
-        memcpy(new_bf->array,bf->array,(new_bf->len)>>3);
+        memcpy(new_bf->array,bf->array,new_bf->len/SIZE_CHAR);
     }
     return new_bf;
 }
@@ -176,7 +176,7 @@ struct bloom_filter *bf_gdt_find_filter(struct bf_gdt *gdt, u32 bf_id)
  * Update a remote bloom_filter into the given gdt
  * @param gdt: the gdt to update
  * @param bf: the new bloom_filter
- * @return: >0 if anything changed
+ * @return: 1 update, 2 add new.
  */
 int bf_gdt_update_filter(struct bf_gdt *gdt, struct bloom_filter *bf)
 {
@@ -207,7 +207,7 @@ int bf_gdt_update_filter(struct bf_gdt *gdt, struct bloom_filter *bf)
 #endif
 #endif
     if(matched_bf) {//find matched.
-        if(memcmp(matched_bf->array,bf->array,(matched_bf->len)>>3)==0) { //no change
+        if(memcmp(matched_bf->array,bf->array,matched_bf->len/SIZE_CHAR)==0) { //no change
 #ifdef DEBUG
 #ifdef __KERNEL__
             pr_info("bf_gdt_update_filter(): no change.");
@@ -224,7 +224,7 @@ int bf_gdt_update_filter(struct bf_gdt *gdt, struct bloom_filter *bf)
             VLOG_INFO("bf_gdt_update_filter():update existed, bf_id=0x%x, len=%u",bf->bf_id,bf->len);
 #endif
 #endif
-            memcpy(matched_bf->array,bf->array,(matched_bf->len)>>3);
+            memcpy(matched_bf->array,bf->array,matched_bf->len/SIZE_CHAR);
             ret = 1;
         }
     } else { //no existed, then insert

@@ -27,7 +27,9 @@ typedef unsigned short u16;
 typedef unsigned char u8;
 #endif
 
-//#include "openflow/openflow.h"
+#ifndef SIZE_CHAR
+#define SIZE_CHAR 8
+#endif
 
 #ifndef LC_BF_DFT_LEN
 #define LC_BF_DFT_LEN 1024
