@@ -29,7 +29,7 @@
 #endif
 
 #ifndef LC_GROUP_DFT_ID
-#define LC_GROUP_DFT_ID 0
+#define LC_GROUP_DFT_ID 1
 #endif
 
 struct bf_gdt{
