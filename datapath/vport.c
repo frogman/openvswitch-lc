@@ -492,10 +492,8 @@ void ovs_vport_receive(struct vport *vport, struct sk_buff *skb)
 
 #ifdef LC_ENABLE
     if (ovs_vport_get_ip_proto(skb)!=LC_REMOTE_IP_PROTO) {
-        pr_info("Non encaped pkt.");
 		OVS_CB(skb)->encaped = 0;
     } else {
-        pr_info("Encaped pkt.");
 		OVS_CB(skb)->encaped = 1;
     }
 #endif

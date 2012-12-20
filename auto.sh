@@ -12,8 +12,9 @@ sudo ovs-vsctl --no-wait init; sleep 1; sudo ovs-vswitchd --pidfile --detach; sl
 
 sudo route del default gw 192.168.56.1; sudo route del default gw 192.168.58.1; 
 sudo route add -net 239.0.0.0/24 eth1; 
-
+sudo ifconfig eth2 0;
 sudo ifconfig br0 192.168.58.10 up;
+
 for ((i=1; i<=${NUM}; i++)); do
         sudo ip addr add 10.0.0.`expr $i + $NUM`/24 brd 10.0.0.255 dev br0; #10.0.0.21-10.0.0.40 is on host1
 done
