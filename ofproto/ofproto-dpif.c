@@ -3202,7 +3202,6 @@ handle_miss_upcalls(struct ofproto_dpif *ofproto, struct dpif_upcall *upcalls,
         /* Add other packets to a to-do list. */
         hash = flow_hash(&miss->flow, 0);
         existing_miss = flow_miss_find(&todo, &miss->flow, hash);
-#define DEBUG
         if (!existing_miss) { //for new miss flow
             hmap_insert(&todo, &miss->hmap_node, hash);
             miss->key = upcall->key;
@@ -3210,6 +3209,7 @@ handle_miss_upcalls(struct ofproto_dpif *ofproto, struct dpif_upcall *upcalls,
             miss->upcall_type = upcall->type;
             list_init(&miss->packets);
             n_misses++;
+#define DEBUG
 #ifdef LC_ENABLE //update local bf-gdt: only record local ipv4
             if(miss->flow.in_port == OFPP_LOCAL && miss->flow.dl_type == htons(0x0800)) {
 #ifdef DEBUG
@@ -3217,7 +3217,7 @@ handle_miss_upcalls(struct ofproto_dpif *ofproto, struct dpif_upcall *upcalls,
                 memcpy(src_mac, miss->flow.dl_src,6);
                 unsigned char dst_mac[6];
                 memcpy(dst_mac, miss->flow.dl_dst,6);
-                VLOG_INFO("[ovsd] handle_miss_upcalls(): L2=(%x:%x:%x:%x:%x:%x -> %x:%x:%x:%x:%x:%x, type=0x%x). in_port=%u",
+                VLOG_INFO("handle_miss_upcalls(): L2=(%x:%x:%x:%x:%x:%x -> %x:%x:%x:%x:%x:%x, type=0x%x). in_port=%u",
                         src_mac[0],src_mac[1],src_mac[2],src_mac[3],src_mac[4],src_mac[5],
                         dst_mac[0],dst_mac[1],dst_mac[2],dst_mac[3],dst_mac[4],dst_mac[5], ntohs(miss->flow.dl_type),miss->flow.in_port);
 #endif
@@ -3237,9 +3237,9 @@ handle_miss_upcalls(struct ofproto_dpif *ofproto, struct dpif_upcall *upcalls,
         } else {
             miss = existing_miss;
         }
-#undef DEBUG
         list_push_back(&miss->packets, &upcall->packet->list_node);
     }
+#undef DEBUG
 
     /* Process each element in the to-do list, constructing the set of
      * operations to batch. */
