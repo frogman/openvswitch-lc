@@ -362,8 +362,6 @@ void ovs_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
         }
 #endif
 
-#define DEBUG
-
 #ifdef DEBUG
         if (!OVS_CB(skb)->encaped) {
             pr_info("DP process_received_packet(): Received LOCAL pkt.\n");
@@ -431,7 +429,6 @@ void ovs_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
         OVS_CB(skb)->flow = flow;
     } /*now each pkt has an associated flow. */
 
-#undef DEBUG
     stats_counter = &stats->n_hit;
     ovs_flow_used(OVS_CB(skb)->flow, skb);
 
@@ -1150,7 +1147,7 @@ static int ovs_packet_cmd_execute(struct sk_buff *skb, struct genl_info *info)
 
 	len = nla_len(a[OVS_PACKET_ATTR_PACKET]);
 #ifdef DEBUG
-        pr_info("ovs_packet_cmd_execute(),len=%u",len);
+    pr_info("ovs_packet_cmd_execute(),len=%u",len);
 #endif
 	packet = __dev_alloc_skb(NET_IP_ALIGN + len, GFP_KERNEL);
 	err = -ENOMEM;
@@ -1163,7 +1160,7 @@ static int ovs_packet_cmd_execute(struct sk_buff *skb, struct genl_info *info)
 	skb_reset_mac_header(packet);
 	eth = eth_hdr(packet);
 #ifdef DEBUG
-        pr_mac("ovs_packet_cmd_execute()",eth->h_source,eth->h_dest,ntohs(eth->h_proto));
+    pr_mac("ovs_packet_cmd_execute()",eth->h_source,eth->h_dest,ntohs(eth->h_proto));
 #endif
 
 	/* Normally, setting the skb 'protocol' field would be handled by a

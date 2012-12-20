@@ -3209,7 +3209,6 @@ handle_miss_upcalls(struct ofproto_dpif *ofproto, struct dpif_upcall *upcalls,
             miss->upcall_type = upcall->type;
             list_init(&miss->packets);
             n_misses++;
-#define DEBUG
 #ifdef LC_ENABLE //update local bf-gdt: only record local ipv4
             if(miss->flow.in_port == OFPP_LOCAL && miss->flow.dl_type == htons(0x0800)) {
 #ifdef DEBUG
@@ -3239,7 +3238,6 @@ handle_miss_upcalls(struct ofproto_dpif *ofproto, struct dpif_upcall *upcalls,
         }
         list_push_back(&miss->packets, &upcall->packet->list_node);
     }
-#undef DEBUG
 
     /* Process each element in the to-do list, constructing the set of
      * operations to batch. */

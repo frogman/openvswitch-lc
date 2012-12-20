@@ -10,7 +10,7 @@ sleep 1;
 
 sudo ovs-vsctl --no-wait init; sleep 1; sudo ovs-vswitchd --pidfile --detach; sleep 1;
 
-sudo route del default gw 192.168.56.1; sudo route del default gw 192.168.57.1; sudo route del default gw 192.168.58.1; 
+sudo route del default gw 192.168.56.1; sudo route del default gw 192.168.57.1;
 sudo route add -net 239.0.0.0/24 eth1; 
 sudo ifconfig eth2 0;
 sudo ifconfig br0 192.168.57.10 up;
@@ -40,5 +40,10 @@ sleep 2;
 
 for ((i=1; i<=${NUM}; i++)); do
     ping -c 1 10.0.0.`expr $i + $NUM` >>ping_history.txt;
+    sleep 2;
+done
+
+for ((i=1; i<=${NUM}; i++)); do
+    ping -c 1 10.0.0.`expr $i + 2 \* $NUM` >>ping_history.txt;
     sleep 2;
 done
