@@ -33,9 +33,7 @@
 #endif
 
 /*crl*/
-static const char gw_mac[]={0x0a,0x00,0x27,0x00,0x00,0x01};//mac of the core routable network's gw: 192.168.57.1
-/*thu*/
-//static const char gw_mac[]={0x08,0x00,0x27,0x00,0xbc,0x89};//mac of the core routable network gw:192.168.57.1
+static const char gw_mac[]={0x0a,0x00,0x27,0x00,0x00,0x03};//mac of the core routable network's gw: 192.168.59.1
 
 /**
  * add new mac header and ip header.

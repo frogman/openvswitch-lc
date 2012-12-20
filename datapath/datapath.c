@@ -362,6 +362,8 @@ void ovs_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
         }
 #endif
 
+#define DEBUG
+
 #ifdef DEBUG
         if (!OVS_CB(skb)->encaped) {
             pr_info("DP process_received_packet(): Received LOCAL pkt.\n");
@@ -429,6 +431,7 @@ void ovs_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
         OVS_CB(skb)->flow = flow;
     } /*now each pkt has an associated flow. */
 
+#undef DEBUG
     stats_counter = &stats->n_hit;
     ovs_flow_used(OVS_CB(skb)->flow, skb);
 

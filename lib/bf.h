@@ -35,7 +35,7 @@ typedef unsigned char u8;
 #define LC_BF_DFT_LEN 1024
 #endif
 
-#define LC_BF_LOCAL_ID 0xc0a8390a //ip of local edge sw: 192.168.57.10
+#define LC_BF_LOCAL_ID 0xc0a83b0a //ip of local edge sw: 192.168.59.10
 #define LC_BF_LOCAL_PORT 0xfffe //local port OFPP_LOCAL
 #define LC_BF_REMOTE_PORT 1 //remote port
 
