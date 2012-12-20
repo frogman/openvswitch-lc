@@ -42,3 +42,8 @@ for ((i=1; i<=${NUM}; i++)); do
     ping -c 1 10.0.0.`expr $i + 0` >>ping_history.txt;
     sleep 2;
 done
+
+for ((i=1; i<=${NUM}; i++)); do
+    ping -c 1 10.0.0.`expr $i + 2 \* $NUM` >>ping_history.txt;
+    sleep 2;
+done

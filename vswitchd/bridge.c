@@ -2454,7 +2454,7 @@ static void
 bridge_lc_init(struct bridge *br)
 {
 #ifdef DEBUG
-    VLOG_INFO("%s bridge_lc_init(): init bf-gdt and mcast args.\n",br->name);
+    VLOG_INFO(">>>bridge_lc_init(): %s init bf-gdt and mcast args.\n",br->name);
 #endif
     br->gdt = bf_gdt_init(LC_GROUP_DFT_ID);
     br->local_id = get_local_edge_ip(LC_DP_NI_NAME);
@@ -2467,7 +2467,7 @@ bridge_lc_init(struct bridge *br)
     br->send_arg.local_id = br->local_id;
 
 #ifdef DEBUG
-    VLOG_INFO("%s bridge_lc_init(): local edge sw's ip =0x%x(%u.%u.%u.%u), mcast:ip=0x%x,port=%u.\n",br->name,br->local_id,((unsigned char *)&br->local_id)[3],((unsigned char *)&br->local_id)[2],((unsigned char *)&br->local_id)[1],((unsigned char *)&br->local_id)[0],ntohl(br->send_arg.group_ip),br->send_arg.port);
+    VLOG_INFO("local edge sw's ip =0x%x(%u.%u.%u.%u), mcast:ip=0x%x,port=%u.\n",br->local_id,((unsigned char *)&br->local_id)[3],((unsigned char *)&br->local_id)[2],((unsigned char *)&br->local_id)[1],((unsigned char *)&br->local_id)[0],ntohl(br->send_arg.group_ip),br->send_arg.port);
 #endif
     /*create local bf.*/
     bf_gdt_add_filter(br->gdt,br->local_id,LC_BF_LOCAL_PORT,LC_BF_DFT_LEN);
@@ -2480,7 +2480,7 @@ bridge_lc_init(struct bridge *br)
     br->recv_arg.br = br;
     br->recv_arg.local_id = br->local_id;
 #ifdef DEBUG
-    VLOG_INFO("%s bridge_lc_init() done.\n",br->name);
+    VLOG_INFO("<<<bridge_lc_init() %s done.\n",br->name);
 #endif
     bridge_start_mcast(br);
 }
