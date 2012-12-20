@@ -10,7 +10,7 @@ sleep 1;
 
 sudo ovs-vsctl --no-wait init; sleep 1; sudo ovs-vswitchd --pidfile --detach; sleep 1;
 
-sudo route del default gw 192.168.56.1; sudo route del default gw 192.168.57.1; sudo route del default gw 192.168.58.1; 
+sudo route del default gw 192.168.56.1; sudo route del default gw 192.168.58.1; 
 sudo route add -net 239.0.0.0/24 eth1; 
 
 sudo ifconfig br0 192.168.58.10 up;
@@ -22,9 +22,9 @@ sudo sysctl -w net.ipv4.neigh.default.gc_stale_time=600
 sudo sysctl -w net.ipv4.neigh.br0.gc_stale_time=600
 
 #crl
-sudo arp -s 192.168.58.1 0a:00:27:00:00:02 
+sudo arp -s 192.168.58.1 0a:00:27:00:00:02;
 for ((i=1; i<=${NUM}; i++)); do
-    sudo arp -s 10.0.0.`expr $i + $NUM` 08:00:27:85:ca:de; #10.0.0.1-10.0.0.20 is on host1
+    sudo arp -s 10.0.0.`expr $i + 0` 08:00:27:85:ca:de; #10.0.0.1-10.0.0.20 is on host1
     sudo arp -s 10.0.0.`expr $i + 2 \* $NUM` 08:00:27:b0:d5:78; #10.0.0.41-10.0.0.60 is on host3
 done
 
