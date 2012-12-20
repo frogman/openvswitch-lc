@@ -2468,14 +2468,8 @@ bridge_lc_init(struct bridge *br)
     br->send_arg.local_id = br->local_id;
 
 #ifdef DEBUG
-<<<<<<< HEAD
-    VLOG_INFO("%s bridge_lc_init(): local edge sw's ip=0x%x(%u.%u.%u.%u), mcast: ip=0x%x, port=%u.\n",br->name,br->local_id,((unsigned char *)&br->local_id)[3],((unsigned char *)&br->local_id)[2],((unsigned char *)&br->local_id)[1],((unsigned char *)&br->local_id)[0],ntohl(br->send_arg.group_ip),br->send_arg.port);
-#endif
-
-=======
     VLOG_INFO("%s bridge_lc_init(): local edge sw's ip =0x%x(%u.%u.%u.%u), mcast:ip=0x%x,port=%u.\n",br->name,br->local_id,((unsigned char *)&br->local_id)[3],((unsigned char *)&br->local_id)[2],((unsigned char *)&br->local_id)[1],((unsigned char *)&br->local_id)[0],ntohl(br->send_arg.group_ip),br->send_arg.port);
 #endif
->>>>>>> dev-1.8.9
     /*create local bf.*/
     bf_gdt_add_filter(br->gdt,br->local_id,LC_BF_LOCAL_PORT,LC_BF_DFT_LEN);
 
