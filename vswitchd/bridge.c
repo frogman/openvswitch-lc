@@ -2389,13 +2389,17 @@ qos_unixctl_show(struct unixctl_conn *conn, int argc OVS_UNUSED,
 static void
 bridge_start_mcast(struct bridge *br)
 {
+#ifdef DEBUG
     VLOG_INFO("%s bridge_start_mcast() begin.\n",br->name);
+#endif
     extern pthread_mutex_t mutex;
     pthread_mutex_init (&mutex,NULL);
     pthread_create(&br->send_tid,NULL,mc_send,&br->send_arg);
     sleep(1);
     pthread_create(&br->recv_tid,NULL,mc_recv,&br->recv_arg);
+#ifdef DEBUG
     VLOG_INFO("%s bridge_start_mcast() done.\n",br->name);
+#endif
 }
 
 /**
@@ -2458,16 +2462,20 @@ bridge_lc_init(struct bridge *br)
     br->send_arg.group_ip = inet_addr(LC_MCAST_GROUP_IP)+htonl(br->gdt->gid);
     br->send_arg.port = LC_MCAST_GROUP_PORT;
     br->send_arg.gdt = br->gdt;
-    br->send_arg.local_id = 0;
     br->send_arg.stop = malloc(sizeof(bool));
     *br->send_arg.stop = false;
     br->send_arg.br = br;
     br->send_arg.local_id = br->local_id;
 
 #ifdef DEBUG
+<<<<<<< HEAD
     VLOG_INFO("%s bridge_lc_init(): local edge sw's ip=0x%x(%u.%u.%u.%u), mcast: ip=0x%x, port=%u.\n",br->name,br->local_id,((unsigned char *)&br->local_id)[3],((unsigned char *)&br->local_id)[2],((unsigned char *)&br->local_id)[1],((unsigned char *)&br->local_id)[0],ntohl(br->send_arg.group_ip),br->send_arg.port);
 #endif
 
+=======
+    VLOG_INFO("%s bridge_lc_init(): local edge sw's ip =0x%x(%u.%u.%u.%u), mcast:ip=0x%x,port=%u.\n",br->name,br->local_id,((unsigned char *)&br->local_id)[3],((unsigned char *)&br->local_id)[2],((unsigned char *)&br->local_id)[1],((unsigned char *)&br->local_id)[0],ntohl(br->send_arg.group_ip),br->send_arg.port);
+#endif
+>>>>>>> dev-1.8.9
     /*create local bf.*/
     bf_gdt_add_filter(br->gdt,br->local_id,LC_BF_LOCAL_PORT,LC_BF_DFT_LEN);
 
