@@ -30,3 +30,16 @@ for ((i=1; i<=${NUM}; i++)); do
 done
 
 ping -c 1 192.168.59.1 >/dev/null&
+
+exit;
+sleep 2;
+
+for ((i=1; i<=${NUM}; i++)); do
+    ping -c 1 10.0.0.`expr $i + 0` >>ping_history.txt;
+    sleep 2;
+done
+
+for ((i=1; i<=${NUM}; i++)); do
+    ping -c 1 10.0.0.`expr $i + $NUM` >>ping_history.txt;
+    sleep 2;
+done
