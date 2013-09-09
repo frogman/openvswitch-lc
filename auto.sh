@@ -1,5 +1,8 @@
 NUM=20 #num of hosts on every edge
 
+./boot.sh
+./configure --with-linux=/lib/modules/`uname -r`/build
+
 sudo kill `cd /usr/local/var/run/openvswitch && cat ovsdb-server.pid ovs-vswitchd.pid`;
 sudo rmmod openvswitch;
 sudo modprobe -r openvswitch;

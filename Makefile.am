@@ -39,7 +39,6 @@ CLEAN_LOCAL =
 DISTCLEANFILES =
 PYCOV_CLEAN_FILES = build-aux/check-structs,cover
 EXTRA_DIST = \
-	cscope.* \
 	auto.sh \
 	doxygen.cfg \
 	README.md \
