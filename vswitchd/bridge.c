@@ -2456,7 +2456,18 @@ bridge_lc_init(struct bridge *br)
 #ifdef DEBUG
     VLOG_INFO(">>>bridge_lc_init(): %s init bf-gdt and mcast args.\n",br->name);
 #endif
-    br->gdt = bf_gdt_init(LC_GROUP_DFT_ID);
+    unsigned int gid = 0;
+    FILE* f_gid = fopen("/tmp/lc_gid.dat","r");
+    if(f_gid != NULL) {
+        fscanf(f_gid,"%u",&gid);
+        VLOG_INFO("ovsd bf_gdt_init with outside id=%u",gid);
+        br->gdt = bf_gdt_init(gid);
+        fclose(f_gid);
+    } else {
+        VLOG_INFO("ovsd bf_gdt_init with default id=%u",LC_GROUP_DFT_ID);
+        br->gdt = bf_gdt_init(LC_GROUP_DFT_ID);
+    }
+
     br->local_id = get_local_edge_ip(LC_DP_NI_NAME);
     br->send_arg.group_ip = inet_addr(LC_MCAST_GROUP_IP)+htonl(br->gdt->gid);
     br->send_arg.port = LC_MCAST_GROUP_PORT;

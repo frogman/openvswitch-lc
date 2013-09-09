@@ -37,5 +37,6 @@ struct stat_entry {
 struct stat_base {
     unsigned int num; //number of entries.
     struct stat_entry entry[LC_NUM_STAT_ENTRY]; //pointer to entries.
+    unsigned int cpu;
 };
 #endif

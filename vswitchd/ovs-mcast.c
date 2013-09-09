@@ -34,6 +34,15 @@ pthread_mutex_t mutex;
 //extern static int bridge_update_bf_gdt(const struct bridge *br, struct bloom_filter *bf);
 
 /**
+ * Get cpu utilization in percent.
+ */
+unsigned int get_cpu()
+{
+    return 10;
+}
+
+
+/**
  * send mcast msg.
  * @param group multicast group ip
  * @param port multicast port
@@ -68,7 +77,16 @@ void *mc_send(struct mc_send_arg* arg)
 
     /* prepare message.*/
     msg= malloc(sizeof(struct mcast_msg));
-    msg->gid = arg->gdt->gid;
+
+    unsigned int gid = 0;
+    FILE* f_gid = fopen("/tmp/lc_gid.dat","r");
+    if(f_gid != NULL) {
+        fscanf(f_gid,"%u",&gid);
+        msg->gid = gid;
+        fclose(f_gid);
+    } else {
+        msg->gid = arg->gdt->gid;
+    }
 
     /* send the data to the address:port */
     while (!*arg->stop) {
@@ -83,6 +101,7 @@ void *mc_send(struct mc_send_arg* arg)
             msg->s.entry[0].src_sw_id = arg->local_id;
             msg->s.entry[0].dst_sw_id = arg->local_id; //TODO: we may set to right dest
             msg->s.entry[0].bytes = s.entry[0].bytes;
+            msg->s.cpu = get_cpu();
             ret = sendto(sock_id,msg,sizeof(struct mcast_msg),0,(struct sockaddr *)&addr,sizeof(addr));
             if (ret <0) {
                 perror("sendto error");
@@ -151,8 +170,17 @@ void *mc_recv(struct mc_recv_arg* arg)
             continue;
         }
         //VLOG_INFO("[%d] Receive mcast msg from %s:%d gid=%u, bf_id=0x%x, local_id=0x%x.\n", count, inet_ntoa(sender.sin_addr.s_addr), ntohs(sender.sin_port),msg->gid,msg->bf.bf_id,msg->s.entry[0].src_sw_id);
-        if (msg->gid != arg->gdt->gid) {
-            VLOG_WARN("WARNING: group %u received mcast msg from other group %u\n",arg->gdt->gid,msg->gid);
+
+        unsigned int gid = 0;
+        FILE* f_gid = fopen("/tmp/lc_gid.dat","r");
+        if(f_gid != NULL) {
+            fscanf(f_gid,"%u",&gid);
+            fclose(f_gid);
+        } else {
+            gid = arg->gdt->gid;
+        }
+        if (msg->gid != gid) {
+            VLOG_WARN("WARNING: group %u received mcast msg from other group %u\n",gid,msg->gid);
         }
         if (msg->bf.bf_id == arg->local_id){ //from local switch, should ignore
             continue;
@@ -162,27 +190,27 @@ void *mc_recv(struct mc_recv_arg* arg)
         ret = bf_gdt_update_filter(arg->gdt,&msg->bf); //try to update remote bf into ovsd's bf-gdt
         pthread_mutex_unlock (&mutex);
         /*
-        if(ret>0  && bf_gdt_check(arg->gdt,"080027abb6a5")){
-            VLOG_INFO("080027abb6a5 is here locally now.");
-        }*/
+           if(ret>0  && bf_gdt_check(arg->gdt,"080027abb6a5")){
+           VLOG_INFO("080027abb6a5 is here locally now.");
+           }*/
         if(ret > 0) {//sth changed in gdt with msg
             /*
-            int i = 0;
-            char tmp[256]={0};
-            for (i=0;i<128;i++){
-                sprintf(tmp+i%16,"%x",msg->bf.array[i]);
-                if(i%16==0){
-                    VLOG_INFO("%u",i/16);
-                }
-                if((i+1)%16==0){
-                    VLOG_INFO("%s",tmp);
-                }
-            }
-            */
+               int i = 0;
+               char tmp[256]={0};
+               for (i=0;i<128;i++){
+               sprintf(tmp+i%16,"%x",msg->bf.array[i]);
+               if(i%16==0){
+               VLOG_INFO("%u",i/16);
+               }
+               if((i+1)%16==0){
+               VLOG_INFO("%s",tmp);
+               }
+               }
+               */
             if (ret == 1)
-            VLOG_INFO("[MCAST] Received changed bf:gid=%u,id=0x%x,len=%u, will update dp.",msg->gid,msg->bf.bf_id,msg->bf.len);
+                VLOG_INFO("[MCAST] Received changed bf:gid=%u,id=0x%x,len=%u, will update dp.",msg->gid,msg->bf.bf_id,msg->bf.len);
             else if (ret == 2)
-            VLOG_INFO("[MCAST] Received new bf:gid=%u,id=0x%x,len=%u, will update dp.",msg->gid,msg->bf.bf_id,msg->bf.len);
+                VLOG_INFO("[MCAST] Received new bf:gid=%u,id=0x%x,len=%u, will update dp.",msg->gid,msg->bf.bf_id,msg->bf.len);
             msg->bf.port_no = LC_BF_REMOTE_PORT; //change default port for remote pkts
             bridge_update_bf_gdt_to_dp(arg->br, &msg->bf);
         }

@@ -7,7 +7,11 @@ sudo kill `cd /usr/local/var/run/openvswitch && cat ovsdb-server.pid ovs-vswitch
 sudo rmmod openvswitch;
 sudo modprobe -r openvswitch;
 sleep 1;
-make && sudo make install && sudo insmod datapath/linux/openvswitch.ko && sudo ovsdb-server --remote=punix:/usr/local/var/run/openvswitch/db.sock --remote=db:Open_vSwitch,manager_options --private-key=db:SSL,private_key --certificate=db:SSL,certificate --bootstrap-ca-cert=db:SSL,ca_cert --pidfile --detach; 
+make && sudo make install && sudo insmod datapath/linux/openvswitch.ko
+
+mkdir -p /usr/local/etc/openvswitch
+ovsdb-tool create /usr/local/etc/openvswitch/conf.db vswitchd/vswitch.ovsschema
+sudo ovsdb-server --remote=punix:/usr/local/var/run/openvswitch/db.sock --remote=db:Open_vSwitch,manager_options --private-key=db:SSL,private_key --certificate=db:SSL,certificate --bootstrap-ca-cert=db:SSL,ca_cert --pidfile --detach; 
 
 sleep 1;
 
