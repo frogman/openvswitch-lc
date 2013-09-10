@@ -189,24 +189,7 @@ void *mc_recv(struct mc_recv_arg* arg)
         pthread_mutex_lock (&mutex);
         ret = bf_gdt_update_filter(arg->gdt,&msg->bf); //try to update remote bf into ovsd's bf-gdt
         pthread_mutex_unlock (&mutex);
-        /*
-           if(ret>0  && bf_gdt_check(arg->gdt,"080027abb6a5")){
-           VLOG_INFO("080027abb6a5 is here locally now.");
-           }*/
         if(ret > 0) {//sth changed in gdt with msg
-            /*
-               int i = 0;
-               char tmp[256]={0};
-               for (i=0;i<128;i++){
-               sprintf(tmp+i%16,"%x",msg->bf.array[i]);
-               if(i%16==0){
-               VLOG_INFO("%u",i/16);
-               }
-               if((i+1)%16==0){
-               VLOG_INFO("%s",tmp);
-               }
-               }
-               */
             if (ret == 1)
                 VLOG_INFO("[MCAST] Received changed bf:gid=%u,id=0x%x,len=%u, will update dp.",msg->gid,msg->bf.bf_id,msg->bf.len);
             else if (ret == 2)
@@ -214,13 +197,19 @@ void *mc_recv(struct mc_recv_arg* arg)
             msg->bf.port_no = LC_BF_REMOTE_PORT; //change default port for remote pkts
             bridge_update_bf_gdt_to_dp(arg->br, &msg->bf);
         }
-        //else {
-        //VLOG_INFO("no new bf content, should ignore.");
-        //}
-        count ++;
-        if(arg->is_DDCM) {
-            continue; //TODO: update the local stat and report to controller here.
+        if(arg->is_DDCM) { //update the local stat and report to controller via state link.
+            FILE* f_stat = fopen("/tmp/lc_stat.dat","a");
+            if(f_stat != NULL) {
+                int i = 0;
+                for (i=0;i<msg->s.num;i++) {
+                fprintf(f_stat,"%u %u %lu\n",msg->s.entry[i].src_sw_id,msg->s.entry[i].dst_sw_id,msg->s.entry[i].bytes);
+                }
+                fclose(f_stat);
+            } else {
+                continue;
+            }
         }
+        count ++;
     }
 
     /* Step 5: call setsockopt with IP_DROP_MEMBERSHIP to drop from multicast */

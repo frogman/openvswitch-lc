@@ -31,7 +31,7 @@
 struct stat_entry {
     unsigned int src_sw_id;
     unsigned int dst_sw_id;
-    unsigned long long bytes;
+    unsigned long bytes;
 };
 
 struct stat_base {
