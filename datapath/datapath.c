@@ -48,6 +48,9 @@
 #include <linux/openvswitch.h>
 #include <linux/rculist.h>
 #include <linux/dmi.h>
+#include <linux/fs.h>
+#include <asm/segment.h>
+#include <asm/uaccess.h>
 #include <net/genetlink.h>
 #include <net/net_namespace.h>
 #include <net/netns/generic.h>
@@ -1914,7 +1917,23 @@ static int ovs_dp_cmd_new(struct sk_buff *skb, struct genl_info *info)
 
 #ifdef LC_ENABLE /*init the lc_group, TODO*/
     dp->local_ip = LC_LOCAL_EDGE_IP; //ip of network interface bonding on dp.
-	dp->gdt = bf_gdt_init(LC_GROUP_DFT_ID);
+    unsigned int gid = 0;
+    set_fs(get_ds());
+    struct file* f_gid = filp_open("/tmp/lc_gid.dat",O_RDONLY,0);
+    if(!IS_ERR(f_gid)) {
+        loff_t pos = 0;
+        mm_segment_t fs = get_fs(); 
+        set_fs(KERNEL_DS); 
+        unsigned char data[8];
+        vfs_read(f_gid, data, sizeof(unsigned int), &pos);
+        sscanf(data,"%u",&gid);
+        dp->gdt = bf_gdt_init(gid);
+        filp_close(f_gid, NULL); 
+        set_fs(fs); 
+    } else {
+        dp->gdt = bf_gdt_init(LC_GROUP_DFT_ID);
+    }
+
 	if (!dp->gdt) {
         pr_warning("bf_gdt_init() failed when do ovs_dp_cmd_new()");
 		err = -ENOMEM;
