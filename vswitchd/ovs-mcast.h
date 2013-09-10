@@ -53,7 +53,7 @@ struct mc_recv_arg {
     unsigned long group_ip; //multicast group ip
     unsigned int port; //multicast group port
     struct bf_gdt *gdt; //gdt in this group
-    unsigned char is_DDCM;
+    unsigned int is_DDCM;
     bool *stop; //if should stop
     unsigned int local_id; //the id of local sw, should be the ip of dp.
 };

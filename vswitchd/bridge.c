@@ -2457,10 +2457,11 @@ bridge_lc_init(struct bridge *br)
     VLOG_INFO(">>>bridge_lc_init(): %s init bf-gdt and mcast args.\n",br->name);
 #endif
     unsigned int gid = 0;
+    unsigned int ddcm=0;
     FILE* f_gid = fopen("/tmp/lc_gid.dat","r");
     if(f_gid != NULL) {
-        fscanf(f_gid,"%u",&gid);
-        VLOG_INFO("ovsd bf_gdt_init with outside id=%u",gid);
+        fscanf(f_gid,"%u %u",&gid,&ddcm);
+        VLOG_INFO("ovsd bf_gdt_init with outside id=%u,ddcm=%u",gid,ddcm);
         br->gdt = bf_gdt_init(gid);
         fclose(f_gid);
     } else {
@@ -2489,6 +2490,7 @@ bridge_lc_init(struct bridge *br)
     *br->recv_arg.stop = false;
     br->recv_arg.gdt = br->gdt;
     br->recv_arg.br = br;
+    br->recv_arg.is_DDCM = ddcm;
     br->recv_arg.local_id = br->local_id;
 #ifdef DEBUG
     VLOG_INFO("<<<bridge_lc_init() %s done.\n",br->name);
