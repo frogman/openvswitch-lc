@@ -35,6 +35,7 @@ pthread_mutex_t mutex;
 
 /**
  * Get cpu utilization in percent.
+ * Not used yet. use daemon scripts instead for easily debugging.
  */
 unsigned int get_cpu()
 {
@@ -99,8 +100,15 @@ void *mc_send(struct mc_send_arg* arg)
             pthread_mutex_unlock(&mutex);
             msg->s.num = 1;
             msg->s.entry[0].src_sw_id = arg->local_id;
-            msg->s.entry[0].dst_sw_id = arg->local_id; //TODO: we may set to right dest
-            msg->s.entry[0].bytes = s.entry[0].bytes;
+            int port = 0;
+            unsigned long stat=0;
+            FILE* f_stat = fopen("/tmp/stat.dat","r");
+            if(f_stat != NULL) {
+                fscanf(f_stat,"%u %lu",&port, &stat);
+                fclose(f_stat);
+            }
+            msg->s.entry[0].dst_sw_id = port; //we can only get the port number here
+            msg->s.entry[0].bytes = stat;
             msg->s.cpu = get_cpu();
             ret = sendto(sock_id,msg,sizeof(struct mcast_msg),0,(struct sockaddr *)&addr,sizeof(addr));
             if (ret <0) {

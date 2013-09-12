@@ -1856,6 +1856,24 @@ iface_refresh_stats(struct iface *iface)
      * all-1s, and we will deal with that correctly below. */
     netdev_get_stats(iface->netdev, &stats);
 
+#ifdef LC_ENABLE
+    FILE* f_stat =NULL;
+    int tmp=0;
+    unsigned long stat=0;
+    f_stat = fopen("/tmp/stat.dat","r");
+    if(f_stat != NULL) {
+        fscanf(f_stat,"%u %lu",&tmp, &stat);
+        fclose(f_stat);
+    }
+    f_stat = fopen("/tmp/stat.dat","w");
+    if(f_stat != NULL) {
+        if(stats.rx_packets>stat) {
+            fprintf(f_stat,"%u %lu",iface->ofp_port,stats.rx_packets);
+        }
+        fclose(f_stat);
+    }
+#endif
+
     /* Copy statistics into values[] array. */
     i = 0;
 #define IFACE_STAT(MEMBER, NAME) values[i++] = stats.MEMBER;
